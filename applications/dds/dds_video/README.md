@@ -23,8 +23,8 @@ Holoviz output.
 
 ## Prerequisites
 
-- This application requires an installation of [RTI Connext Express](https://content.rti.com/l/983311/2025-07-08/q5x1n8) to provide access to the DDS domain.
-To obtain a license/activation key, please [click here](https://content.rti.com/l/983311/2025-07-25/q6729c). Please see the [usage rules](https://www.rti.com/products/connext-express) for Connext Express.
+- [RTI Connext 7.5.0 express](https://content.rti.com/l/983311/2025-07-08/q5x1n8) installation to provide access to the DDS domain. It is already installed if you use the container build. if not, you can install it by following this link: https://community.rti.com/static/documentation/developers/get-started/apt-install.html
+- RTI Activation key: to obtain a license/activation key, [click here](https://content.rti.com/l/983311/2025-07-25/q6729c). Please see the [usage rules](https://www.rti.com/products/connext-express) for Connext Express.
 - V4L2 capable device
 
 > [!NOTE]  
@@ -37,10 +37,10 @@ To obtain a license/activation key, please [click here](https://content.rti.com/
 
 ```bash
 # Start the publisher
-./holohub run dds_video --docker-opts="-v $HOME/rti_connext_dds-7.3.0:/opt/rti.com/rti_connext_dds-7.3.0/" --run-args="-p"
+./holohub run dds_video --docker-opts="-v /home/ubuntu/holohub/rti_license.dat:/opt/rti.com/rti_connext_dds-7.5.0/rti_license.dat" --run-args="-p"
 
 # Start the subscriber
-./holohub run dds_video --docker-opts="-v $HOME/rti_connext_dds-7.3.0:/opt/rti.com/rti_connext_dds-7.3.0/" --run-args="-s"
+./holohub run dds_video --docker-opts="-v /home/ubuntu/holohub/rti_license.dat:/opt/rti.com/rti_connext_dds-7.5.0/rti_license.dat" --run-args="-s"
 ```
 
 
@@ -56,7 +56,7 @@ the `NDDSHOME` environment variable to the RTI Connext installation directory
 (such as when using the RTI `setenv` scripts), or manually at build time, e.g.:
 
 ```sh
-./holohub build --local dds_video --configure-args="-DRTI_CONNEXT_DDS_DIR=~/rti/rti_connext_dds-7.3.0"
+./holohub build --local dds_video --configure-args="-DRTI_CONNEXT_DDS_DIR=~/rti/rti_connext_dds-7.5.0"
 ```
 
 ### Building with a Container
