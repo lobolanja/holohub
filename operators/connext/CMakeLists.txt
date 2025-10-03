@@ -12,7 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# Expose the shared connext Python helpers so other operators can import them.
 add_subdirectory(connext_lib)
+# Stage 2: register the Connext ANO operators (depends on the library above).
 add_subdirectory(connext_ano)
-
-

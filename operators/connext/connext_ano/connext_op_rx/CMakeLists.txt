@@ -16,6 +16,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(connext_op_rx LANGUAGES NONE)
 
+# Only build the Python binding when Holohub is configured for Python assets.
 if(HOLOHUB_BUILD_PYTHON)
   add_subdirectory(python)
 endif()

@@ -16,7 +16,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(connext_lib)
 
-# Build the Python package so it is available to other operators
+# Phase 1: only proceed when Python support is requested for the build.
 if(HOLOHUB_BUILD_PYTHON)
+  # Phase 2: hand off to the Python-specific CMake script that installs the package files.
   add_subdirectory(python)
 endif()

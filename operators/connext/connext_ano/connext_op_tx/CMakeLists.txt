@@ -16,6 +16,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(connext_op_tx LANGUAGES NONE)
 
+# Mirror the TX operator's Python wrapper only when requested by the top-level build.
 if(HOLOHUB_BUILD_PYTHON)
   add_subdirectory(python)
 endif()

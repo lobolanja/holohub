@@ -13,13 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Guard: skip if the top-level build disabled Python packaging.
 if(NOT HOLOHUB_BUILD_PYTHON)
   return()
 endif()
 
+# Paths that describe where the TX package lives and where it should be copied in the build tree.
 set(connext_tx_python_src_dir ${CMAKE_CURRENT_SOURCE_DIR}/connext_op_tx)
 set(connext_tx_python_dst_dir ${HOLOHUB_PYTHON_MODULE_OUT_DIR}/connext_ano/connext_op_tx)
 
+# Copy rule to stage the operator for holohub importers.
 add_custom_target(connext_op_tx_python ALL
     COMMAND ${CMAKE_COMMAND} -E rm -rf ${connext_tx_python_dst_dir}
     COMMAND ${CMAKE_COMMAND} -E make_directory ${connext_tx_python_dst_dir}

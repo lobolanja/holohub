@@ -13,13 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Guard: stop early when the build is not producing Python packages.
 if(NOT HOLOHUB_BUILD_PYTHON)
   return()
 endif()
 
+# Paths for staging the operator package under holohub/connext_ano.
 set(connext_rx_python_src_dir ${CMAKE_CURRENT_SOURCE_DIR}/connext_op_rx)
 set(connext_rx_python_dst_dir ${HOLOHUB_PYTHON_MODULE_OUT_DIR}/connext_ano/connext_op_rx)
 
+# Copy rule: refresh the operator sources on every build to keep the namespace in sync.
 add_custom_target(connext_op_rx_python ALL
     COMMAND ${CMAKE_COMMAND} -E rm -rf ${connext_rx_python_dst_dir}
     COMMAND ${CMAKE_COMMAND} -E make_directory ${connext_rx_python_dst_dir}

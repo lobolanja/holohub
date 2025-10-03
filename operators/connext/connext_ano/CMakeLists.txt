@@ -16,14 +16,16 @@
 cmake_minimum_required(VERSION 3.20)
 project(connext_ano LANGUAGES NONE)
 
+# Register the C++/Python hybrid operators with the Holohub helper macro.
 add_holohub_operator(connext_op_tx)
 add_holohub_operator(connext_op_rx)
 
+# Optionally expose the Python convenience package that re-exports the operators.
 if(HOLOHUB_BUILD_PYTHON)
   add_subdirectory(python)
 endif()
 
-# Ensure the Connext support library is prepared before the operators copy their modules
+# Guarantee the shared connext_lib package is copied before any operator Python modules.
 if(TARGET connext_lib_python)
   foreach(target IN ITEMS connext_op_tx_python connext_op_rx_python connext_ano_python)
     if(TARGET ${target})
