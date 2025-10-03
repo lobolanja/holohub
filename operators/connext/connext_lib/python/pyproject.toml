@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "connext-holoscan-operator"
+version = "0.1.0"
+description = "DDS Resources Managers and payload IO for Holoscan"
+authors = [
+    { name="RTI", email="rti@rti.com" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "rti.connext==7.3.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["connext_lib", "connext_lib.comm", "connext_lib.payload_io", "connext_lib.system_setup"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
