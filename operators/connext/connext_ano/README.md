@@ -1,13 +1,17 @@
-# Connext Advanced Networking Operators (ANO)
+# Connext ANO Skeleton
 
-This directory contains Python Holoscan operators that build on the `holohub.connext_lib` support library to integrate
-with RTI Connext DDS. Two complementary operators are provided:
+This directory holds the barebones pieces for Advanced Networking Operators built on top of
+`holohub.connext_lib`. The goal is to keep things minimal so we can iterate on the transport logic step by step.
 
-- [`connext_op_tx`](connext_op_tx): Broadcasts a shared-memory buffer to all registered DDS receivers.
-- [`connext_op_rx`](connext_op_rx): Listens for broadcasts and exposes the received payload to Holoscan pipelines.
+## Contents
+- `connext_op_tx/`: simple Holoscan operator that writes an input buffer to shared memory and invokes the shared
+  `ConnextTx` helper.
+- `connext_op_rx/`: matching operator that waits for a buffer and emits it to downstream stages.
+- `python/`: lightweight `holohub.connext_ano` namespace package plus smoke tests.
 
-Both operators share configuration parameters such as the shared-memory name, buffer size, DDS domain, and optional
-resource-discovery mode. Refer to the individual READMEs for detailed parameter documentation and usage examples.
+## How to evolve
+1. Flesh out the control plane (discovery, capability exchange) inside the Tx/Rx operators.
+2. Add the ANO fast path (RDMA/DPDK) to `holohub.connext_lib` once the plumbing is ready.
+3. Expand the tests and metadata/docker integration as new behaviour is introduced.
 
-The operators expect the Connext support library to be available, which is handled automatically when Holohub is built
-with `HOLOHUB_BUILD_PYTHON=ON`.
+For now, the bundle stays simple—use it as the starting point for the full Connext ANO operator family.
