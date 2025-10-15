@@ -12,6 +12,12 @@ refined iteratively.
 
 Refer to `operators/connext/dds/` for the simpler DDS-only operators that inspired this skeleton.
 
+## Data Path Overview
+- Transmit/receive operators negotiate transport as part of their startup handshake.
+- ANO is used for the fast path whenever both peers advertise ANO capability and compatible hardware.
+- If discovery shows endpoints limited to DDS—or ANO activation otherwise fails—the operators fall back to DDS for payload exchange.
+- DDS discovery stays active regardless to handle metadata exchange and facilitate interop with DDS-only participants.
+
 ## Running Tests
 - Prerequisites:
   - Activate or reference the project venv (`<HOLOHUB_ROOT>/.venv`); pip packages install into it.
