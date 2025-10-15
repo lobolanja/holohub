@@ -25,6 +25,7 @@ tree:
 ```sh
 ctest -C Release -R pytest.connext_lib -V
 ```
+<!-- [TODO] JUANCA: change all testenames to start with connext_lib -->
 Adjust `-C` for your active build type.
 
 ## Developing Locally
