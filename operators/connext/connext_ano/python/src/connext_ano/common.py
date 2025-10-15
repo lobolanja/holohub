@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Literal, Optional
+
+SUPPORTED_TRANSPORTS: tuple[str, ...] = ("dpdk", "gpunetio")
 
 
-# def __init__(self, fragment, dds_domain_id, dds_topic, dds_topic_class, *args, **kwargs):
 @dataclass
 class DDSConfig:
     """Configuration needed to interact with the DDS control plane."""
 
     domain_id: int = 0
     topic_name: str = "system_setup"
-    topic_class: = None
+    topic_class = None
+
 
 
 @dataclass
@@ -21,9 +23,16 @@ class ANOConfig:
     """Settings for the ANO (RDMA/DPDK) fast path."""
 
     enabled: bool = False
-    transport: str = "dpdk"  # TODO-JUANCA: detail supported transport strings
+    transport: Literal["dpdk", "gpunetio"] = "dpdk"
     device: Optional[str] = None
     # TODO-JUANCA: add queue/buffer pool settings once requirements are known
+
+    def __post_init__(self) -> None:
+        if self.transport not in SUPPORTED_TRANSPORTS:
+            raise ValueError(
+                f"Unsupported ANO transport '{self.transport}'. "
+                f"Supported values: {', '.join(SUPPORTED_TRANSPORTS)}"
+            )
 
 
 class TransportState:

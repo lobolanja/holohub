@@ -7,9 +7,9 @@ from typing import Any, Optional
 
 from holoscan.core import Operator, OperatorSpec
 
-from holohub.connext_lib.comm import ConnextTx
-from holohub.connext_lib.payload_io import MemPayloadWriter
-from holohub.connext_lib.system_setup import (
+from connext_lib.comm import ConnextTx
+from connext_lib.payload_io import MemPayloadWriter
+from connext_lib.system_setup import (
     DDSDiscSenderResourcesManager,
     DDSSenderResourcesManager,
     DummyUserType,
@@ -40,8 +40,8 @@ class ConnextAnoTxOp(Operator):
         self._event_name = event_name
 
         self._dds_config = dds_config or DDSConfig()
-        if self._dds_config.user_type is None:
-            self._dds_config.user_type = DummyUserType
+        if self._dds_config.topic_class is None:
+            self._dds_config.topic_class = DummyUserType
 
         self._transport_state = TransportState(ano_config or ANOConfig())
 

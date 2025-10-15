@@ -7,9 +7,9 @@ from typing import Optional
 
 from holoscan.core import Operator, OperatorSpec
 
-from holohub.connext_lib.comm import ConnextRx
-from holohub.connext_lib.payload_io import MemPayloadReader
-from holohub.connext_lib.system_setup import (
+from connext_lib.comm import ConnextRx
+from connext_lib.payload_io import MemPayloadReader
+from connext_lib.system_setup import (
     DDSDiscReceiverResourcesManager,
     DDSReceiverResourcesManager,
     DummyUserType,
@@ -42,8 +42,8 @@ class ConnextAnoRxOp(Operator):
         self._output_mode = output_mode
 
         self._dds_config = dds_config or DDSConfig()
-        if self._dds_config.user_type is None:
-            self._dds_config.user_type = DummyUserType
+        if self._dds_config.topic_class is None:
+            self._dds_config.topic_class = DummyUserType
 
         self._transport_state = TransportState(ano_config or ANOConfig())
 

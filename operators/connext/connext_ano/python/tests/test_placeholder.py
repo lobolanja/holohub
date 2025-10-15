@@ -1,21 +1,24 @@
 import pytest
 
 from connext_ano import ConnextAnoRxOp, ConnextAnoTxOp, DDSConfig, ANOConfig
-
+from holoscan.core import Application
 
 def test_tx_constructs_with_defaults():
-    op = ConnextAnoTxOp(fragment=None, name="tx", shm_name="test", shm_size=1024)
+    app = Application()
+    op = ConnextAnoTxOp(fragment=app, name="tx", shm_name="test", shm_size=1024)
     assert op is not None
 
 
 def test_rx_constructs_with_defaults():
-    op = ConnextAnoRxOp(fragment=None, name="rx", shm_name="test", shm_size=1024)
+    app = Application()
+    op = ConnextAnoRxOp(fragment=app, name="rx", shm_name="test", shm_size=1024)
     assert op is not None
 
 
 def test_transport_state_toggle():
+    app = Application()
     tx = ConnextAnoTxOp(
-        fragment=None,
+        fragment=app,
         name="tx",
         shm_name="test",
         shm_size=256,

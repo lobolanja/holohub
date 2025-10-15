@@ -12,16 +12,16 @@ if(NOT TARGET connext_lib_python)
   message(FATAL_ERROR "connext_lib_python target is required before building Connext ANO operators")
 endif()
 
+set(connext_ano_python_src_dir ${CMAKE_CURRENT_SOURCE_DIR}/python/src/connext_ano)
+set(connext_ano_python_tests_dir ${CMAKE_CURRENT_SOURCE_DIR}/python/tests)
 set(connext_ano_pkg_dst ${HOLOHUB_PYTHON_MODULE_OUT_DIR}/connext_ano)
 
 add_custom_target(connext_ano_python ALL
   COMMAND ${CMAKE_COMMAND} -E rm -rf ${connext_ano_pkg_dst}
   COMMAND ${CMAKE_COMMAND} -E make_directory ${connext_ano_pkg_dst}
-  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/__init__.py ${connext_ano_pkg_dst}/__init__.py
-  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/common.py ${connext_ano_pkg_dst}/common.py
-  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/connext_op_tx.py ${connext_ano_pkg_dst}/connext_op_tx.py
-  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/connext_op_rx.py ${connext_ano_pkg_dst}/connext_op_rx.py
-  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/pyproject.toml ${connext_ano_pkg_dst}/pyproject.toml
+  COMMAND ${CMAKE_COMMAND} -E copy_directory ${connext_ano_python_src_dir} ${connext_ano_pkg_dst}
+  COMMAND ${CMAKE_COMMAND} -E copy_directory ${connext_ano_python_tests_dir} ${connext_ano_pkg_dst}/tests
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/python/pyproject.toml ${connext_ano_pkg_dst}/pyproject.toml
   COMMENT "Staging holohub.connext_ano package"
 )
 add_dependencies(connext_ano_python connext_lib_python)
@@ -29,8 +29,8 @@ add_dependencies(connext_ano_python connext_lib_python)
 if(BUILD_TESTING)
   include(add_python_tests)
   add_python_tests(
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/python
     INPUT tests
-    PYTEST_ARGS "-q" "--override-ini" "pythonpath=${HOLOHUB_PYTHON_MODULE_OUT_DIR}:${CMAKE_CURRENT_SOURCE_DIR}"
+    PYTEST_ARGS "-q"
   )
 endif()
