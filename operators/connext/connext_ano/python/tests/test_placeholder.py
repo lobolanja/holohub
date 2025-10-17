@@ -27,3 +27,19 @@ def test_transport_state_toggle():
     )
     tx._transport_state.activate_ano()
     assert tx._transport_state.should_use_ano() is True
+
+def test_tx_starts_and_stops():
+    app = Application()
+    tx = ConnextAnoTxOp(
+        fragment=app,
+        name="tx",
+        shm_name="test",
+        shm_size=256,
+        ano_config=ANOConfig(enabled=True),
+        dds_config=DDSConfig()
+    )
+    tx.start()
+    # sleep for 100 seconds so i can check with admin console that the DDS entities are created
+    import time
+    time.sleep(100)
+    tx.stop()

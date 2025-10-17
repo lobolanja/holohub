@@ -89,19 +89,13 @@ class ConnextAnoRxOp(Operator):
     def _init_dds(self) -> None:
         self._logger.debug("Initialising DDS receiver resources (domain=%s topic=%s)",
                            self._dds_config.domain_id, self._dds_config.topic_name)
-        if self._dds_config.use_discovery:
-            self._dds_receiver_mgr = DDSDiscReceiverResourcesManager(
-                buffer_id=self._shm_name,
-                user_topic_name=self._dds_config.discovery_topic_name,
-                user_topic_type=self._dds_config.user_type,
-                dds_domain_id=self._dds_config.domain_id,
-            )
-        else:
-            self._dds_receiver_mgr = DDSReceiverResourcesManager(
-                buffer_id=self._shm_name,
-                dds_domain_id=self._dds_config.domain_id,
-                topic_name=self._dds_config.topic_name,
-            )
+        self._dds_receiver_mgr = DDSDiscReceiverResourcesManager(
+            buffer_id=self._shm_name,
+            user_topic_name=self._dds_config.topic_name,
+            user_topic_type=self._dds_config.topic_class,
+            dds_domain_id=self._dds_config.domain_id,
+        )
+        
         self._payload_reader = MemPayloadReader(
             name=self._shm_name,
             size=self._shm_size,
