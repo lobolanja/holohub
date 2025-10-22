@@ -23,12 +23,31 @@ class _MemFileLock:
 
 class MemPayloadWriter(PayloadWriterInterface):
     """MemPayloadWriter Class writes payloads to shared memory and notifies readers via an event."""
-    def __init__(self, name, size, event_name: str):
+    def __init__(self, name: str, size: int, event_name: str):
         self._name = name
         self._size = size
         self._event = Event(event_name)
 
         self._logger = logging.getLogger(__name__)
+
+    def set_buffer(self, payload: bytes | bytearray | memoryview | str) -> None:
+        """Set the data to be written to shared memory, accepting text or binary payloads."""
+        if isinstance(payload, str):
+            data = payload.encode("utf-8")
+        else:
+            data = bytes(payload)
+
+        if len(data) > self._size:
+            raise ValueError(
+                f"Payload of {len(data)} bytes exceeds shared-memory segment size {self._size}"
+            )
+
+        writer_shm = shared_memory.SharedMemory(name=self._name)
+        with _MemFileLock():
+            writer_shm.buf[:len(data)] = data
+            if len(data) < self._size:
+                writer_shm.buf[len(data):self._size] = b"\x00" * (self._size - len(data))
+
 
     def write_buffer(self, reader_reference):
         """ Writes data from the writer's shared memory to the reader's shared memory and notifies the reader."""

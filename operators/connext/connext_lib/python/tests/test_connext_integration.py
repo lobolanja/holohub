@@ -56,7 +56,7 @@ class TestConnextIntegration(TestCase):
                         time.sleep(0.1)
 
                     print("Starting broadcast")
-                    tx.broadcast_buffer(shm_tx.name)
+                    tx.broadcast_buffer()
                     time.sleep(0.1)
 
                     # Now the receiver should have the data in its shared memory

@@ -10,9 +10,21 @@ class PayloadWriterInterface(ABC):
 
     Methods
     -------
-    write(reference)
+    set_buffer(payload: bytes) -> None
+    write_buffer(reference)
         Write data to the given destination.
     """
+    @abstractmethod
+    def set_buffer(self, payload: bytes) -> None:
+        """
+        Set the data to be written to shared memory.
+
+        :param payload: The payload data to write.
+        :type payload: bytes
+        :return: None
+        """
+        pass
+
     @abstractmethod
     def write_buffer(self, destination_reference):
         """

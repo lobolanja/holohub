@@ -54,7 +54,7 @@ class TestConnextTx(TestCase):
                     time.sleep(1)
                     sut = ConnextTx(adverted_buffer, payload_writer)
 
-                    sut.broadcast_buffer(src_shm.name)
+                    sut.broadcast_buffer()
                     time.sleep(0.1)
 
                     # verify that all readers received the data

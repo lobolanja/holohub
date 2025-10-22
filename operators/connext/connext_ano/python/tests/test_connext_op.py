@@ -1,0 +1,145 @@
+from __future__ import annotations
+
+from connext_ano import ANOConfig, ConnextAnoRxOp, ConnextAnoTxOp, DDSConfig
+from holoscan.core import Application, Operator, OperatorSpec
+from holoscan.conditions import CountCondition
+
+
+class BufferSourceOp(Operator):
+    """Simple Holoscan source that emits a fixed payload once."""
+
+    def __init__(self, fragment, *args, payload: str, **kwargs):
+        super().__init__(fragment, *args, **kwargs)
+        self._payload = payload
+        self._emitted_pkgs = 0
+
+    def setup(self, spec: OperatorSpec):
+        spec.output("output")
+
+    def start(self):  # pragma: no cover - deterministic initialisation
+        super().start()
+        self._emitted_pkgs = 0
+
+    def compute(self, _op_input, op_output, _context):
+        self._emitted_pkgs += 1
+        self._payload = self._payload + f"_#{self._emitted_pkgs}"
+        op_output.emit(self._payload, "output")
+       
+
+
+class BufferSinkOp(Operator):
+    """Sink operator that records received payloads."""
+
+    def __init__(self, fragment, *, storage: list[str], **kwargs):
+        super().__init__(fragment, **kwargs)
+        self._storage = storage
+
+    def setup(self, spec: OperatorSpec):
+        spec.input("input")
+
+    def compute(self, op_input, _op_output, _context):
+        payload = op_input.receive("input")
+        if payload is not None:
+            self._storage.append(payload)
+
+
+class ConnextApplicationHarness(Application):
+    """Minimal Holoscan application wiring the Connext ANO TX/RX operators."""
+
+    def __init__(self, *, shm_name: str, payload: str, shm_size: int = 1024):
+        super().__init__()
+        self._shm_name = shm_name
+        self._payload = payload
+        self._shm_size = shm_size
+        self._broadcasts: list[str] = []
+        self._received: list[str] = []
+        self._tx_op: ConnextAnoTxOp | None = None
+
+    @property
+    def broadcasts(self) -> list[str]:
+        return self._broadcasts
+    
+    @property
+    def received(self) -> list[str]:
+        return self._received
+
+    def compose(self):
+        
+
+        # Create a count condition to limit the number of transmissions
+        self._count_condition = CountCondition(self, count=3)
+        self._read_count_condition = CountCondition(self, count=3)
+
+        self._source = BufferSourceOp(self, self._count_condition, name="buffer_source", payload=self._payload)
+
+        self._tx_op = ConnextAnoTxOp(
+            self,
+            name="tx",
+            dds_config=DDSConfig(),
+            ano_config=ANOConfig(),  
+        )
+        self._rx_op = ConnextAnoRxOp(
+            self,
+            self._read_count_condition,
+            name="rx",
+            dds_config=DDSConfig(),
+            ano_config=ANOConfig(), 
+        )
+        self._sink = BufferSinkOp(self, name="buffer_sink", storage=self._received)
+
+        self.add_flow(self._source, self._tx_op, {("output", "input")})
+        self.add_flow(self._rx_op, self._sink, {("output", "input")})
+
+
+def test_tx_constructs_with_defaults():
+    app = Application()
+    op = ConnextAnoTxOp(fragment=app)
+    assert op is not None
+
+
+def test_rx_constructs_with_defaults():
+    app = Application()
+    op = ConnextAnoRxOp(fragment=app)
+    assert op is not None
+
+
+
+def test_tx_starts_and_stops():
+    app = Application()
+    tx = ConnextAnoTxOp(
+        fragment=app,
+        ano_config=ANOConfig(enabled=True),
+        dds_config=DDSConfig(),
+    )
+    tx.start()
+    tx.stop()
+    assert True  # If no exceptions, the test passes
+
+
+def test_rx_starts_and_stops():
+    app = Application()
+    rx = ConnextAnoRxOp(
+        fragment=app,
+        ano_config=ANOConfig(enabled=True),
+        dds_config=DDSConfig(),
+    )
+    rx.start()
+    rx.stop()
+    assert True  # If no exceptions, the test passes
+
+
+def test_tx_rx_integration():
+    shm_name = "test_shm_integration"
+    payload = "hello_holoscan"
+
+    app_tx = ConnextApplicationHarness(shm_name=shm_name, payload=payload)
+
+    print("Running TX application...")
+    app_tx.run()
+
+    # Assert payload string in one of received string list
+    received_payloads = app_tx.received
+    print("Received payloads:", received_payloads)
+    assert any(payload.encode("utf-8") in received for received in received_payloads)
+
+

@@ -138,5 +138,11 @@
     "python.analysis.extraPaths": [
         "/workspace/holoscan-sdk/python/",
         "/workspace/holohub/operators",
+        "/workspace/holohub/operators/connext/connext_ano/python/src",
+        "${workspaceFolder}/operators/connext/connext_lib/python/src",
+    ],
+    "python.autoComplete.extraPaths": [
+    "${workspaceFolder}/operators/connext/connext_ano/python/src",
+    "${workspaceFolder}/operators/connext/connext_lib/python/src",
     ],
 }

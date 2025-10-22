@@ -22,6 +22,10 @@ class DDSConfig:
 class ANOConfig:
     """Settings for the ANO (RDMA/DPDK) fast path."""
 
+    shm_name: str = "connext_ano_shm"
+    shm_size: int = 1024
+    event_name: str = "connext_tx_event"
+
     enabled: bool = False
     transport: Literal["dpdk", "gpunetio"] = "dpdk"
     device: Optional[str] = None

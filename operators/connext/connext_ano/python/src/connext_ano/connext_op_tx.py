@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import logging
+from multiprocessing import shared_memory
 from typing import Any, Optional
 
 from holoscan.core import Operator, OperatorSpec
 
 from connext_lib.comm import ConnextTx
 from connext_lib.payload_io import MemPayloadWriter
+from connext_lib.payload_io.mem_payload_io import _MemFileLock
 from connext_lib.system_setup import (
     DDSDiscSenderResourcesManager,
     DDSSenderResourcesManager,
@@ -16,6 +18,82 @@ from connext_lib.system_setup import (
 )
 
 from .common import ANOConfig, DDSConfig, TransportState
+
+class ConnextAnoWriter():
+    """Manage the initialization of the Connext ANO writer."""
+
+    def __init__(self,
+        dds_config: Optional[DDSConfig] = None,
+        ano_config: Optional[ANOConfig] = None
+    ) -> None:
+        self._logger = logging.getLogger(f"{__name__}.{type(self).__name__}")
+        self._dds_config = dds_config or DDSConfig()
+        self._ano_config = ano_config or ANOConfig()
+        self._discovery_manager = None # manages DDS discovery
+        self._payload_writer = None
+        self._payload_tx = None
+
+        # Create writer shared memory segment 
+        try:
+            self._shm = shared_memory.SharedMemory(
+                name=self._ano_config.shm_name,
+                create=True,
+                size=self._ano_config.shm_size
+            )
+            self._logger.debug("Created shared memory segment '%s' of size %d bytes",
+                               self._ano_config.shm_name, self._ano_config.shm_size)
+        except FileExistsError:
+            self._shm = shared_memory.SharedMemory(
+                name=self._ano_config.shm_name,
+                create=False
+            )
+            self._logger.debug("Attached to existing shared memory segment '%s'",
+                               self._ano_config.shm_name)
+        
+
+        self._init_dds()
+
+    def get_payload_writer(self) -> MemPayloadWriter:
+        return self._payload_writer
+    # TODO: change MemPayloadWriter to its interface
+
+    # ------------------------------------------------------------------
+    def _init_dds(self) -> None:
+        self._logger.debug("Initialising DDS sender resources (domain=%s topic=%s)",
+                           self._dds_config.domain_id, self._dds_config.topic_name)
+
+        self._discovery_manager = DDSDiscSenderResourcesManager(
+            user_topic_name=self._dds_config.topic_name,
+            user_topic_type=self._dds_config.topic_class,
+            dds_domain_id=self._dds_config.domain_id,
+        )
+
+        self._payload_writer = MemPayloadWriter(
+            name=self._ano_config.shm_name,
+            size=self._ano_config.shm_size,
+            event_name=self._ano_config.event_name
+        )
+        self._payload_tx = ConnextTx(self._discovery_manager, self._payload_writer)
+
+    def stop(self) -> None:
+        if self._discovery_manager is not None:
+            self._discovery_manager.stop_processing()
+
+    def write_buffer(self, payload) -> None:
+        """Write the contents of src_data_ref to all registered buffers."""
+        if self._payload_tx is None:
+            self._logger.warning("DDS transmitter not initialised, cannot write buffer")
+            return
+
+        self._buffer_reference_from_payload(payload)
+        self._payload_tx.broadcast_buffer()
+
+    def _buffer_reference_from_payload(self, payload: Any) -> None:
+        """Copy the payload into the shared-memory buffer and return the buffer reference."""
+        if not self._payload_writer:
+            self._logger.warning("Shared-memory writer not initialised, cannot copy payload")
+        
+        self._payload_writer.set_buffer(payload)
 
 
 class ConnextAnoTxOp(Operator):
@@ -25,29 +103,23 @@ class ConnextAnoTxOp(Operator):
         self,
         fragment,
         *args,
-        shm_name: str,
-        shm_size: int,
         dds_config: Optional[DDSConfig] = None,
         ano_config: Optional[ANOConfig] = None,
-        event_name: str = "connext_tx_event",
         **kwargs,
     ) -> None:
         super().__init__(fragment, *args, **kwargs)
         self._logger = logging.getLogger(f"{__name__}.{type(self).__name__}")
 
-        self._shm_name = shm_name
-        self._shm_size = shm_size
-        self._event_name = event_name
-
         self._dds_config = dds_config or DDSConfig()
         if self._dds_config.topic_class is None:
             self._dds_config.topic_class = DummyUserType
 
-        self._transport_state = TransportState(ano_config or ANOConfig())
+        self._ano_config = ano_config or ANOConfig()
 
-        self._dds_sender_mgr = None
-        self._payload_writer = None
-        self._dds_tx = None
+        self.connext_ano_writer = ConnextAnoWriter(
+            dds_config=self._dds_config,
+            ano_config=self._ano_config
+        )
 
     # ------------------------------------------------------------------
     def setup(self, spec: OperatorSpec) -> None:
@@ -55,12 +127,10 @@ class ConnextAnoTxOp(Operator):
 
     def start(self) -> None:
         super().start()
-        self._init_dds()
-        self._perform_capability_exchange()
+
 
     def stop(self) -> None:
-        if self._dds_sender_mgr is not None:
-            self._dds_sender_mgr.stop_processing()
+        self.connext_ano_writer.stop()
         super().stop()
 
     # ------------------------------------------------------------------
@@ -69,42 +139,8 @@ class ConnextAnoTxOp(Operator):
         if payload is None:
             return
 
-        if self._transport_state.should_use_ano():
-            # TODO-JUANCA: send the payload through the ANO data plane
-            self._logger.debug("ANO path not implemented yet; falling back to DDS")
-
-        if self._dds_tx is None:
-            self._logger.warning("DDS transmitter not initialised, dropping payload")
+        if self.connext_ano_writer is None:
+            self._logger.warning("Connext Ano Writer not initialised, dropping payload")
             return
 
-        buffer_ref = self._buffer_reference_from_payload(payload)
-        self._dds_tx.broadcast_buffer(buffer_ref)
-
-    # ------------------------------------------------------------------
-    def _init_dds(self) -> None:
-        self._logger.debug("Initialising DDS sender resources (domain=%s topic=%s)",
-                           self._dds_config.domain_id, self._dds_config.topic_name)
-
-        self._dds_sender_mgr = DDSDiscSenderResourcesManager(
-            user_topic_name=self._dds_config.topic_name,
-            user_topic_type=self._dds_config.topic_class,
-            dds_domain_id=self._dds_config.domain_id,
-        )
-
-        self._payload_writer = MemPayloadWriter(
-            name=self._shm_name,
-            size=self._shm_size,
-            event_name=self._event_name,
-        )
-        self._dds_tx = ConnextTx(self._dds_sender_mgr, self._payload_writer)
-
-    def _perform_capability_exchange(self) -> None:
-        # TODO-JUANCA: receive remote capabilities and decide whether ANO can be activated
-        self._transport_state.deactivate_ano()
-
-    def _buffer_reference_from_payload(self, payload: Any) -> str:
-        """Resolve the shared-memory reference associated with the payload."""
-        if isinstance(payload, str):
-            return payload
-        # TODO-JUANCA: define how upstream operators provide shared-memory references
-        return self._shm_name
+        self.connext_ano_writer.write_buffer(payload)

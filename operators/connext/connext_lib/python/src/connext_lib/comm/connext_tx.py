@@ -23,7 +23,7 @@ class ConnextTx:
             # Stop the sender resources manager processing thread
             self._sender_resources_mgr.stop_processing()
 
-    def broadcast_buffer(self, src_buffer_ref):
+    def broadcast_buffer(self):
         """
         Write the contents of src_data_ref to all registered buffers.
         """
@@ -31,7 +31,7 @@ class ConnextTx:
         for destination, dest_buffer_ref in self._sender_resources_mgr.get_destinations().items():
             try:
                 self._payload_writer.write_buffer(dest_buffer_ref)
-                self._logger.info("Wrote data from %s to %s (destination id: %s)", src_buffer_ref, src_buffer_ref, destination)
+                self._logger.info("[Tx] Sent data to destination: %s, buffer_ref: %s", destination, dest_buffer_ref)
             except FileNotFoundError:
-                self._logger.warning("Destination shared memory %s not found for destination id %s.", src_buffer_ref, destination)
+                self._logger.warning("[Tx] Destination shared memory %s not found for destination id %s.", dest_buffer_ref, destination)
                 continue
