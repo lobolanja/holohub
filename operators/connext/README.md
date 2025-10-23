@@ -9,6 +9,7 @@ Holoscan platform:
   standalone via its `pyproject.toml`.
 - **`connext_ano`** – Python transmit/receive operators (`ConnextTxOp` and `ConnextRxOp`) built on the support library to
   advertise and consume buffers over DDS.
+[//]: # (TODO: rewrite connext_ano description when it is done)
 
 ## Building
 
@@ -21,15 +22,3 @@ cmake --build build --target connext_lib_python connext_ano
 
 The `connext_lib_python` target populates `build/python/lib/holohub/connext_lib` with the library sources, metadata, and
 unit tests. The `connext_ano` target compiles the Connext operator.
-
-## Developing the Library
-
-Within `connext_lib/python` you can install the package in editable mode and run its unit tests:
-
-```sh
-pip install -e operators/connext/connext_lib/python[dev]
-pytest operators/connext/connext_lib/python/tests
-```
-
-Make sure the RTI Connext DDS Python bindings (`rti.connext==7.3.0`) and a valid `RTI_LICENSE_FILE` are available in your
-environment before running the tests or launching applications that rely on the operator.

@@ -17,13 +17,6 @@ pip install -e .[dev]
 pytest
 ```
 
-If you prefer not to install the package, ensure your `PYTHONPATH` includes the `src` directory before running pytest:
-
-```sh
-export PYTHONPATH=src
-pytest
-```
-
 ## RTI License Setup
 
 This project requires a valid RTI Connext DDS license compatible with version **7.3.0**.
