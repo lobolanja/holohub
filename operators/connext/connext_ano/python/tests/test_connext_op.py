@@ -46,9 +46,9 @@ class BufferSinkOp(Operator):
 class ConnextApplicationHarness(Application):
     """Minimal Holoscan application wiring the Connext ANO TX/RX operators."""
 
-    def __init__(self, *, shm_name: str, payload: str, shm_size: int = 1024):
+    def __init__(self, *, rx_shm_name: str, payload: str, shm_size: int = 1024):
         super().__init__()
-        self._shm_name = shm_name
+        self._rx_shm_name = rx_shm_name
         self._payload = payload
         self._shm_size = shm_size
         self._broadcasts: list[str] = []
@@ -65,27 +65,40 @@ class ConnextApplicationHarness(Application):
 
     def compose(self):
         
-
         # Create a count condition to limit the number of transmissions
         self._count_condition = CountCondition(self, count=3)
         self._read_count_condition = CountCondition(self, count=3)
 
         self._source = BufferSourceOp(self, self._count_condition, name="buffer_source", payload=self._payload)
 
+
+        tx_ano_config = ANOConfig(
+            shm_name="connext_tx_shm",
+            shm_size=self._shm_size,
+            event_name="connext_tx_event"
+        )
         self._tx_op = ConnextAnoTxOp(
             self,
             name="tx",
             dds_config=DDSConfig(),
-            ano_config=ANOConfig(),  
+            ano_config=tx_ano_config,
+        )
+
+        rx_ano_config = ANOConfig(
+            shm_name=self._rx_shm_name,
+            shm_size=self._shm_size,
+            event_name="connext_tx_event"
         )
         self._rx_op = ConnextAnoRxOp(
             self,
             self._read_count_condition,
             name="rx",
             dds_config=DDSConfig(),
-            ano_config=ANOConfig(), 
+            ano_config=rx_ano_config,
         )
         self._sink = BufferSinkOp(self, name="buffer_sink", storage=self._received)
+
+        # Source --> TX --> ShareMem --> RX --> Sink
 
         self.add_flow(self._source, self._tx_op, {("output", "input")})
         self.add_flow(self._rx_op, self._sink, {("output", "input")})
@@ -127,12 +140,35 @@ def test_rx_starts_and_stops():
     rx.stop()
     assert True  # If no exceptions, the test passes
 
+def test_tx_rx_discovery():
+
+    rx_shm_name = "test_shm_integration"
+
+    app = Application()
+    tx = ConnextAnoTxOp(
+        fragment=app,
+        ano_config=ANOConfig(),
+        dds_config=DDSConfig(),
+    )
+    rx = ConnextAnoRxOp(
+        fragment=app,
+        ano_config=ANOConfig(shm_name=rx_shm_name),
+        dds_config=DDSConfig(),
+    )
+
+    tx.start()
+    rx.start()
+
+    # Check if both operators have finished the discovery process
+    assert tx.connext_ano_writer.get_discovery_manager().get_destinations() == [rx_shm_name]
+
+    assert True
 
 def test_tx_rx_integration():
-    shm_name = "test_shm_integration"
+    rx_shm_name = "test_shm_integration"
     payload = "hello_holoscan"
 
-    app_tx = ConnextApplicationHarness(shm_name=shm_name, payload=payload)
+    app_tx = ConnextApplicationHarness(rx_shm_name=rx_shm_name, payload=payload)
 
     print("Running TX application...")
     app_tx.run()

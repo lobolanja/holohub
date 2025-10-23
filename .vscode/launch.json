@@ -1473,8 +1473,9 @@
             },
             "args": [
                 "tests/test_connext_op.py",
-                // "-k",
-                // "integration"
+                "-k",
+                "inte"
+                // "disc"
             ],
             "console": "integratedTerminal",
             "presentation": {

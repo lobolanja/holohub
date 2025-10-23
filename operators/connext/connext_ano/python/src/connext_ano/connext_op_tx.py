@@ -33,25 +33,6 @@ class ConnextAnoWriter():
         self._payload_writer = None
         self._payload_tx = None
 
-        # Create writer shared memory segment 
-        try:
-            self._shm = shared_memory.SharedMemory(
-                name=self._ano_config.shm_name,
-                create=True,
-                size=self._ano_config.shm_size
-            )
-            self._logger.debug("Created shared memory segment '%s' of size %d bytes",
-                               self._ano_config.shm_name, self._ano_config.shm_size)
-        except FileExistsError:
-            self._shm = shared_memory.SharedMemory(
-                name=self._ano_config.shm_name,
-                create=False
-            )
-            self._logger.debug("Attached to existing shared memory segment '%s'",
-                               self._ano_config.shm_name)
-        
-
-        self._init_dds()
 
     def get_payload_writer(self) -> MemPayloadWriter:
         return self._payload_writer
@@ -75,10 +56,34 @@ class ConnextAnoWriter():
         )
         self._payload_tx = ConnextTx(self._discovery_manager, self._payload_writer)
 
-    def stop(self) -> None:
-        if self._discovery_manager is not None:
-            self._discovery_manager.stop_processing()
+    def _init_ano(self) -> None:
+        # Create writer shared memory segment 
+        try:
+            self._shm = shared_memory.SharedMemory(
+                name=self._ano_config.shm_name,
+                create=True,
+                size=self._ano_config.shm_size
+            )
+            self._logger.debug("Created shared memory segment '%s' of size %d bytes",
+                               self._ano_config.shm_name, self._ano_config.shm_size)
+        except FileExistsError:
+            self._shm = shared_memory.SharedMemory(
+                name=self._ano_config.shm_name,
+                create=False
+            )
+            self._logger.debug("Attached to existing shared memory segment '%s'",
+                               self._ano_config.shm_name)
 
+    def get_discovery_manager(self) -> DDSDiscSenderResourcesManager:
+        return self._discovery_manager
+    
+    def start(self) -> None:
+        self._init_ano()
+        self._init_dds()
+
+    def stop(self) -> None:
+        pass
+    
     def write_buffer(self, payload) -> None:
         """Write the contents of src_data_ref to all registered buffers."""
         if self._payload_tx is None:
@@ -127,6 +132,7 @@ class ConnextAnoTxOp(Operator):
 
     def start(self) -> None:
         super().start()
+        self.connext_ano_writer.start()
 
 
     def stop(self) -> None:
