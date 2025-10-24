@@ -15,6 +15,7 @@ from connext_lib.system_setup import (
     DDSReceiverResourcesManager,
     DummyUserType,
 )
+from rti.connextdds import Subscriber, DomainParticipant, Topic, DataReader
 
 from .common import ANOConfig, DDSConfig, TransportState
 class ConnextAnoReader():
@@ -114,11 +115,13 @@ class ConnextAnoRxOp(Operator):
         *args,
         dds_config: Optional[DDSConfig] = None,
         ano_config: Optional[ANOConfig] = None,
-        output_mode: str = "bytes",
         **kwargs,
     ) -> None:
         super().__init__(fragment, *args, **kwargs)
         self._logger = logging.getLogger(f"{__name__}.{type(self).__name__}")
+        self._dds_participant = None  # Placeholder for future DDS participant management
+        self._dds_reader = None  # Placeholder for future DDS reader management
+        self._connext_ano_reader = None # Placeholder for Connext ANO reader
 
         self._dds_config = dds_config or DDSConfig()
         if self._dds_config.topic_class is None:
@@ -126,7 +129,20 @@ class ConnextAnoRxOp(Operator):
 
         self._ano_config = ano_config or ANOConfig()
 
-        self._connext_ano_reader = ConnextAnoReader(self._dds_config, self._ano_config)
+        if self._ano_config.enabled:
+            self._logger.info("Connext ANO enabled with transport '%s'", self._ano_config.transport)
+            self._connext_ano_reader = ConnextAnoReader(self._dds_config, self._ano_config)
+        else:
+            self._logger.info("Connext ANO disabled, falling back to DDS only if enabled")
+
+            if self._dds_config.enabled:
+                self._logger.info("DDS path enabled (domain=%s topic=%s)",
+                                  self._dds_config.domain_id, self._dds_config.topic_name)
+                self._dds_participant=DomainParticipant(self._dds_config.domain_id)
+                topic = Topic(self._dds_participant, self._dds_config.topic_name, self._dds_config.topic_class)
+                self._dds_reader = DataReader(Subscriber(self._dds_participant), topic)
+            else:
+                self._logger.info("DDS path disabled")
 
     # ------------------------------------------------------------------
     def setup(self, spec: OperatorSpec) -> None:
@@ -142,15 +158,22 @@ class ConnextAnoRxOp(Operator):
 
     # ------------------------------------------------------------------
     def compute(self, _op_input, op_output, _context) -> None:
+        payload = None
         if self._connext_ano_reader is None:
-            self._logger.warning("Connext Ano Reader not initialised, dropping payload")
-            return
-
-        if self._connext_ano_reader.read_buffer():
-            payload = self._connext_ano_reader.get_shm().buf.tobytes()
+            self._logger.info("Connext Ano Path not initialised")
+            if self._dds_config.enabled:
+                self._logger.info("DDS path enabled, reading from DDS")
+                samples = self._dds_reader.take()
+                for sample in samples:
+                    if sample.info.valid:
+                        payload = str(sample.data.data)
+                        op_output.emit(payload, "output")
+            else:
+                self._logger.warning("DDS path and ANO path disabled, no data source available")
         else:
-            payload = None
-        if not payload:
-            return
-        op_output.emit(payload, "output")
+            if self._connext_ano_reader.read_buffer():
+                self._logger.info("Connext Ano path read")
+                payload = self._connext_ano_reader.get_shm().buf.tobytes()
+                if payload:
+                    op_output.emit(payload, "output")
 

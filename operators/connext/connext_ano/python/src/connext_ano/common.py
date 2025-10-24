@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from symtable import Class
 from typing import Literal, Optional
 
 SUPPORTED_TRANSPORTS: tuple[str, ...] = ("dpdk", "gpunetio")
@@ -11,10 +12,10 @@ SUPPORTED_TRANSPORTS: tuple[str, ...] = ("dpdk", "gpunetio")
 @dataclass
 class DDSConfig:
     """Configuration needed to interact with the DDS control plane."""
-
+    enabled: bool = False
     domain_id: int = 0
     topic_name: str = "system_setup"
-    topic_class = None
+    topic_class: Class = None
 
 
 

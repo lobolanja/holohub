@@ -60,8 +60,6 @@ class DDSDiscSenderResourcesManager(AbstractSenderResourcesManager):
             self._dds_reader.close()
         if self._dds_pub_builtin_reader:
             self._dds_pub_builtin_reader.close()
-        if self._dds_reader.participant:
-            self._dds_reader.participant.close()
         # Note: DomainParticipant will be closed when the program ends
 
     def _register(self):

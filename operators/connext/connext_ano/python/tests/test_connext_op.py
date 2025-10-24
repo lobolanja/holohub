@@ -1,12 +1,13 @@
-from __future__ import annotations
-
 from time import sleep
 
 from connext_ano import ANOConfig, ConnextAnoRxOp, ConnextAnoTxOp, DDSConfig
 from holoscan.core import Application, Operator, OperatorSpec
 from holoscan.conditions import CountCondition
+from rti.types import struct
 
-
+@struct
+class MyStringType:
+    data: str = ""
 class BufferSourceOp(Operator):
     """Simple Holoscan source that emits a fixed payload once."""
 
@@ -45,7 +46,7 @@ class BufferSinkOp(Operator):
             self._storage.append(payload)
 
 
-class ConnextApplicationHarness(Application):
+class ConnextApplicationANODummy(Application):
     """Minimal Holoscan application wiring the Connext ANO TX/RX operators."""
 
     def __init__(self, *, rx_shm_name: str, payload: str, shm_size: int = 1024):
@@ -77,7 +78,8 @@ class ConnextApplicationHarness(Application):
         tx_ano_config = ANOConfig(
             shm_name="connext_tx_shm",
             shm_size=self._shm_size,
-            event_name="connext_tx_event"
+            event_name="connext_tx_event",
+            enabled=True
         )
         self._tx_op = ConnextAnoTxOp(
             self,
@@ -89,13 +91,79 @@ class ConnextApplicationHarness(Application):
         rx_ano_config = ANOConfig(
             shm_name=self._rx_shm_name,
             shm_size=self._shm_size,
-            event_name="connext_tx_event"
+            event_name="connext_tx_event",
+            enabled=True
         )
         self._rx_op = ConnextAnoRxOp(
             self,
             self._read_count_condition,
             name="rx",
             dds_config=DDSConfig(),
+            ano_config=rx_ano_config,
+        )
+        self._sink = BufferSinkOp(self, name="buffer_sink", storage=self._received)
+
+        # Source --> TX --> ShareMem --> RX --> Sink
+
+        self.add_flow(self._source, self._tx_op, {("output", "input")})
+        self.add_flow(self._rx_op, self._sink, {("output", "input")})
+class ConnextApplicationDDSDummy(Application):
+    """Minimal Holoscan application wiring the Connext ANO TX/RX operators."""
+
+    def __init__(self, *, payload: str):
+        super().__init__()
+        self._payload = payload
+        self._broadcasts: list[str] = []
+        self._received: list[str] = []
+        self._tx_op: None
+
+    @property
+    def broadcasts(self) -> list[str]:
+        return self._broadcasts
+
+    @property
+    def received(self) -> list[str]:
+        return self._received
+
+    def compose(self):
+
+        # Create a count condition to limit the number of transmissions
+        self._count_condition = CountCondition(self, count=3)
+        self._read_count_condition = CountCondition(self, count=3)
+
+        self._source = BufferSourceOp(self, self._count_condition, name="buffer_source", payload=self._payload)
+
+
+        tx_ano_config = ANOConfig(
+            enabled=False
+        )
+        tx_dds_config = DDSConfig(
+            enabled=True,
+            domain_id=2,
+            topic_name="MyTopic",
+            topic_class=MyStringType
+        )
+        self._tx_op = ConnextAnoTxOp(
+            self,
+            name="tx",
+            dds_config=tx_dds_config,
+            ano_config=tx_ano_config,
+        )
+
+        rx_ano_config = ANOConfig(
+            enabled=False
+        )
+        rx_dds_config= DDSConfig(
+            enabled=True,
+            domain_id=2,
+            topic_name="MyTopic",
+            topic_class=MyStringType
+        )
+        self._rx_op = ConnextAnoRxOp(
+            self,
+            self._read_count_condition,
+            name="rx",
+            dds_config=rx_dds_config,
             ano_config=rx_ano_config,
         )
         self._sink = BufferSinkOp(self, name="buffer_sink", storage=self._received)
@@ -148,12 +216,12 @@ def test_tx_rx_discovery():
     app = Application()
     tx = ConnextAnoTxOp(
         fragment=app,
-        ano_config=ANOConfig(shm_name="tx_shm_memory"),
+        ano_config=ANOConfig(shm_name="tx_shm_memory", enabled=True),
         dds_config=DDSConfig(),
     )
     rx = ConnextAnoRxOp(
         fragment=app,
-        ano_config=ANOConfig(shm_name=rx_shm_name),
+        ano_config=ANOConfig(shm_name=rx_shm_name, enabled=True),
         dds_config=DDSConfig(),
     )
 
@@ -168,18 +236,30 @@ def test_tx_rx_discovery():
     sleep(2)
     assert True
 
-def test_tx_rx_integration():
+def test_tx_rx_ano_integration():
     rx_shm_name = "rx_shm_memory"
     payload = "hello_holoscan"
 
-    app_tx = ConnextApplicationHarness(rx_shm_name=rx_shm_name, payload=payload)
+    app_tx = ConnextApplicationANODummy(rx_shm_name=rx_shm_name, payload=payload)
 
     print("Running TX application...")
+    sleep(2) # Allow some time for ANO setup
     app_tx.run()
 
     # Assert payload string in one of received string list
     received_payloads = app_tx.received
     print("Received payloads:", received_payloads)
     assert any(payload.encode("utf-8") in received for received in received_payloads)
+
+def test_tx_rx_dds_integration():
+    payload = "hello_holoscan"
+    app_tx = ConnextApplicationDDSDummy(payload=payload)
+    print("Running TX application...")
+    sleep(2) # Allow some time for DDS setup
+    app_tx.run()
+    # Assert payload string in one of received string list
+    received_payloads = app_tx.received
+    print("Received payloads:", received_payloads)
+    assert any(payload in received for received in received_payloads)
 
 
