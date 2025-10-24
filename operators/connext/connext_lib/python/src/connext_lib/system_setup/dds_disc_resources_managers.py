@@ -19,6 +19,11 @@ class DDSDiscReceiverResourcesManager(ReceiverResourcesManagerInterface):
 
         self._logger = logging.getLogger(__name__)
 
+    def __del__(self):
+        if self._dds_writer:
+            self._dds_writer.close()
+        # Note: DomainParticipant will be closed when the program ends
+
 
     def _populate_datawriter_with_discovery_info(self):
         info_bytes = f"{self._buffer_id}".encode("utf-8")
@@ -48,6 +53,16 @@ class DDSDiscSenderResourcesManager(AbstractSenderResourcesManager):
         # this reader is used to access the built-in topics
         self._dds_pub_builtin_reader = dp.publication_reader
         self._logger = logging.getLogger(__name__)
+
+    def __del__(self):
+        super().__del__()
+        if self._dds_reader:
+            self._dds_reader.close()
+        if self._dds_pub_builtin_reader:
+            self._dds_pub_builtin_reader.close()
+        if self._dds_reader.participant:
+            self._dds_reader.participant.close()
+        # Note: DomainParticipant will be closed when the program ends
 
     def _register(self):
         """

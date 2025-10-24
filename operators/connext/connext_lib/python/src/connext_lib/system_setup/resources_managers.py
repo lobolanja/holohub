@@ -55,6 +55,9 @@ class AbstractSenderResourcesManager(SenderResourcesManagerInterface):
         self.resources_map = {}  # destination -> buffer_id
 
         self._logger = logging.getLogger(__name__)
+    def __del__(self):
+        self.stop_processing()
+        self.resources_map.clear()
 
     def _register_receiver(self, destination, buffer_id):
         """" Register a receiver's buffer ID if not already registered."""

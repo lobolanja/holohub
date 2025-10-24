@@ -17,6 +17,9 @@ class ConnextRx:
 
         self._logger = logging.getLogger(__name__)
 
+    def __del__(self):
+        pass
+
     def receive_buffer(self):
         """
         Read data from the buffer.

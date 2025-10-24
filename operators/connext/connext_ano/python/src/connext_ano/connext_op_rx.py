@@ -51,6 +51,15 @@ class ConnextAnoReader():
 
         self._init_dds()
 
+    def __del__(self) -> None:
+        try:
+            self._shm.close()
+            self._shm.unlink()
+            self._logger.debug("Released shared memory segment '%s'", self._ano_config.shm_name)
+        except FileNotFoundError:
+            self._logger.debug("Shared memory segment '%s' already unlinked",
+                               self._ano_config.shm_name)
+
     def get_shm(self) -> shared_memory.SharedMemory:
         return self._shm
 

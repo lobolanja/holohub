@@ -55,3 +55,7 @@ tmp/
 
 # Licenses
 rti_license.dat
+
+**/connext_holoscan_operator.egg-info/
+.idea
+operators/connext/connext_lib/path/

@@ -82,7 +82,13 @@ class ConnextAnoWriter():
         self._init_dds()
 
     def stop(self) -> None:
-        pass
+        try:
+            self._shm.close()
+            self._shm.unlink()
+            self._logger.debug("Released shared memory segment '%s'", self._ano_config.shm_name)
+        except FileNotFoundError:
+            self._logger.debug("Shared memory segment '%s' already unlinked",
+                               self._ano_config.shm_name)
     
     def write_buffer(self, payload) -> None:
         """Write the contents of src_data_ref to all registered buffers."""

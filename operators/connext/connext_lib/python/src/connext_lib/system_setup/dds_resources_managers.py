@@ -36,6 +36,10 @@ class DDSReceiverResourcesManager(ReceiverResourcesManagerInterface):
         self._dds_writer = DataWriter(dp.implicit_publisher, dds_topic, writer_qos)
 
         self._logger = logging.getLogger(__name__)
+    def __del__(self):
+        if self._dds_writer:
+            self._dds_writer.close()
+        # Note: DomainParticipant will be closed when the program ends
 
     def _get_writer_guid(self) -> str | Any:
         """ Get the GUID of the DataWriter """
@@ -74,7 +78,11 @@ class DDSSenderResourcesManager(AbstractSenderResourcesManager):
         self._dds_reader = DataReader(dp.implicit_subscriber, dds_topic, reader_qos)
 
         self._logger = logging.getLogger(__name__)
-
+    def __del__(self):
+        super().__del__()
+        if self._dds_reader:
+            self._dds_reader.close()
+        # Note: DomainParticipant will be closed when the program ends
 
     def _register(self):
         """

@@ -17,7 +17,6 @@ class ConnextTx:
 
         self._logger = logging.getLogger(__name__)
 
-
     def __del__(self):
         if hasattr(self, '_sender_resources_mgr'):
             # Stop the sender resources manager processing thread
