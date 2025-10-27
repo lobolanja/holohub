@@ -30,6 +30,8 @@ add_holohub_application(body_pose_estimation DEPENDS
 
 add_holohub_application(colonoscopy_segmentation DEPENDS OPERATORS OPTIONAL aja_source)
 
+add_holohub_application(connext)
+
 add_holohub_application(cvcuda_basic DEPENDS OPERATORS cvcuda_holoscan_interop)
 
 add_subdirectory(dds)

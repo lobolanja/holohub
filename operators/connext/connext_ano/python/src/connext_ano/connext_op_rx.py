@@ -136,6 +136,7 @@ class ConnextDDSReader:
         self._dds_reader = DataReader(Subscriber(dds_participant), topic, self._configure_datareader_qos())
 
     def read_samples(self):
+        # TODO: use take_sample as the name of the method for consistency
         if self._dds_reader is None:
             self._logger.warning("DDS receiver not initialised, cannot read samples")
             return []
@@ -196,6 +197,7 @@ class ConnextAnoRxOp(Operator):
 
     # ------------------------------------------------------------------
     def compute(self, _op_input, op_output, _context) -> None:
+        # TODO: Review event base schedulers to use on_data_available
         # TODO: refactor this to its own class
         # TODO: two outputs, one for ANO and one for DDS
         if not self._ano_config.enabled:

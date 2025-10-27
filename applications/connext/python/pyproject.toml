@@ -1,0 +1,8 @@
+[tool.pytest.ini_options]
+pythonpath = [
+    "src",
+    "../../../operators/connext/connext_ano/python/src",
+    "../../../operators/connext/connext_lib/python/src"
+]
+
+testpaths = ["tests"]

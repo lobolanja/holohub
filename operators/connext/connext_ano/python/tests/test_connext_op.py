@@ -124,6 +124,8 @@ class ConnextApplicationANODummy(Application):
 
         self.add_flow(self._source, self._tx_op, {("output", "input")})
         self.add_flow(self._rx_op, self._sink, {("output", "input")})
+
+
 class ConnextApplicationDDSDummy(Application):
     """Minimal Holoscan application wiring the Connext ANO TX/RX operators."""
 
@@ -186,7 +188,7 @@ class ConnextApplicationDDSDummy(Application):
         self._sink = DDSSinkOp(self, name="dds_sink", storage=self._received)
         sleep(2) # Allow some time for DDS setup
 
-        # Source --> TX --> ShareMem --> RX --> Sink
+        # Source --> TX --> DDS --> RX --> Sink
 
         self.add_flow(self._source, self._tx_op, {("output", "input")})
         self.add_flow(self._rx_op, self._sink, {("output", "input")})
