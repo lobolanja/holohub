@@ -89,16 +89,20 @@ class AbstractSenderResourcesManager(SenderResourcesManagerInterface):
 
     def stop_processing(self):
         """ Stop the background thread."""
-        if hasattr(self, '_stop_event'):
-            self._stop_event.set()
+        if not hasattr(self, '_stop_event'):
+            return
+
+        self._stop_event.set()
+        if self._thread and self._thread.is_alive():
             self._thread.join()
             self._logger.info("[AbstractSenderResourcesManager] Stopped background DDS sample processing thread.")
+        elif self._thread:
+            self._logger.debug("[AbstractSenderResourcesManager] Background thread already stopped.")
+        else:
+            self._logger.debug("[AbstractSenderResourcesManager] No background thread to stop.")
+    
     def get_destinations(self):
         """ Get a thread-safe copy of the current resources map."""
         with self._lock:
             copy = dict(self.resources_map)
         return copy
-
-
-
-

@@ -15,10 +15,21 @@ Holoscan platform:
 
 Both components are wired into the Holohub CMake build:
 
+Ensure your environment exposes the RTI license file and CUDA runtime libraries, for example:
+
 ```sh
-cmake -S . -B build -DHOLOHUB_BUILD_PYTHON=ON
-cmake --build build --target connext_lib_python connext_ano
+export RTI_LICENSE_FILE=/path/to/rti_license.dat
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 ```
 
-The `connext_lib_python` target populates `build/python/lib/holohub/connext_lib` with the library sources, metadata, and
-unit tests. The `connext_ano` target compiles the Connext operator.
+```sh
+cmake -S operators/connext -B build -DHOLOHUB_BUILD_PYTHON=ON -DBUILD_TESTING=ON
+cmake --build build --target connext_lib_python connext_ano_python
+ctest --test-dir build -R connext -V
+```
+
+The `connext_lib_python` target mirrors the support library into
+`build/python/lib/holohub/connext_lib`, including its pytest suite and `pyproject.toml`. The
+`connext_ano_python` target stages the Holoscan operators under `build/python/lib/holohub/connext_ano`.
+When `BUILD_TESTING` is enabled, `ctest` registers both pytest collections so they can execute alongside the rest of the
+Holohub tests.
