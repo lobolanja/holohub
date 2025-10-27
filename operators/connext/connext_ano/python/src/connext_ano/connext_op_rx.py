@@ -18,8 +18,8 @@ from connext_lib.system_setup import (
 from rti.connextdds import Subscriber, DomainParticipant, Topic, DataReader, \
     DataReaderQos, ReliabilityKind, DurabilityKind, HistoryKind
 
-from .common import ANOConfig, DDSConfig, TransportState
-class ConnextAnoReader():
+from .common import ANOConfig, DDSConfig
+class ConnextAnoReader:
     """Manage the initialization of the Connext ANO reader."""
 
     def __init__(
@@ -68,6 +68,7 @@ class ConnextAnoReader():
                            self._dds_config.domain_id, self._dds_config.topic_name)
         self._discovery_manager = DDSDiscReceiverResourcesManager(
             buffer_id=self._ano_config.shm_name,
+            #TODO: add DISC prefix to topic name
             user_topic_name=self._dds_config.topic_name,
             user_topic_type=self._dds_config.topic_class,
             dds_domain_id=self._dds_config.domain_id,
@@ -122,7 +123,7 @@ class ConnextDDSReader:
         # Create QoS with strict reliability
         reader_qos = DataReaderQos()
         reader_qos.reliability.kind = ReliabilityKind.RELIABLE
-        reader_qos.durability.kind = DurabilityKind.VOLATILE   # or PERSISTENT/TRANSIENT as needed
+        reader_qos.durability.kind = DurabilityKind.TRANSIENT_LOCAL   # or PERSISTENT/TRANSIENT as needed
         reader_qos.history.kind = HistoryKind.KEEP_ALL
 
         return reader_qos
@@ -154,6 +155,7 @@ class ConnextAnoRxOp(Operator):
         **kwargs,
     ) -> None:
         super().__init__(fragment, *args, **kwargs)
+        logging.basicConfig(level=logging.INFO)
         self._logger = logging.getLogger(f"{__name__}.{type(self).__name__}")
         self._dds_participant = None  # Placeholder for future DDS participant management
         self._dds_reader = None  # Placeholder for future DDS reader management
@@ -194,7 +196,9 @@ class ConnextAnoRxOp(Operator):
 
     # ------------------------------------------------------------------
     def compute(self, _op_input, op_output, _context) -> None:
-        if self._connext_ano_reader is None:
+        # TODO: refactor this to its own class
+        # TODO: two outputs, one for ANO and one for DDS
+        if not self._ano_config.enabled:
             self._logger.info("Connext Ano Path not initialised")
             if self._dds_config.enabled:
                 self._logger.info("DDS path enabled, reading from DDS")

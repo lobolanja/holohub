@@ -1,6 +1,6 @@
 import logging
 
-from rti.connextdds import DomainParticipant, Topic, DataWriter, DataReader, UserData
+from rti.connextdds import DomainParticipant, Topic, DataWriter, DataReader, UserData, InstanceState
 from .resources_managers import ReceiverResourcesManagerInterface, AbstractSenderResourcesManager
 
 
@@ -60,7 +60,6 @@ class DDSDiscSenderResourcesManager(AbstractSenderResourcesManager):
             self._dds_reader.close()
         if self._dds_pub_builtin_reader:
             self._dds_pub_builtin_reader.close()
-        # Note: DomainParticipant will be closed when the program ends
 
     def _register(self):
         """
@@ -73,9 +72,15 @@ class DDSDiscSenderResourcesManager(AbstractSenderResourcesManager):
                     # Extract user data and writer GUID from the sample
                     user_data_bytes = bytes(sample.data.user_data.value)
                     user_data = user_data_bytes.decode("utf-8")
-                    writer_guid = str(sample.data.virtual_guid)
-                    self._logger.info("[DDSDiscSenderManager] Registering remote dw %s, user data for %s",writer_guid, user_data)
-                    self._register_receiver(writer_guid, user_data)
+                    reader_guid = str(sample.info.instance_handle)
+                    self._logger.info("[DDSDiscSenderManager] Registering remote dw %s, user data for %s",reader_guid, user_data)
+                    self._register_receiver(reader_guid, user_data)
+                else:
+                    # Check if the instance was unregistered or disposed
+                    if sample.info.state.instance_state == InstanceState.NOT_ALIVE_NO_WRITERS or sample.info.state.instance_state == InstanceState.NOT_ALIVE_DISPOSED:
+                        reader_guid = str(sample.info.instance_handle)
+                        self._logger.info("[DDSDiscSenderManager] Unregistering remote receiver %s",reader_guid)
+                        self._unregister_receiver(reader_guid)
         else:
             self._logger.error("[DDSDiscSenderManager] No DDS reader")
         return None

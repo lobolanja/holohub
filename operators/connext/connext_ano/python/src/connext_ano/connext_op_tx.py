@@ -27,6 +27,7 @@ class ConnextAnoWriter():
         dds_config: Optional[DDSConfig] = None,
         ano_config: Optional[ANOConfig] = None
     ) -> None:
+        logging.basicConfig(level=logging.INFO)
         self._logger = logging.getLogger(f"{__name__}.{type(self).__name__}")
         self._dds_config = dds_config or DDSConfig()
         self._ano_config = ano_config or ANOConfig()
@@ -38,7 +39,7 @@ class ConnextAnoWriter():
     def _init_connext_tx(self) -> None:
         self._logger.debug("Initialising DDS sender resources (domain=%s topic=%s)",
                            self._dds_config.domain_id, self._dds_config.topic_name)
-
+        #TODO: add DISC prefix to topic name
         self._discovery_manager = DDSDiscSenderResourcesManager(
             user_topic_name=self._dds_config.topic_name,
             user_topic_type=self._dds_config.topic_class,
@@ -122,7 +123,7 @@ class ConnextDDSWriter:
         # Create QoS with strict reliability
         writer_qos = DataWriterQos()
         writer_qos.reliability.kind = ReliabilityKind.RELIABLE
-        writer_qos.durability.kind = DurabilityKind.VOLATILE   # or PERSISTENT/TRANSIENT as needed
+        writer_qos.durability.kind = DurabilityKind.TRANSIENT_LOCAL   # or PERSISTENT/TRANSIENT as needed
         writer_qos.history.kind = HistoryKind.KEEP_ALL
 
         return writer_qos
@@ -208,10 +209,10 @@ class ConnextAnoTxOp(Operator):
         if self._ano_config.enabled:
             self._logger.info("Connext ANO TX write payload '%s'", payload)
             self.connext_ano_writer.write_buffer(payload)
+
+        if self._dds_config.enabled:
+            self._logger.info("DDS TX write payload '%s'", payload)
+            message = self._dds_config.topic_class(data=payload)
+            self.connext_dds_writer.write_message(message)
         else:
-            if self._dds_config.enabled:
-                self._logger.info("DDS TX write payload '%s'", payload)
-                message = self._dds_config.topic_class(data=payload)
-                self.connext_dds_writer.write_message(message)
-            else:
-                self._logger.warning("No transport enabled, cannot send payload")
+            self._logger.warning("No transport enabled, cannot send payload")

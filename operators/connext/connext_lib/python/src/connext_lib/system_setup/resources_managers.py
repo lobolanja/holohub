@@ -68,6 +68,15 @@ class AbstractSenderResourcesManager(SenderResourcesManagerInterface):
             else:
                 self._logger.debug("[AbstractSenderResourcesManager] Buffer from destination %s already registered", destination)
 
+    def _unregister_receiver(self,destination):
+        """" Unregister a receiver's buffer ID"""
+        with self._lock:
+            if destination in self.resources_map:
+                del self.resources_map[destination]
+                self._logger.info("[AbstractSenderResourcesManager] Unregistered destination %s", destination)
+            else:
+                self._logger.debug("[AbstractSenderResourcesManager] Destination %s not found for unregistration", destination)
+
 
     def _process(self, poll_interval):
         """ Background thread method to periodically call _register()."""

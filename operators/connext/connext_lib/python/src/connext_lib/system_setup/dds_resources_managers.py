@@ -93,6 +93,11 @@ class DDSSenderResourcesManager(AbstractSenderResourcesManager):
             for sample in data:
                 if sample.info.valid:
                     self._register_receiver(sample.data.receiver_id, sample.data.buffer_id)
+                    self._logger.info("[DDSReceiverResourcesManager] registering receiver %s for buffer %s",sample.data.receiver_id, sample.data.buffer_id)
+                else:
+                    receiver_id = str(sample.info.original_publication_virtual_guid)
+                    self._unregister_receiver(receiver_id)
+                    self._logger.info("[DDSReceiverResourcesManager] unregistering receiver %s",receiver_id)
         else:
             self._logger.error("[DDSSenderResourcesManager] No DDS reader")
         return None
