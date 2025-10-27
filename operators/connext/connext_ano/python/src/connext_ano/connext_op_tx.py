@@ -16,9 +16,9 @@ from connext_lib.system_setup import (
     DDSSenderResourcesManager,
     DummyUserType,
 )
-from rti.connextdds import DomainParticipant, Topic, Publisher, DataWriter
+from rti.connextdds import DomainParticipant, Topic, Publisher, DataWriter, DataWriterQos, ReliabilityKind, DurabilityKind, HistoryKind
 
-from .common import ANOConfig, DDSConfig, TransportState
+from .common import ANOConfig, DDSConfig
 
 class ConnextAnoWriter():
     """Manage the initialization of the Connext ANO writer."""
@@ -104,6 +104,45 @@ class ConnextAnoWriter():
         
         self._payload_writer.set_buffer(payload)
 
+class ConnextDDSWriter:
+    """Manage the initialization of the Connext DDS writer."""
+
+    def __init__(self,
+        dds_config: Optional[DDSConfig] = None,
+    ) -> None:
+        self._logger = logging.getLogger(f"{__name__}.{type(self).__name__}")
+        self._dds_config = dds_config or DDSConfig()
+        self._dds_writer = None
+
+        self._init_dds_writer()
+
+    # ------------------------------------------------------------------
+
+    def _configure_dds_writer(self) -> None:
+        # Create QoS with strict reliability
+        writer_qos = DataWriterQos()
+        writer_qos.reliability.kind = ReliabilityKind.RELIABLE
+        writer_qos.durability.kind = DurabilityKind.VOLATILE   # or PERSISTENT/TRANSIENT as needed
+        writer_qos.history.kind = HistoryKind.KEEP_ALL
+
+        return writer_qos
+
+    def _init_dds_writer(self) -> None:
+        self._logger.debug("Initialising DDS sender resources (domain=%s topic=%s)",
+                           self._dds_config.domain_id, self._dds_config.topic_name)
+
+        dds_participant=DomainParticipant(self._dds_config.domain_id)
+        topic = Topic(dds_participant, self._dds_config.topic_name, self._dds_config.topic_class)
+        self._dds_writer = DataWriter(Publisher(dds_participant), topic, self._configure_dds_writer())
+
+    def write_message(self, message: Any) -> None:
+        """Write the given message via DDS."""
+        if not self._dds_writer:
+            self._logger.warning("DDS writer not initialised, cannot write message")
+            return
+
+        self._dds_writer.write(message)
+
 
 class ConnextAnoTxOp(Operator):
     """Minimal Connext transmit operator with ANO fallback placeholders."""
@@ -119,9 +158,9 @@ class ConnextAnoTxOp(Operator):
         super().__init__(fragment, *args, **kwargs)
         self._logger = logging.getLogger(f"{__name__}.{type(self).__name__}")
         self._dds_participant = None  # Placeholder for future DDS participant management
-        self._dds_writer = None  # Placeholder for future DDS writer management
 
         self.connext_ano_writer = None # Placeholder for Connext ANO writer
+        self.connext_dds_writer = None # Placeholder for Connext DDS writer
 
         self._dds_config = dds_config or DDSConfig()
         if self._dds_config.topic_class is None:
@@ -138,14 +177,12 @@ class ConnextAnoTxOp(Operator):
         else:
             self._logger.info("Connext ANO TX disabled, operator will not transmit data")
 
-            if self._dds_config.enabled:
-                self._logger.info("DDS path enabled (domain=%s topic=%s)",
+        if self._dds_config.enabled:
+            self._logger.info("DDS path enabled (domain=%s topic=%s)",
                                   self._dds_config.domain_id, self._dds_config.topic_name)
-                self._dds_participant=DomainParticipant(self._dds_config.domain_id)
-                topic = Topic(self._dds_participant, self._dds_config.topic_name, self._dds_config.topic_class)
-                self._dds_writer = DataWriter(Publisher(self._dds_participant), topic)
-            else:
-                self._logger.info("DDS path disabled")
+            self.connext_dds_writer = ConnextDDSWriter(dds_config=self._dds_config)
+        else:
+            self._logger.info("DDS path disabled")
 
     # ------------------------------------------------------------------
     def setup(self, spec: OperatorSpec) -> None:
@@ -175,6 +212,6 @@ class ConnextAnoTxOp(Operator):
             if self._dds_config.enabled:
                 self._logger.info("DDS TX write payload '%s'", payload)
                 message = self._dds_config.topic_class(data=payload)
-                self._dds_writer.write(message)
+                self.connext_dds_writer.write_message(message)
             else:
                 self._logger.warning("No transport enabled, cannot send payload")

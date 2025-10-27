@@ -45,6 +45,22 @@ class BufferSinkOp(Operator):
         if payload is not None:
             self._storage.append(payload)
 
+class DDSSinkOp(Operator):
+    """Sink operator that records received payloads."""
+
+    def __init__(self, fragment, *, storage: list[str], **kwargs):
+        super().__init__(fragment, **kwargs)
+        self._storage = storage
+
+    def setup(self, spec: OperatorSpec):
+        spec.input("input")
+
+    def compute(self, op_input, _op_output, _context):
+        payload = op_input.receive("input")
+        if payload is not None:
+            for item in payload:
+                self._storage.append(str(item.data))
+
 
 class ConnextApplicationANODummy(Application):
     """Minimal Holoscan application wiring the Connext ANO TX/RX operators."""
@@ -102,6 +118,7 @@ class ConnextApplicationANODummy(Application):
             ano_config=rx_ano_config,
         )
         self._sink = BufferSinkOp(self, name="buffer_sink", storage=self._received)
+        sleep(2)  # Allow some time for ANO setup
 
         # Source --> TX --> ShareMem --> RX --> Sink
 
@@ -128,8 +145,8 @@ class ConnextApplicationDDSDummy(Application):
     def compose(self):
 
         # Create a count condition to limit the number of transmissions
-        self._count_condition = CountCondition(self, count=3)
-        self._read_count_condition = CountCondition(self, count=3)
+        self._count_condition = CountCondition(self, count=10)
+        self._read_count_condition = CountCondition(self, count=10)
 
         self._source = BufferSourceOp(self, self._count_condition, name="buffer_source", payload=self._payload)
 
@@ -166,7 +183,8 @@ class ConnextApplicationDDSDummy(Application):
             dds_config=rx_dds_config,
             ano_config=rx_ano_config,
         )
-        self._sink = BufferSinkOp(self, name="buffer_sink", storage=self._received)
+        self._sink = DDSSinkOp(self, name="dds_sink", storage=self._received)
+        sleep(2) # Allow some time for DDS setup
 
         # Source --> TX --> ShareMem --> RX --> Sink
 
@@ -243,9 +261,8 @@ def test_tx_rx_ano_integration():
     app_tx = ConnextApplicationANODummy(rx_shm_name=rx_shm_name, payload=payload)
 
     print("Running TX application...")
-    sleep(2) # Allow some time for ANO setup
     app_tx.run()
-
+    sleep(2)
     # Assert payload string in one of received string list
     received_payloads = app_tx.received
     print("Received payloads:", received_payloads)
@@ -255,7 +272,6 @@ def test_tx_rx_dds_integration():
     payload = "hello_holoscan"
     app_tx = ConnextApplicationDDSDummy(payload=payload)
     print("Running TX application...")
-    sleep(2) # Allow some time for DDS setup
     app_tx.run()
     # Assert payload string in one of received string list
     received_payloads = app_tx.received

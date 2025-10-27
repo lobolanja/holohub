@@ -15,7 +15,8 @@ from connext_lib.system_setup import (
     DDSReceiverResourcesManager,
     DummyUserType,
 )
-from rti.connextdds import Subscriber, DomainParticipant, Topic, DataReader
+from rti.connextdds import Subscriber, DomainParticipant, Topic, DataReader, \
+    DataReaderQos, ReliabilityKind, DurabilityKind, HistoryKind
 
 from .common import ANOConfig, DDSConfig, TransportState
 class ConnextAnoReader():
@@ -105,7 +106,43 @@ class ConnextAnoReader():
             return False
 
         return self._payload_rx.receive_buffer()
+class ConnextDDSReader:
+    """Manage the initialization of the Connext DDS reader."""
 
+    def __init__(
+        self,
+        dds_config: Optional[DDSConfig] = None,
+    ) -> None:
+        self._logger = logging.getLogger(f"{__name__}.{type(self).__name__}")
+        self._dds_config = dds_config or DDSConfig()
+        self._dds_reader = None
+
+        self._init_dds()
+
+    def _configure_datareader_qos(self) -> None:
+        # Create QoS with strict reliability
+        reader_qos = DataReaderQos()
+        reader_qos.reliability.kind = ReliabilityKind.RELIABLE
+        reader_qos.durability.kind = DurabilityKind.VOLATILE   # or PERSISTENT/TRANSIENT as needed
+        reader_qos.history.kind = HistoryKind.KEEP_ALL
+
+        return reader_qos
+
+    def _init_dds(self) -> None:
+        self._logger.debug("Initialising DDS receiver resources (domain=%s topic=%s)",
+                           self._dds_config.domain_id, self._dds_config.topic_name)
+        dds_participant=DomainParticipant(self._dds_config.domain_id)
+        topic = Topic(dds_participant, self._dds_config.topic_name, self._dds_config.topic_class)
+        self._dds_reader = DataReader(Subscriber(dds_participant), topic, self._configure_datareader_qos())
+
+    def read_samples(self):
+        if self._dds_reader is None:
+            self._logger.warning("DDS receiver not initialised, cannot read samples")
+            return []
+
+        samples = self._dds_reader.take()
+        valid_samples = [sample.data for sample in samples if sample.info.valid]
+        return valid_samples
 class ConnextAnoRxOp(Operator):
     """Minimal Connext receive operator with ANO placeholders."""
 
@@ -122,6 +159,7 @@ class ConnextAnoRxOp(Operator):
         self._dds_participant = None  # Placeholder for future DDS participant management
         self._dds_reader = None  # Placeholder for future DDS reader management
         self._connext_ano_reader = None # Placeholder for Connext ANO reader
+        self._connext_dds_reader = None # Placeholder for Connext DDS reader
 
         self._dds_config = dds_config or DDSConfig()
         if self._dds_config.topic_class is None:
@@ -138,11 +176,10 @@ class ConnextAnoRxOp(Operator):
             if self._dds_config.enabled:
                 self._logger.info("DDS path enabled (domain=%s topic=%s)",
                                   self._dds_config.domain_id, self._dds_config.topic_name)
-                self._dds_participant=DomainParticipant(self._dds_config.domain_id)
-                topic = Topic(self._dds_participant, self._dds_config.topic_name, self._dds_config.topic_class)
-                self._dds_reader = DataReader(Subscriber(self._dds_participant), topic)
+                self._connext_dds_reader = ConnextDDSReader(dds_config=self._dds_config)
+
             else:
-                self._logger.info("DDS path disabled")
+                self._logger.info("DDS path disabled. There are no data sources available.")
 
     # ------------------------------------------------------------------
     def setup(self, spec: OperatorSpec) -> None:
@@ -163,11 +200,8 @@ class ConnextAnoRxOp(Operator):
             self._logger.info("Connext Ano Path not initialised")
             if self._dds_config.enabled:
                 self._logger.info("DDS path enabled, reading from DDS")
-                samples = self._dds_reader.take()
-                for sample in samples:
-                    if sample.info.valid:
-                        payload = str(sample.data.data)
-                        op_output.emit(payload, "output")
+                payload = self._connext_dds_reader.read_samples()
+                op_output.emit(payload, "output")
             else:
                 self._logger.warning("DDS path and ANO path disabled, no data source available")
         else:
