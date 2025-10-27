@@ -85,8 +85,8 @@ class ConnextApplicationANODummy(Application):
     def compose(self):
         
         # Create a count condition to limit the number of transmissions
-        self._count_condition = CountCondition(self, count=3)
-        self._read_count_condition = CountCondition(self, count=3)
+        self._count_condition = CountCondition(self, count=10)
+        self._read_count_condition = CountCondition(self, count=10)
 
         self._source = BufferSourceOp(self, self._count_condition, name="buffer_source", payload=self._payload)
 
@@ -118,7 +118,7 @@ class ConnextApplicationANODummy(Application):
             ano_config=rx_ano_config,
         )
         self._sink = BufferSinkOp(self, name="buffer_sink", storage=self._received)
-        sleep(2)  # Allow some time for ANO setup
+        sleep(3)  # Allow some time for ANO setup
 
         # Source --> TX --> ShareMem --> RX --> Sink
 

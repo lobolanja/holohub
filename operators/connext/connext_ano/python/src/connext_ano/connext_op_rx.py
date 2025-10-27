@@ -62,13 +62,6 @@ class ConnextAnoReader():
             self._logger.debug("Shared memory segment '%s' already unlinked",
                                self._ano_config.shm_name)
 
-    def get_shm(self) -> shared_memory.SharedMemory:
-        return self._shm
-
-    def get_payload_reader(self) -> MemPayloadReader:
-        return self._payload_reader
-    # TODO: change MemPayloadReader to its interface
-
     # ------------------------------------------------------------------
     def _init_dds(self) -> None:
         self._logger.debug("Initialising DDS receiver resources (domain=%s topic=%s)",
@@ -99,6 +92,12 @@ class ConnextAnoReader():
         except FileNotFoundError:
             self._logger.warning("Shared memory '%s' not available", self._shm_name)
             return None
+    def get_shm(self) -> shared_memory.SharedMemory:
+        return self._shm
+
+    def get_payload_reader(self) -> MemPayloadReader:
+        return self._payload_reader
+    # TODO: change MemPayloadReader to its interface
 
     def read_buffer(self) -> bool:
         if self._payload_rx is None:
@@ -195,7 +194,6 @@ class ConnextAnoRxOp(Operator):
 
     # ------------------------------------------------------------------
     def compute(self, _op_input, op_output, _context) -> None:
-        payload = None
         if self._connext_ano_reader is None:
             self._logger.info("Connext Ano Path not initialised")
             if self._dds_config.enabled:
