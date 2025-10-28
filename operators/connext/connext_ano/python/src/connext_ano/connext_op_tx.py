@@ -215,4 +215,4 @@ class ConnextAnoTxOp(Operator):
             message = self._dds_config.topic_class(data=payload)
             self.connext_dds_writer.write_message(message)
         else:
-            self._logger.warning("No transport enabled, cannot send payload")
+            self._logger.info("No DDS data source configured, skipping DDS write")
