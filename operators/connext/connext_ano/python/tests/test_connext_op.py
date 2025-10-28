@@ -187,10 +187,9 @@ class ConnextApplicationDDSDummy(Application):
         sleep(2) # Allow some time for DDS setup
 
         # Source --> TX --> ShareMem --> RX --> Sink
-        self.add_flow(self._rx_op, self._sink, {("output", "input")})
-        sleep(1)
-        self.add_flow(self._source, self._tx_op, {("output", "input")})
 
+        self.add_flow(self._source, self._tx_op, {("output", "input")})
+        self.add_flow(self._rx_op, self._sink, {("output", "input")})
 
 #
 # def test_tx_constructs_with_defaults():
