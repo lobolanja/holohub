@@ -1,6 +1,7 @@
 import logging
 
-from rti.connextdds import DomainParticipant, Topic, DataWriter, DataReader, UserData, InstanceState
+from rti.connextdds import DomainParticipant, Topic, DataWriter, DataReader, UserData, InstanceState, \
+    DomainParticipantQos, Duration
 from .resources_managers import ReceiverResourcesManagerInterface, AbstractSenderResourcesManager
 
 
@@ -12,7 +13,18 @@ class DDSDiscReceiverResourcesManager(ReceiverResourcesManagerInterface):
     def __init__(self, buffer_id: str, user_topic_name: str, user_topic_type, dds_domain_id: int = 0):
 
         super().__init__()
-        self._dp = DomainParticipant(domain_id=dds_domain_id)
+        qos = DomainParticipantQos()
+        # Configure discovery announcement periods to be very short to speed up detection
+        # 10 ms = 0.01 sec
+        qos.discovery_config.min_initial_participant_announcement_period = Duration(0, 100_000_000)  # 100 ms
+        qos.discovery_config.max_initial_participant_announcement_period = Duration(0, 100_000_000)  # 100 ms
+        qos.discovery_config.initial_participant_announcements = 30  # send 5 announcements
+
+        # Configure liveliness to be more responsive
+        qos.discovery_config.participant_liveliness_assert_period = Duration(5, 0)  # 5 sec
+        qos.discovery_config.participant_liveliness_lease_duration = Duration(10, 0)  # 10 sec
+
+        self._dp = DomainParticipant(domain_id=dds_domain_id, qos=qos)
         self._dds_topic = Topic(self._dp, user_topic_name, user_topic_type)
         self._buffer_id = buffer_id
         self._dds_writer = None
@@ -46,12 +58,23 @@ class DDSDiscSenderResourcesManager(AbstractSenderResourcesManager):
     """
     def __init__(self, user_topic_name: str, user_topic_type, dds_domain_id: int = 0):
         super().__init__()
-        dp = DomainParticipant(domain_id=dds_domain_id)
-        dds_topic = Topic(dp, user_topic_name, user_topic_type)
-        self._dds_reader = DataReader(dp.implicit_subscriber, dds_topic)
+        qos = DomainParticipantQos()
+        # Configure discovery announcement periods to be very short to speed up detection
+        # 10 ms = 0.01 sec
+        qos.discovery_config.min_initial_participant_announcement_period = Duration(0, 100_000_000)  # 100 ms
+        qos.discovery_config.max_initial_participant_announcement_period = Duration(0, 100_000_000)  # 100 ms
+        qos.discovery_config.initial_participant_announcements = 30  # send 5 announcements
+
+        # Configure liveliness to be more responsive
+        qos.discovery_config.participant_liveliness_assert_period = Duration(5, 0)  # 5 sec
+        qos.discovery_config.participant_liveliness_lease_duration = Duration(10, 0)  # 10 sec
+
+        self._dp = DomainParticipant(domain_id=dds_domain_id, qos=qos)
+        dds_topic = Topic(self._dp, user_topic_name, user_topic_type)
+        self._dds_reader = DataReader(self._dp.implicit_subscriber, dds_topic)
 
         # this reader is used to access the built-in topics
-        self._dds_pub_builtin_reader = dp.publication_reader
+        self._dds_pub_builtin_reader = self._dp.publication_reader
         self._logger = logging.getLogger(__name__)
 
     def __del__(self):
@@ -60,6 +83,8 @@ class DDSDiscSenderResourcesManager(AbstractSenderResourcesManager):
             self._dds_reader.close()
         if self._dds_pub_builtin_reader:
             self._dds_pub_builtin_reader.close()
+        if self._dp:
+            self._dp.close()
 
     def _register(self):
         """

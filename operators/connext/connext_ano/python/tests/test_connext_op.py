@@ -4,6 +4,7 @@ from connext_ano import ANOConfig, ConnextAnoRxOp, ConnextAnoTxOp, DDSConfig
 from holoscan.core import Application, Operator, OperatorSpec
 from holoscan.conditions import CountCondition
 from rti.types import struct
+import time
 
 @struct
 class MyStringType:
@@ -129,6 +130,9 @@ class ConnextApplicationDDSDummy(Application):
 
     def __init__(self, *, payload: str):
         super().__init__()
+        self._source = None
+        self._read_count_condition = None
+        self._count_condition = None
         self._payload = payload
         self._broadcasts: list[str] = []
         self._received: list[str] = []
@@ -184,12 +188,12 @@ class ConnextApplicationDDSDummy(Application):
             ano_config=rx_ano_config,
         )
         self._sink = DDSSinkOp(self, name="dds_sink", storage=self._received)
-        sleep(2) # Allow some time for DDS setup
 
         # Source --> TX --> ShareMem --> RX --> Sink
 
         self.add_flow(self._source, self._tx_op, {("output", "input")})
         self.add_flow(self._rx_op, self._sink, {("output", "input")})
+        sleep(2)
 
 #
 # def test_tx_constructs_with_defaults():
@@ -257,24 +261,34 @@ class ConnextApplicationDDSDummy(Application):
 def test_tx_rx_ano_integration():
     rx_shm_name = "rx_shm_memory"
     payload = "hello_holoscan"
+    timeout = 15 # seconds
 
     app_tx = ConnextApplicationANODummy(rx_shm_name=rx_shm_name, payload=payload)
 
     print("Running TX application...")
     app_tx.run()
+
+    print(f"Waiting for registration during {timeout} seconds max")
+    start_time = time.time()
+    while not app_tx._tx_op.connext_ano_writer.get_discovery_manager().get_destinations():
+        time.sleep(0.1)
+        if time.time() - start_time > timeout:
+            print ("Timeout waiting for the Sender to register the Receiver")
+            assert False
+    time.sleep(0.1)
     # Assert payload string in one of received string list
     received_payloads = app_tx.received
     print("Received payloads:", received_payloads)
     assert any(payload.encode("utf-8") in received for received in received_payloads)
 
-# def test_tx_rx_dds_integration():
-#     payload = "hello_holoscan"
-#     app_tx = ConnextApplicationDDSDummy(payload=payload)
-#     print("Running TX application...")
-#     app_tx.run()
-#     # Assert payload string in one of received string list
-#     received_payloads = app_tx.received
-#     print("Received payloads:", received_payloads)
-#     assert any(payload in received for received in received_payloads)
-#
-#
+def test_tx_rx_dds_integration():
+    payload = "hello_holoscan"
+    app_tx = ConnextApplicationDDSDummy(payload=payload)
+    print("Running TX application...")
+    app_tx.run()
+    # Assert payload string in one of received string list
+    received_payloads = app_tx.received
+    print("Received payloads:", received_payloads)
+    assert any(payload in received for received in received_payloads)
+
+
