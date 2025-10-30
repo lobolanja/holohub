@@ -1,4 +1,5 @@
 import logging
+import time
 from dataclasses import dataclass
 from typing import Iterable, List
 
@@ -66,7 +67,7 @@ class _PayloadSinkOp(Operator):
 
     def compute(self, op_input, _op_output, _context):
         payload = op_input.receive("input")
-        if payload is not None:
+        if (payload is not None) and (payload != []):
             self._storage.append(payload)
 
 
@@ -134,6 +135,9 @@ class ConnextAnoLoopbackApp(Application):
             ano_config=ano_rx_config,
             dds_config=dds_rx_config,
         )
+
+        # Sleep for a short time to allow DDS discovery to complete
+        time.sleep(3)
 
         sink = _PayloadSinkOp(self, name="demo_sink", storage=self._received)
 

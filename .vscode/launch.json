@@ -1485,6 +1485,30 @@
             }
         },
         //#endregion connext_ano
+        //#region connext_app
+        {
+            "name": "connext_app/test_connext_op.py",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "module": "pytest",
+            "cwd": "${workspaceFolder}/applications/connext/python",
+            "env": {
+                "LD_LIBRARY_PATH": "${workspaceFolder}/.venv/lib/python3.10/site-packages/nvidia/cuda_runtime/lib:${env:LD_LIBRARY_PATH}",
+                "PYTHONPATH": "${workspaceFolder}/operators/connext/connext_ano/python/src:${workspaceFolder}/operators/connext/connext_lib/python/src:${env:PYTHONPATH}",
+                "RTI_LICENSE_FILE": "/home/juanca/Downloads/rti_holoscan_license.dat"
+            },
+            "args": [
+                "tests/test_connext_app.py",
+            ],
+            "console": "integratedTerminal",
+            "presentation": {
+                "hidden": false,
+                "group": "connext_app",
+                "order": 1
+            }
+        },
+        //#endregion connext_app
     ],
     "compounds": [
         {

@@ -30,4 +30,9 @@ def test_connext_demo_loopback(transport):
     if transport == "ano":
         assert any(base_payload.encode("utf-8") in payload for payload in received)
     else:
-        assert any(base_payload in payload for payload in received)
+        found = False
+        for payload in received:
+            if received != []:
+                if base_payload in payload[0].data:
+                    found = True
+        assert found
