@@ -35,6 +35,10 @@ class ConnextAnoWriter():
         self._payload_writer = None
         self._payload_tx = None
 
+        # Initialize ANO shared memory and Connext TX
+        self._init_ano()
+        self._init_connext_tx()
+
     # ------------------------------------------------------------------
     def _init_connext_tx(self) -> None:
         self._logger.debug("Initialising DDS sender resources (domain=%s topic=%s)",
@@ -77,8 +81,7 @@ class ConnextAnoWriter():
         return self._discovery_manager
     
     def start(self) -> None:
-        self._init_ano()
-        self._init_connext_tx()
+        pass
 
     def stop(self) -> None:
         try:
