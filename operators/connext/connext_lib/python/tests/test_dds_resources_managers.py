@@ -1,11 +1,23 @@
 import time
 from unittest import TestCase
 
-from rti.connextdds import (DataReader, DataWriter, DomainParticipant,
-                            Subscriber, Topic, DataWriterQos, ReliabilityKind, HistoryKind, DurabilityKind)
+from connext_lib.endpoint_mng.dds_topic.data_types import ReceiverResourceType
+from connext_lib.endpoint_mng.dds_topic.dds_resources_managers import (
+    DDSReceiverResourcesManager,
+    DDSSenderResourcesManager,
+)
+from rti.connextdds import (
+    DataReader,
+    DataWriter,
+    DataWriterQos,
+    DomainParticipant,
+    DurabilityKind,
+    HistoryKind,
+    ReliabilityKind,
+    Subscriber,
+    Topic,
+)
 
-from connext_lib.system_setup.dds_resources_managers import DDSSenderResourcesManager, DDSReceiverResourcesManager
-from connext_lib.system_setup.data_types import ReceiverResourceType
 
 class TestDDSReceiverResourcesManager(TestCase):
     def test_announce(self):

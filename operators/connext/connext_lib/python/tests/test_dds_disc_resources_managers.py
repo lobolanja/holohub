@@ -1,9 +1,13 @@
 import time
 from unittest import TestCase
 
-from rti.connextdds import DomainParticipant, Topic, DataWriter, UserData
-from connext_lib.system_setup.data_types import DummyUserType
-from connext_lib.system_setup.dds_disc_resources_managers import DDSDiscSenderResourcesManager, DDSDiscReceiverResourcesManager
+from connext_lib.endpoint_mng.user_data.data_types import DummyUserType
+from connext_lib.endpoint_mng.user_data.dds_disc_resources_managers import (
+    DDSDiscReceiverResourcesManager,
+    DDSDiscSenderResourcesManager,
+)
+from rti.connextdds import DataWriter, DomainParticipant, Topic, UserData
+
 
 class TestDDSDiscReceiverResourcesManager(TestCase):
     def test_announce_disc(self):

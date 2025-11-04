@@ -1,10 +1,10 @@
-from holoscan.conditions import CountCondition
-from holoscan.core import Application
 from time import sleep
 
 from connext_ano import ANOConfig, ConnextAnoRxOp, ConnextAnoTxOp, DDSConfig
+from holoscan.conditions import CountCondition
+from holoscan.core import Application
+from test_operator_helpers import BufferSinkOp, BufferSourceOp, DDSSinkOp
 from test_type import MyStringType
-from test_operator_helpers import BufferSourceOp, BufferSinkOp, DDSSinkOp
 
 
 class ConnextApplicationANODummy(Application):

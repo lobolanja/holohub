@@ -1,4 +1,6 @@
 from holoscan.core import Operator, OperatorSpec
+
+
 class BufferSourceOp(Operator):
     """Simple Holoscan source that emits a fixed payload once."""
 

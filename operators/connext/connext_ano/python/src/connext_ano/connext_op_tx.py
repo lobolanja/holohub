@@ -6,19 +6,28 @@ import logging
 from multiprocessing import shared_memory
 from typing import Any, Optional
 
-from holoscan.core import Operator, OperatorSpec
-
 from connext_lib.comm import ConnextTx
-from connext_lib.payload_io import MemPayloadWriter
-from connext_lib.payload_io.mem_payload_io import _MemFileLock
-from connext_lib.system_setup import (
+from connext_lib.endpoint_mng import (
     DDSDiscSenderResourcesManager,
     DDSSenderResourcesManager,
     DummyUserType,
 )
-from rti.connextdds import DomainParticipant, Topic, Publisher, DataWriter, DataWriterQos, ReliabilityKind, DurabilityKind, HistoryKind
+from connext_lib.payload_io import MemPayloadWriter
+from connext_lib.payload_io.mem_payload_io import _MemFileLock
+from holoscan.core import Operator, OperatorSpec
+from rti.connextdds import (
+    DataWriter,
+    DataWriterQos,
+    DomainParticipant,
+    DurabilityKind,
+    HistoryKind,
+    Publisher,
+    ReliabilityKind,
+    Topic,
+)
 
 from .common import ANOConfig, DDSConfig
+
 
 class ConnextAnoWriter():
     """Manage the initialization of the Connext ANO writer."""

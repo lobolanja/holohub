@@ -22,7 +22,7 @@ dev = [
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-packages = ["connext_lib", "connext_lib.comm", "connext_lib.payload_io", "connext_lib.system_setup"]
+packages = ["connext_lib", "connext_lib.comm", "connext_lib.payload_io", "connext_lib.endpoint_mng"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

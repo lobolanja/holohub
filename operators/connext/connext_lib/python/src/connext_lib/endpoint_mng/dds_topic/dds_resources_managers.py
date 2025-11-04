@@ -2,21 +2,23 @@ import logging
 from typing import Any
 
 from rti.connextdds import (
-    DomainParticipant,
-    Topic,
-    DataWriter,
     DataReader,
     DataReaderQos,
+    DataWriter,
     DataWriterQos,
-    ReliabilityKind,
+    DomainParticipant,
     DurabilityKind,
     HistoryKind,
+    ReliabilityKind,
+    Topic,
+)
+
+from ..ifc.resources_managers import (
+    AbstractSenderResourcesManager,
+    ReceiverResourcesManagerInterface,
 )
 from .data_types import ReceiverResourceType
-from .resources_managers import (
-    ReceiverResourcesManagerInterface,
-    AbstractSenderResourcesManager,
-)
+
 
 class DDSReceiverResourcesManager(ReceiverResourcesManagerInterface):
     """
@@ -101,4 +103,3 @@ class DDSSenderResourcesManager(AbstractSenderResourcesManager):
         else:
             self._logger.error("[DDSSenderResourcesManager] No DDS reader")
         return None
-

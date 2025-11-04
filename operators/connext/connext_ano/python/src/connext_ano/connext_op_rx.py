@@ -6,19 +6,28 @@ import logging
 from multiprocessing import shared_memory
 from typing import Optional
 
-from holoscan.core import Operator, OperatorSpec
-
 from connext_lib.comm import ConnextRx
-from connext_lib.payload_io import MemPayloadReader
-from connext_lib.system_setup import (
+from connext_lib.endpoint_mng import (
     DDSDiscReceiverResourcesManager,
     DDSReceiverResourcesManager,
     DummyUserType,
 )
-from rti.connextdds import Subscriber, DomainParticipant, Topic, DataReader, \
-    DataReaderQos, ReliabilityKind, DurabilityKind, HistoryKind
+from connext_lib.payload_io import MemPayloadReader
+from holoscan.core import Operator, OperatorSpec
+from rti.connextdds import (
+    DataReader,
+    DataReaderQos,
+    DomainParticipant,
+    DurabilityKind,
+    HistoryKind,
+    ReliabilityKind,
+    Subscriber,
+    Topic,
+)
 
 from .common import ANOConfig, DDSConfig
+
+
 class ConnextAnoReader:
     """Manage the initialization of the Connext ANO reader."""
 

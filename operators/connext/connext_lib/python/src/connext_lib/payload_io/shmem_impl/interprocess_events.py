@@ -1,9 +1,8 @@
 # EventSubscription manages individual subscriber status
-import pickle
-from multiprocessing import shared_memory, Lock
-
-
 import fcntl
+import pickle
+from multiprocessing import Lock, shared_memory
+
 
 class _EvenBusFileLock:
     """A simple file-based lock for synchronizing access to Even Bus shared memory.

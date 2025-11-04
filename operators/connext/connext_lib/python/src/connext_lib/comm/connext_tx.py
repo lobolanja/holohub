@@ -1,7 +1,8 @@
 import logging
 
-from ..system_setup.resources_managers import SenderResourcesManagerInterface
-from ..payload_io.abstract_payload_io import PayloadWriterInterface
+from ..endpoint_mng.ifc.resources_managers import SenderResourcesManagerInterface
+from ..payload_io.ifc.abstract_payload_io import PayloadWriterInterface
+
 
 class ConnextTx:
     def __init__(self, sender_resources_mgr : SenderResourcesManagerInterface, payload_writer : PayloadWriterInterface):

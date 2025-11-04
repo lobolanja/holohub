@@ -1,8 +1,8 @@
-from connext_lib.payload_io.interprocess_events import Event
 from multiprocessing import shared_memory
 from unittest import TestCase
 
-from connext_lib.payload_io.mem_payload_io import MemPayloadReader, MemPayloadWriter
+from connext_lib.payload_io.shmem_impl.interprocess_events import Event
+from connext_lib.payload_io.shmem_impl.mem_payload_io import MemPayloadReader, MemPayloadWriter
 
 
 class TestMemPayloadWriter(TestCase):

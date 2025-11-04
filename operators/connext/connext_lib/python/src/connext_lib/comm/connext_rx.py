@@ -1,7 +1,8 @@
 import logging
 
-from ..system_setup.resources_managers import ReceiverResourcesManagerInterface
-from ..payload_io.abstract_payload_io import PayloadReaderInterface
+from ..endpoint_mng.ifc.resources_managers import ReceiverResourcesManagerInterface
+from ..payload_io.ifc.abstract_payload_io import PayloadReaderInterface
+
 
 class ConnextRx:
     def __init__(self, receiver_resources_mgr: ReceiverResourcesManagerInterface, payload_reader: PayloadReaderInterface):

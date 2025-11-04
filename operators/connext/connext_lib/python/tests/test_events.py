@@ -1,6 +1,7 @@
 from unittest import TestCase
 
-from connext_lib.payload_io.interprocess_events import Event, EventSubscriber, _EventBus
+from connext_lib.payload_io.shmem_impl.interprocess_events import Event, EventSubscriber, _EventBus
+
 
 class TestEventSystem(TestCase):
     def setUp(self):

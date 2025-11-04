@@ -1,8 +1,20 @@
 import logging
 
-from rti.connextdds import DomainParticipant, Topic, DataWriter, DataReader, UserData, InstanceState, \
-    DomainParticipantQos, Duration
-from .resources_managers import ReceiverResourcesManagerInterface, AbstractSenderResourcesManager
+from rti.connextdds import (
+    DataReader,
+    DataWriter,
+    DomainParticipant,
+    DomainParticipantQos,
+    Duration,
+    InstanceState,
+    Topic,
+    UserData,
+)
+
+from ..ifc.resources_managers import (
+    AbstractSenderResourcesManager,
+    ReceiverResourcesManagerInterface,
+)
 
 
 class DDSDiscReceiverResourcesManager(ReceiverResourcesManagerInterface):

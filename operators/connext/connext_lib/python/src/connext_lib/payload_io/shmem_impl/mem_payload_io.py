@@ -2,11 +2,10 @@ import fcntl
 import logging
 from multiprocessing import shared_memory
 
-from .abstract_payload_io import PayloadReaderInterface, PayloadWriterInterface
+from ..ifc.abstract_payload_io import PayloadReaderInterface, PayloadWriterInterface
 from .interprocess_events import Event, EventSubscriber
 
 
-# TODO: create a interface for MemPayloadWriter and MemPayloadReader to implement it
 class _MemFileLock:
     """ Private file lock used by MemPayloadWriter and MempayloadReader for file-based locking using fcntl."""
     def __init__(self, path="/tmp/mempayloadiobus.lock"):

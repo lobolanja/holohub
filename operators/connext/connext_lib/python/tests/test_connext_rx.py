@@ -2,11 +2,13 @@ import time
 from multiprocessing import shared_memory
 from unittest import TestCase
 
-from connext_lib.system_setup.data_types import DummyUserType
-from connext_lib.system_setup.dds_resources_managers import DDSReceiverResourcesManager
-from connext_lib.system_setup.dds_disc_resources_managers import DDSDiscReceiverResourcesManager
 from connext_lib.comm.connext_rx import ConnextRx
-from connext_lib.payload_io.mem_payload_io import MemPayloadReader, MemPayloadWriter
+from connext_lib.endpoint_mng.dds_topic.dds_resources_managers import DDSReceiverResourcesManager
+from connext_lib.endpoint_mng.user_data.data_types import DummyUserType
+from connext_lib.endpoint_mng.user_data.dds_disc_resources_managers import (
+    DDSDiscReceiverResourcesManager,
+)
+from connext_lib.payload_io.shmem_impl.mem_payload_io import MemPayloadReader, MemPayloadWriter
 
 
 class TestConnextRx(TestCase):
