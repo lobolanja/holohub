@@ -1,10 +1,11 @@
 import time
 from time import sleep
 
-from connext_ano import ANOConfig, ConnextAnoRxOp, ConnextAnoTxOp, DDSConfig
+from connext_lib.cfg import ANOConfig, DDSConfig
+from connext_ano.connext_op_tx import ConnextAnoTxOp
+from connext_ano.connext_op_rx import ConnextAnoRxOp
 from holoscan.core import Application
 from test_application_helpers import ConnextApplicationANODummy, ConnextApplicationDDSDummy
-
 
 def test_tx_constructs_with_defaults():
     app = Application()

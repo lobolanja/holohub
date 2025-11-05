@@ -1,6 +1,7 @@
 from time import sleep
 
-from connext_ano import ANOConfig, ConnextAnoRxOp, ConnextAnoTxOp, DDSConfig
+from connext_ano import ConnextAnoRxOp, ConnextAnoTxOp
+from connext_lib.cfg import DDSConfig, ANOConfig
 from holoscan.conditions import CountCondition
 from holoscan.core import Application
 from test_operator_helpers import BufferSinkOp, BufferSourceOp, DDSSinkOp
