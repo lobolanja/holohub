@@ -7,13 +7,12 @@ from multiprocessing import shared_memory
 from typing import Any, Optional
 
 from connext_lib.comm import ConnextTx
-from connext_lib.endpoint_mng import (
+from connext_lib.endpoint_mng.user_data import (
     DDSDiscSenderResourcesManager,
-    DDSSenderResourcesManager,
     DummyUserType,
 )
-from connext_lib.payload_io import MemPayloadWriter
-from connext_lib.payload_io.mem_payload_io import _MemFileLock
+from connext_lib.payload_io.shmem_impl import MemPayloadWriter
+from connext_lib.payload_io.shmem_impl.mem_payload_io import _MemFileLock
 from holoscan.core import Operator, OperatorSpec
 from rti.connextdds import (
     DataWriter,

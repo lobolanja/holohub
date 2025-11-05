@@ -7,12 +7,11 @@ from multiprocessing import shared_memory
 from typing import Optional
 
 from connext_lib.comm import ConnextRx
-from connext_lib.endpoint_mng import (
+from connext_lib.endpoint_mng.user_data import (
     DDSDiscReceiverResourcesManager,
-    DDSReceiverResourcesManager,
     DummyUserType,
 )
-from connext_lib.payload_io import MemPayloadReader
+from connext_lib.payload_io.shmem_impl import MemPayloadReader
 from holoscan.core import Operator, OperatorSpec
 from rti.connextdds import (
     DataReader,
