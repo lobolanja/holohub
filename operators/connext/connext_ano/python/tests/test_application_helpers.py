@@ -6,7 +6,8 @@ from holoscan.conditions import CountCondition
 from holoscan.core import Application
 from test_operator_helpers import BufferSinkOp, BufferSourceOp, DDSSinkOp
 from test_type import MyStringType
-
+from holoscan.schedulers import MultiThreadScheduler
+from holoscan.schedulers import EventBasedScheduler
 
 class ConnextApplicationANODummy(Application):
     """Minimal Holoscan application wiring the Connext ANO TX/RX operators."""
@@ -28,7 +29,28 @@ class ConnextApplicationANODummy(Application):
     def received(self) -> list[str]:
         return self._received
 
+    def __set_multithread_scheduler(self):
+        self.scheduler(MultiThreadScheduler(
+            self,
+            worker_thread_number=4,       # nº de hilos de trabajo
+            stop_on_deadlock=False,       # típico en pipelines con señales externas
+            check_recession_period_ms=100,# cuanto “duerme” el polling (ms)
+            max_duration_ms=0
+        ))
+
+    def __set_event_based_scheduler(self):
+        self.scheduler(EventBasedScheduler(
+            self,
+            worker_thread_number=4,
+            stop_on_deadlock=False,
+            # Desde versiones recientes: fijar cores de los worker threads
+            pin_cores=[0,1,2,3]           # opcional
+        ))
+
     def compose(self):
+
+        # Set the scheduler
+        self.__set_event_based_scheduler()
 
         # Create a count condition to limit the number of transmissions
         self._count_condition = CountCondition(self, count=10)
@@ -70,6 +92,7 @@ class ConnextApplicationANODummy(Application):
 
         self.add_flow(self._source, self._tx_op, {("output", "input")})
         self.add_flow(self._rx_op, self._sink, {("output", "input")})
+
 
 class ConnextApplicationDDSDummy(Application):
     """Minimal Holoscan application wiring the Connext ANO TX/RX operators."""
