@@ -4,6 +4,30 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+        {
+            "name": "(gdb) connext_lib_dds_hello_test",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/connext_lib/connext_lib_dds_hello_test",
+            "args": [],
+            "envFile": "${workspaceFolder}/.vscode/connext.env",
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build/connext_lib",
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "presentation": {
+                "hidden": false,
+                "group": "connext_lib",
+                "order": 1
+            }
+        },
         //#region basic_networking_ping
         {
             "name": "(gdb) basic_networking_ping/cpp TX",
@@ -1484,6 +1508,30 @@
                 "order": 1
             }
         },
+        {
+            "name": "connext/test_tx_rx_ano_integration",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "module": "pytest",
+            "cwd": "${workspaceFolder}/operators/connext/connext_ano/python",
+            "env": {
+                "LD_LIBRARY_PATH": "${workspaceFolder}/.venv/lib/python3.10/site-packages/nvidia/cuda_runtime/lib:${env:LD_LIBRARY_PATH}",
+                "PYTHONPATH": "${workspaceFolder}/operators/connext/connext_ano/python/src:${workspaceFolder}/operators/connext/connext_lib/python/src:${env:PYTHONPATH}",
+                "RTI_LICENSE_FILE": "/home/juanca/Downloads/rti_holoscan_license.dat"
+            },
+            "args": [
+                "tests/test_connext_op.py",
+                "-k",
+                "test_tx_rx_ano_integration"
+            ],
+            "console": "integratedTerminal",
+            "presentation": {
+                "hidden": false,
+                "group": "connext_ano",
+                "order": 2
+            },
+        },  
         //#endregion connext_ano
         //#region connext_app
         {

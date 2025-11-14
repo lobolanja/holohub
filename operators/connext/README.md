@@ -15,24 +15,31 @@ Holoscan platform:
 
 Both components are wired into the Holohub CMake build:
 
-Ensure your environment exposes the RTI license file and CUDA runtime libraries, for example:
+Ensure your environment exposes the RTI license file, NDDSHOME from the RTI Connext Debian packages, and CUDA runtime
+libraries, for example:
 
 ```sh
+export NDDSHOME=/opt/rti/rti_connext_dds-7.3.0
 export RTI_LICENSE_FILE=/path/to/rti_license.dat
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 ```
 
+> The Debian installers published by RTI place the SDK under `/opt/rti/rti_connext_dds-<version>`. Point `NDDSHOME` at
+> that directory and ensure the license file is reachable before building the DDS helpers—CMake will fail early if the
+> SDK is missing. If you only need the Python packaging, disable the native build via `-DCONNEXT_LIB_BUILD_CPP=OFF`.
+
 ### C++ helper library
 
 ```sh
-cmake -S operators/connext -B build -DBUILD_TESTING=ON
-cmake --build build --target connext_lib connext_lib_version_test
-ctest --test-dir build -R connext_lib_version_test -V
+cmake -S operators/connext -B build  -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+cmake --build build --target connext_lib connext_lib_version_test connext_lib_dds_hello_test
+ctest --test-dir build -R connext_lib -V
 ```
 
 - `connext_lib` emits a static archive plus headers/metadata so future native operators can link against a stable
   interface.
 - `connext_lib_version_test` builds a tiny executable that calls `connext_lib::version()` to ensure the library is linkable.
+- `connext_lib_dds_hello_test` verifies that the `dds_hello_world_roundtrip()` helper can publish and receive a sample locally using RTI Connext DDS.
 - Running `ctest` exercises the placeholder test and integrates it with the broader Holohub test suite.
 
 ### Python packages
@@ -48,5 +55,5 @@ ctest --test-dir build -R connext -V
 - `connext_ano_python` stages the Holoscan operators under `build/python/lib/holohub/connext_ano`.
 - Building `connext_lib_version_test` ensures the shared C++ helper remains linkable when the Python packages depend on it.
 
-When `BUILD_TESTING` is enabled, `ctest` registers the C++ smoke test plus both pytest collections so they can execute
+When `BUILD_TESTING` is enabled, `ctest` registers the C++ smoke tests plus both pytest collections so they can execute
 alongside the rest of the Holohub tests.

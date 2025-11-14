@@ -29,6 +29,9 @@
       "tested_versions": [
         "2.6.0"
       ]
+    },
+    "requirements": {
+      "RTI Connext DDS": "Install the RTI-provided Debian packages and export NDDSHOME/RTI_LICENSE_FILE so DDS helpers can build."
     }
   }
 }
