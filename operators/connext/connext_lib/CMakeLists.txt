@@ -14,10 +14,45 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.20)
-project(connext_lib)
+project(connext_lib LANGUAGES CXX)
 
-# Phase 1: only proceed when Python support is requested for the build.
+include(GNUInstallDirs)
+
+set(CONNEXT_LIB_CPP_SOURCES
+    cpp/src/connext_lib.cpp
+)
+
+add_library(connext_lib STATIC ${CONNEXT_LIB_CPP_SOURCES})
+add_library(holoscan::ops::connext_lib ALIAS connext_lib)
+
+target_include_directories(connext_lib
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cpp/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/connext_lib>
+)
+
+target_compile_features(connext_lib PUBLIC cxx_std_17)
+
+install(TARGETS connext_lib
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(DIRECTORY cpp/include/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/connext_lib
+        FILES_MATCHING PATTERN "*.hpp")
+
+install(FILES metadata.json
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/holohub/operators/connext)
+
+if(BUILD_TESTING)
+  enable_testing()
+  add_executable(connext_lib_version_test tests/connext_lib_version_test.cpp)
+  target_link_libraries(connext_lib_version_test PRIVATE connext_lib)
+  add_test(NAME connext_lib_version_test COMMAND connext_lib_version_test)
+endif()
+
 if(HOLOHUB_BUILD_PYTHON)
-  # Phase 2: hand off to the Python-specific CMake script that installs the package files.
   add_subdirectory(python)
 endif()

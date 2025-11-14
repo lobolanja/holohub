@@ -20,9 +20,10 @@ set(CMAKE_VERBOSE_MAKEFILE ON CACHE BOOL "Enable verbose build output" FORCE)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/modules")
 
+include(CTest)
+
+add_subdirectory(connext_lib)
+
 if(HOLOHUB_BUILD_PYTHON)
-  # Expose the shared connext Python helpers so other operators can import them.
-  add_subdirectory(connext_lib)
-  # Stage 2: register the Connext ANO operators (depends on the library above).
   add_subdirectory(connext_ano)
 endif()

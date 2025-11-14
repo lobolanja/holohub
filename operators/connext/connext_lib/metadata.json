@@ -1,6 +1,6 @@
 {
   "operator": {
-    "name": "Connext Python Support Library",
+    "name": "Connext Support Library",
     "authors": [
       {
         "name": "RTI",
@@ -12,6 +12,7 @@
       "0.1.0": "Initial packaging for Holohub"
     },
     "language": [
+      "C++",
       "Python"
     ],
     "platforms": [
