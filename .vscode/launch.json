@@ -8,7 +8,7 @@
             "name": "(gdb) connext_lib_dds_hello_test",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/connext_lib/connext_lib_dds_hello_test",
+            "program": "${workspaceFolder}/build/connext_lib/cpp/connext_lib_dds_hello_test",
             "args": [],
             "envFile": "${workspaceFolder}/.vscode/connext.env",
             "stopAtEntry": false,
