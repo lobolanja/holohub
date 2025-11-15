@@ -38,11 +38,7 @@ install(DIRECTORY include/
 
 if(BUILD_TESTING)
   enable_testing()
-  add_executable(connext_lib_version_test tests/connext_lib_version_test.cpp)
-  target_link_libraries(connext_lib_version_test PRIVATE connext_lib)
-  add_test(NAME connext_lib_version_test COMMAND connext_lib_version_test)
-
-  add_executable(connext_lib_dds_hello_test tests/connext_lib_dds_hello_test.cpp)
-  target_link_libraries(connext_lib_dds_hello_test PRIVATE connext_lib)
-  add_test(NAME connext_lib_dds_hello_test COMMAND connext_lib_dds_hello_test)
+  add_executable(connext_lib_tests tests/connext_lib_tests.cpp)
+  target_link_libraries(connext_lib_tests PRIVATE connext_lib)
+  add_test(NAME connext_lib_tests COMMAND connext_lib_tests)
 endif()

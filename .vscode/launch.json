@@ -5,10 +5,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(gdb) connext_lib_dds_hello_test",
+            "name": "(gdb) connext_lib_tests",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/connext_lib/cpp/connext_lib_dds_hello_test",
+            "program": "${workspaceFolder}/build/connext_lib/cpp/connext_lib_tests",
             "args": [],
             "envFile": "${workspaceFolder}/.vscode/connext.env",
             "stopAtEntry": false,
