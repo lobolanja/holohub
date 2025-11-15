@@ -32,28 +32,28 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 ```sh
 cmake -S operators/connext -B build  -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
-cmake --build build --target connext_lib connext_lib_tests
+cmake --build build --target connext_lib connext_lib_dds_tests connext_lib_config_tests
 ctest --test-dir build -R connext_lib -V
 ```
 
 - `connext_lib` emits a static archive plus headers/metadata so future native operators can link against a stable
   interface.
-- `connext_lib_tests` runs the RTI unit-test framework so both the placeholder version helper and the DDS roundtrip helper
-  execute inside a single binary.
+- `connext_lib_dds_tests` exercises the version helper and DDS hello-world helper via the RTI unit-test framework.
+- `connext_lib_config_tests` covers the configuration and transport-state helpers.
 - Running `ctest` exercises the placeholder test and integrates it with the broader Holohub test suite.
 
 ### Python packages
 
 ```sh
 cmake -S operators/connext -B build -DHOLOHUB_BUILD_PYTHON=ON -DBUILD_TESTING=ON
-cmake --build build --target connext_lib_tests connext_lib_python connext_ano_python
+cmake --build build --target connext_lib_dds_tests connext_lib_config_tests connext_lib_python connext_ano_python
 ctest --test-dir build -R connext -V
 ```
 
 - `connext_lib_python` mirrors the support library into `build/python/lib/holohub/connext_lib`, including its pytest
   suite and `pyproject.toml`.
 - `connext_ano_python` stages the Holoscan operators under `build/python/lib/holohub/connext_ano`.
-- Building `connext_lib_tests` ensures the shared helper remains linkable when the Python packages depend on it.
+- Building the C++ tests ensures the shared helper remains linkable when the Python packages depend on it.
 
 When `BUILD_TESTING` is enabled, `ctest` registers the C++ smoke tests plus both pytest collections so they can execute
 alongside the rest of the Holohub tests.

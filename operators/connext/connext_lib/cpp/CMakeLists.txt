@@ -10,6 +10,7 @@ include(RTIConnextDDS)
 set(CONNEXT_LIB_CPP_SOURCES
     src/connext_lib.cpp
     src/dds_hello.cpp
+    src/config.cpp
 )
 
 add_library(connext_lib STATIC ${CONNEXT_LIB_CPP_SOURCES})
@@ -38,9 +39,14 @@ install(DIRECTORY include/
 
 if(BUILD_TESTING)
   enable_testing()
-  add_executable(connext_lib_tests tests/connext_lib_tests.cpp)
-  target_link_libraries(connext_lib_tests PRIVATE connext_lib RTIConnextDDS::test)
-  add_test(NAME connext_lib_tests COMMAND connext_lib_tests)
+
+  add_executable(connext_lib_dds_tests tests/dds_tests.cpp)
+  target_link_libraries(connext_lib_dds_tests PRIVATE connext_lib RTIConnextDDS::test)
+  add_test(NAME connext_lib_dds_tests COMMAND connext_lib_dds_tests)
+
+  add_executable(connext_lib_config_tests tests/config_tests.cpp)
+  target_link_libraries(connext_lib_config_tests PRIVATE connext_lib RTIConnextDDS::test)
+  add_test(NAME connext_lib_config_tests COMMAND connext_lib_config_tests)
 
   set(CONNEXT_LIB_TEST_ENV "")
   if(DEFINED ENV{NDDSHOME})
@@ -51,6 +57,8 @@ if(BUILD_TESTING)
   endif()
   if(CONNEXT_LIB_TEST_ENV)
     set_tests_properties(
-      connext_lib_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
+      connext_lib_dds_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
+    set_tests_properties(
+      connext_lib_config_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
   endif()
 endif()
