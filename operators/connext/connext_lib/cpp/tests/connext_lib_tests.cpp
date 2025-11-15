@@ -2,6 +2,7 @@
 #include "connext_lib/dds_hello.hpp"
 
 #include "ndds/rtitest/Tester.hpp"
+#include "ndds/rtitest/test_setting_impl.h"
 
 class ConnextLibTester : public rti::test::Tester,
                          public rti::test::Singleton<ConnextLibTester> {
@@ -30,6 +31,11 @@ class ConnextLibTestContainer : public rti::test::TesterContainer,
 private:
   ConnextLibTestContainer() : rti::test::TesterContainer("connext_lib") {
     add_tester<ConnextLibTester>();
+  }
+
+  bool on_tests_begin(const RTITestSetting& setting) override {
+    RTITestSetting_setupStandalone();
+    return rti::test::TesterContainer::on_tests_begin(setting);
   }
 
   friend class rti::test::Singleton<ConnextLibTestContainer>;
