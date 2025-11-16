@@ -38,23 +38,3 @@ class ANOConfig:
                 f"Unsupported ANO transport '{self.transport}'. "
                 f"Supported values: {', '.join(SUPPORTED_TRANSPORTS)}"
             )
-
-
-class TransportState:
-    """Lazily tracks whether ANO is active or we should fall back to DDS."""
-
-    def __init__(self, ano_config: ANOConfig) -> None:
-        self.ano_config = ano_config
-        self.ano_active = False
-
-    def activate_ano(self) -> None:
-        # TODO-JUANCA: perform the real ANO bring-up handshake here
-        if self.ano_config.enabled:
-            self.ano_active = True
-
-    def deactivate_ano(self) -> None:
-        # TODO-JUANCA: tear down ANO resources if required
-        self.ano_active = False
-
-    def should_use_ano(self) -> bool:
-        return self.ano_active and self.ano_config.enabled

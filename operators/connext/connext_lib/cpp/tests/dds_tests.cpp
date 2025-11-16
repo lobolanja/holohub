@@ -47,4 +47,3 @@ class DdsTestContainer : public rti::test::TesterContainer,
 int main(int argc, char** argv) {
   return DdsTestContainer::get_instance().run_tests(argc, argv);
 }
-

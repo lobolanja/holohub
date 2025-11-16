@@ -11,6 +11,8 @@ set(CONNEXT_LIB_CPP_SOURCES
     src/connext_lib.cpp
     src/dds_hello.cpp
     src/config.cpp
+    src/resource_managers.cpp
+    src/payload_transport_dds.cpp
 )
 
 add_library(connext_lib STATIC ${CONNEXT_LIB_CPP_SOURCES})
@@ -52,11 +54,21 @@ if(BUILD_TESTING)
   target_link_libraries(connext_lib_payload_transport_tests PRIVATE connext_lib RTIConnextDDS::test)
   add_test(NAME connext_lib_payload_transport_tests COMMAND connext_lib_payload_transport_tests)
 
+  add_executable(connext_lib_payload_transport_dds_tests tests/payload_transport_dds_tests.cpp)
+  target_link_libraries(connext_lib_payload_transport_dds_tests PRIVATE connext_lib RTIConnextDDS::test)
+  add_test(NAME connext_lib_payload_transport_dds_tests COMMAND connext_lib_payload_transport_dds_tests)
+
+  add_executable(connext_lib_resource_managers_tests tests/resource_managers_tests.cpp)
+  target_link_libraries(connext_lib_resource_managers_tests PRIVATE connext_lib RTIConnextDDS::test)
+  add_test(NAME connext_lib_resource_managers_tests COMMAND connext_lib_resource_managers_tests)
+
   add_custom_target(connext_lib_cpp_tests
     DEPENDS
       connext_lib_dds_tests
       connext_lib_config_tests
-      connext_lib_payload_transport_tests)
+      connext_lib_payload_transport_tests
+      connext_lib_payload_transport_dds_tests
+      connext_lib_resource_managers_tests)
 
   set(CONNEXT_LIB_TEST_ENV "")
   if(DEFINED ENV{NDDSHOME})
@@ -72,5 +84,9 @@ if(BUILD_TESTING)
       connext_lib_config_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
     set_tests_properties(
       connext_lib_payload_transport_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
+    set_tests_properties(
+      connext_lib_payload_transport_dds_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
+    set_tests_properties(
+      connext_lib_resource_managers_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
   endif()
 endif()

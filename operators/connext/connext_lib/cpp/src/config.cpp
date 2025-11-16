@@ -18,18 +18,4 @@ AnoConfig::AnoConfig(std::string channel_name,
       max_payload_bytes_(max_payload_bytes),
       enabled_(enabled) {}
 
-/// ANO should only be considered active when both the config enables it and
-/// some component explicitly turns it on.
-void TransportState::ActivateAno() {
-  if (config_.enabled()) {
-    ano_active_ = true;
-  }
-}
-
-void TransportState::DeactivateAno() { ano_active_ = false; }
-
-bool TransportState::ShouldUseAno() const {
-  return ano_active_ && config_.enabled();
-}
-
 }  // namespace connext_lib

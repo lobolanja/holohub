@@ -58,20 +58,4 @@ class AnoConfig {
   bool enabled_{false};
 };
 
-/** Simple runtime guard used by writers/readers to decide whether ANO should
- * be active. Keeps policy decisions close to the config.
- */
-class TransportState {
- public:
-  explicit TransportState(const AnoConfig& config) : config_(config) {}
-
-  void ActivateAno();
-  void DeactivateAno();
-  bool ShouldUseAno() const;
-
- private:
-  const AnoConfig& config_;
-  bool ano_active_{false};
-};
-
 }  // namespace connext_lib
