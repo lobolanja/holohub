@@ -1,5 +1,10 @@
 ## Connext C++ Library – Development Guide
 
+### Progress
+- Defined payload writer/reader interfaces plus the `PayloadTransport` factory in
+  `include/connext_lib/payload_transport.hpp` to bootstrap module 2 (DDS payload
+  transport). Next step is to back these interfaces with a DDS implementation.
+
 This library mirrors the Python `connext_lib` feature set, but all payload transport currently runs over DDS so we can emulate ANO until RDMA hardware is available. Keep these rules in mind while implementing modules:
 
 1. **Module order**
