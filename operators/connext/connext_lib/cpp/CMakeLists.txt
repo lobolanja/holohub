@@ -52,6 +52,12 @@ if(BUILD_TESTING)
   target_link_libraries(connext_lib_payload_transport_tests PRIVATE connext_lib RTIConnextDDS::test)
   add_test(NAME connext_lib_payload_transport_tests COMMAND connext_lib_payload_transport_tests)
 
+  add_custom_target(connext_lib_cpp_tests
+    DEPENDS
+      connext_lib_dds_tests
+      connext_lib_config_tests
+      connext_lib_payload_transport_tests)
+
   set(CONNEXT_LIB_TEST_ENV "")
   if(DEFINED ENV{NDDSHOME})
     list(APPEND CONNEXT_LIB_TEST_ENV "NDDSHOME=$ENV{NDDSHOME}")

@@ -32,21 +32,22 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 ```sh
 cmake -S operators/connext -B build  -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
-cmake --build build --target connext_lib connext_lib_dds_tests connext_lib_config_tests
+cmake --build build --target connext_lib connext_lib_cpp_tests
 ctest --test-dir build -R connext_lib -V
 ```
 
 - `connext_lib` emits a static archive plus headers/metadata so future native operators can link against a stable
   interface.
-- `connext_lib_dds_tests` exercises the version helper and DDS hello-world helper via the RTI unit-test framework.
-- `connext_lib_config_tests` covers the configuration and transport-state helpers.
+- `connext_lib_cpp_tests` is a convenience target that builds every C++ unit-test binary
+  (`connext_lib_dds_tests`, `connext_lib_config_tests`, and `connext_lib_payload_transport_tests`) so they can be run
+  together or individually via `ctest`.
 - Running `ctest` exercises the placeholder test and integrates it with the broader Holohub test suite.
 
 ### Python packages
 
 ```sh
 cmake -S operators/connext -B build -DHOLOHUB_BUILD_PYTHON=ON -DBUILD_TESTING=ON
-cmake --build build --target connext_lib_dds_tests connext_lib_config_tests connext_lib_python connext_ano_python
+cmake --build build --target connext_lib_cpp_tests connext_lib_python connext_ano_python
 ctest --test-dir build -R connext -V
 ```
 
