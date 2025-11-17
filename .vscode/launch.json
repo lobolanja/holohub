@@ -1605,6 +1605,58 @@
                 "group": "connext_lib",
                 "order": 3
             }
+        },{
+            "name": "(gdb) connext_lib_resource_managers_dds_tests",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/connext_lib/cpp/connext_lib_resource_managers_dds_tests",
+            "args": [],
+            "cwd": "${workspaceFolder}/build/connext_lib/cpp",
+            "environment": [
+                { "name": "NDDSHOME", "value": "/opt/rti.com/rti_connext_dds-7.3.0" },
+                { "name": "RTI_LICENSE_FILE", "value": "/home/juanca/holo/holohub/rti_license.dat" }
+            ],
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "presentation": {
+                "hidden": false,
+                "group": "connext_lib",
+                "order": 1
+            }
+        },{
+            "name": "(gdb) connext_lib_resource_managers_dds_tests",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/connext_lib/cpp/connext_lib_resource_managers_dds_tests",
+            "args": [],
+            "cwd": "${workspaceFolder}/build/connext_lib/cpp",
+            "environment": [
+                { "name": "NDDSHOME", "value": "/opt/rti.com/rti_connext_dds-7.3.0" },
+                { "name": "RTI_LICENSE_FILE", "value": "/home/juanca/holo/holohub/rti_license.dat" }
+            ],
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "presentation": {
+                "hidden": false,
+                "group": "connext_lib",
+                "order": 4
+            }
         },
         //#endregion connext_lib_cpp
     ],
