@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,18 +14,10 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.20)
-project(connext_operators LANGUAGES NONE)
+project(connext_ops LANGUAGES NONE)
 
-set(CMAKE_VERBOSE_MAKEFILE ON CACHE BOOL "Enable verbose build output" FORCE)
+option(CONNEXT_OPS_BUILD_CPP "Build the Connext Holoscan operators" ON)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/modules")
-
-include(CTest)
-
-add_subdirectory(connext_lib)
-
-add_subdirectory(connext_ops)
-
-if(HOLOHUB_BUILD_PYTHON)
-  add_subdirectory(connext_ano)
+if(CONNEXT_OPS_BUILD_CPP)
+  add_subdirectory(cpp)
 endif()
