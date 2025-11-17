@@ -18,6 +18,7 @@ class DdsPayloadWriter : public PayloadWriterInterface {
                    std::size_t max_payload_bytes);
 
   void SetBuffer(const PayloadBufferView& buffer) override;
+  // TODO: Remove destination_reference parameter because it will be handled internally by the implementation
   bool WriteTo(const std::string& destination_reference) override;
 
  private:

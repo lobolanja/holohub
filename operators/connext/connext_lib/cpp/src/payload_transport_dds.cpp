@@ -40,6 +40,7 @@ void DdsPayloadWriter::SetBuffer(const PayloadBufferView& buffer) {
     payload_.clear();
     return;
   }
+  // If max_payload_bytes_ is zero, there is no limit.
   if (max_payload_bytes_ > 0 && buffer.size_bytes > max_payload_bytes_) {
     throw std::runtime_error("DDS payload exceeds configured maximum");
   }
@@ -47,7 +48,7 @@ void DdsPayloadWriter::SetBuffer(const PayloadBufferView& buffer) {
 }
 
 bool DdsPayloadWriter::WriteTo(const std::string& /*destination_reference*/) {
-  // DDS topics are multicast by default; destination_reference is ignored.
+  // DDS topics are multicast by default; destination_reference is ignored. Because dds will handle dicvoery matchhing
   try {
     dds::core::BytesTopicType sample(payload_);
     writer_.write(sample);
