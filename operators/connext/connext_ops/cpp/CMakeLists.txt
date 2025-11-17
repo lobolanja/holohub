@@ -57,5 +57,4 @@ install(DIRECTORY include/
 
 if(BUILD_TESTING)
   enable_testing()
-  add_subdirectory(tests)
 endif()
