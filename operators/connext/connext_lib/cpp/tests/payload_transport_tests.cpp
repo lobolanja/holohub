@@ -14,74 +14,74 @@ using namespace std::chrono_literals;
 
 class FakePayloadWriter : public connext_lib::PayloadWriterInterface {
  public:
-  void SetBuffer(const connext_lib::PayloadBufferView& buffer) override {
-    last_buffer_ = buffer;
+  void setBuffer(const connext_lib::PayloadBufferView& buffer) override {
+    lastBuffer_ = buffer;
   }
 
-  bool WriteTo(const std::string& destination_reference) override {
-    last_destination_ = destination_reference;
-    return last_buffer_.data != nullptr && last_buffer_.size_bytes > 0;
+  bool writeTo(const std::string& destination_reference) override {
+    lastDestination_ = destination_reference;
+    return lastBuffer_.data != nullptr && lastBuffer_.size_bytes > 0;
   }
 
-  const connext_lib::PayloadBufferView& last_buffer() const {
-    return last_buffer_;
+  const connext_lib::PayloadBufferView& lastBuffer() const {
+    return lastBuffer_;
   }
 
-  const std::string& last_destination() const { return last_destination_; }
+  const std::string& lastDestination() const { return lastDestination_; }
 
  private:
-    connext_lib::PayloadBufferView last_buffer_{};
-    std::string last_destination_;
+    connext_lib::PayloadBufferView lastBuffer_{};
+    std::string lastDestination_;
 };
 
 class FakePayloadReader : public connext_lib::PayloadReaderInterface {
  public:
   explicit FakePayloadReader(std::vector<std::uint8_t> canned_payload)
-      : canned_payload_(std::move(canned_payload)) {}
+      : cannedPayload_(std::move(canned_payload)) {}
 
-  bool ReadNext(std::vector<std::uint8_t>& destination,
+  bool readNext(std::vector<std::uint8_t>& destination,
                 std::chrono::milliseconds timeout) override {
     (void)timeout;
-    destination = canned_payload_;
+    destination = cannedPayload_;
     return !destination.empty();
   }
 
  private:
-  std::vector<std::uint8_t> canned_payload_;
+  std::vector<std::uint8_t> cannedPayload_;
 };
 
 class FakePayloadTransport : public connext_lib::PayloadTransport {
  public:
-  std::unique_ptr<connext_lib::PayloadWriterInterface> CreateWriter(
+  std::unique_ptr<connext_lib::PayloadWriterInterface> createWriter(
       const connext_lib::PayloadWriterOptions& options) override {
-    last_writer_options_ = options;
+    lastWriterOptions_ = options;
     return std::make_unique<FakePayloadWriter>();
   }
 
-  std::unique_ptr<connext_lib::PayloadReaderInterface> CreateReader(
+  std::unique_ptr<connext_lib::PayloadReaderInterface> createReader(
       const connext_lib::PayloadReaderOptions& options) override {
-    last_reader_options_ = options;
+    lastReaderOptions_ = options;
     std::vector<std::uint8_t> canned = {1, 2, 3};
     return std::make_unique<FakePayloadReader>(std::move(canned));
   }
 
-  const connext_lib::PayloadWriterOptions& last_writer_options() const {
-    return last_writer_options_;
+  const connext_lib::PayloadWriterOptions& lastWriterOptions() const {
+    return lastWriterOptions_;
   }
-  const connext_lib::PayloadReaderOptions& last_reader_options() const {
-    return last_reader_options_;
+  const connext_lib::PayloadReaderOptions& lastReaderOptions() const {
+    return lastReaderOptions_;
   }
 
  private:
-  connext_lib::PayloadWriterOptions last_writer_options_;
-  connext_lib::PayloadReaderOptions last_reader_options_;
+  connext_lib::PayloadWriterOptions lastWriterOptions_;
+  connext_lib::PayloadReaderOptions lastReaderOptions_;
 };
 
 class PayloadTransportTester : public rti::test::Tester,
                                public rti::test::Singleton<PayloadTransportTester> {
  public:
   /// Ensure the light-weight view simply aliases caller-owned memory.
-  void payload_buffer_view_retains_pointer() {
+  void payloadBufferViewRetainsPointer() {
     std::array<std::uint8_t, 4> buffer{{0x01, 0x02, 0x03, 0x04}};
     connext_lib::PayloadBufferView view{buffer.data(), buffer.size()};
     RTI_TEST_ASSERT(view.data == buffer.data());
@@ -90,7 +90,7 @@ class PayloadTransportTester : public rti::test::Tester,
   }
 
   /// Validate struct defaults and setters before transports consume them.
-  void payload_writer_and_reader_option_defaults() {
+  void payloadWriterAndReaderOptionDefaults() {
     connext_lib::PayloadWriterOptions writer_opts;
     RTI_TEST_ASSERT(writer_opts.channel.empty());
     RTI_TEST_ASSERT_EQUALS_INT(0, static_cast<int>(writer_opts.max_payload_bytes));
@@ -114,66 +114,66 @@ class PayloadTransportTester : public rti::test::Tester,
   }
 
   /// Writers must cache payload bytes and propagate destination metadata.
-  void payload_writer_interface_stages_and_sends() {
+  void payloadWriterInterfaceStagesAndSends() {
     FakePayloadWriter writer;
     std::array<std::uint8_t, 2> data{{0xAA, 0x55}};
     const connext_lib::PayloadBufferView view{data.data(), data.size()};
-    writer.SetBuffer(view);
-    RTI_TEST_ASSERT(writer.last_buffer().data == data.data());
+    writer.setBuffer(view);
+    RTI_TEST_ASSERT(writer.lastBuffer().data == data.data());
     RTI_TEST_ASSERT_EQUALS_INT(
         static_cast<int>(data.size()),
-        static_cast<int>(writer.last_buffer().size_bytes));
-    RTI_TEST_ASSERT(writer.WriteTo("receiver"));
-    RTI_TEST_ASSERT(writer.last_destination() == "receiver");
+        static_cast<int>(writer.lastBuffer().size_bytes));
+    RTI_TEST_ASSERT(writer.writeTo("receiver"));
+    RTI_TEST_ASSERT(writer.lastDestination() == "receiver");
   }
 
   /// Readers surface buffered payloads into caller-provided storage.
-  void payload_reader_interface_delivers_payload() {
+  void payloadReaderInterfaceDeliversPayload() {
     std::vector<std::uint8_t> canned{0x0A, 0x0B};
     FakePayloadReader reader(canned);
     std::vector<std::uint8_t> destination;
-    RTI_TEST_ASSERT(reader.ReadNext(destination, 10ms));
+    RTI_TEST_ASSERT(reader.readNext(destination, 10ms));
     RTI_TEST_ASSERT_EQUALS_INT(static_cast<int>(canned.size()),
                                static_cast<int>(destination.size()));
     RTI_TEST_ASSERT(destination == canned);
   }
 
   /// Factories should keep a copy of option structs for diagnostics.
-  void payload_transport_propagates_options() {
+  void payloadTransportPropagatesOptions() {
     FakePayloadTransport transport;
     connext_lib::PayloadWriterOptions writer_opts;
     writer_opts.channel = "dds_topic";
     writer_opts.max_payload_bytes = 2048;
-    auto writer = transport.CreateWriter(writer_opts);
+    auto writer = transport.createWriter(writer_opts);
     RTI_TEST_ASSERT(writer != nullptr);
-    RTI_TEST_ASSERT(transport.last_writer_options().channel == "dds_topic");
+    RTI_TEST_ASSERT(transport.lastWriterOptions().channel == "dds_topic");
     RTI_TEST_ASSERT_EQUALS_INT(
         2048,
-        static_cast<int>(transport.last_writer_options().max_payload_bytes));
+        static_cast<int>(transport.lastWriterOptions().max_payload_bytes));
 
     connext_lib::PayloadReaderOptions reader_opts;
     reader_opts.channel = "dds_topic";
     reader_opts.expected_payload_bytes = 2048;
-    auto reader = transport.CreateReader(reader_opts);
+    auto reader = transport.createReader(reader_opts);
     RTI_TEST_ASSERT(reader != nullptr);
-    RTI_TEST_ASSERT(transport.last_reader_options().channel == "dds_topic");
+    RTI_TEST_ASSERT(transport.lastReaderOptions().channel == "dds_topic");
     RTI_TEST_ASSERT_EQUALS_INT(
         2048,
-        static_cast<int>(transport.last_reader_options().expected_payload_bytes));
+        static_cast<int>(transport.lastReaderOptions().expected_payload_bytes));
   }
 
  private:
   PayloadTransportTester() : rti::test::Tester("connext_lib_payload_transport_tests") {
     RTI_TEST_FUNCTION_ADD(PayloadTransportTester,
-                          payload_buffer_view_retains_pointer);
+                          payloadBufferViewRetainsPointer);
     RTI_TEST_FUNCTION_ADD(PayloadTransportTester,
-                          payload_writer_and_reader_option_defaults);
+                          payloadWriterAndReaderOptionDefaults);
     RTI_TEST_FUNCTION_ADD(PayloadTransportTester,
-                          payload_writer_interface_stages_and_sends);
+                          payloadWriterInterfaceStagesAndSends);
     RTI_TEST_FUNCTION_ADD(PayloadTransportTester,
-                          payload_reader_interface_delivers_payload);
+                          payloadReaderInterfaceDeliversPayload);
     RTI_TEST_FUNCTION_ADD(PayloadTransportTester,
-                          payload_transport_propagates_options);
+                          payloadTransportPropagatesOptions);
   }
 
   friend class rti::test::Singleton<PayloadTransportTester>;

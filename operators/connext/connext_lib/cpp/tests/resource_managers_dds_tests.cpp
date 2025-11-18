@@ -28,12 +28,12 @@ class DdsResourceManagersTester
         receiver_participant, buffer_id, channel);
     connext_lib::DdsSenderResourcesManager sender(
         sender_participant, channel);
-    sender.StartProcessing(10ms);
-    receiver.Announce();
+    sender.startProcessing(10ms);
+    receiver.announce();
 
     bool observed = false;
     for (int attempt = 0; attempt < 50 && !observed; ++attempt) {
-      const auto& destinations = sender.Destinations();
+      const auto& destinations = sender.destinations();
       for (const auto& entry : destinations) {
         if (entry.second == buffer_id) {
           observed = true;
@@ -41,10 +41,10 @@ class DdsResourceManagersTester
         }
       }
       if (!observed) {
-        std::this_thread::sleep_for(20ms);
+        std::this_thread::sleep_for(40ms);
       }
     }
-    sender.StopProcessing();
+    sender.stopProcessing();
     RTI_TEST_ASSERT(observed);
   }
 
@@ -57,11 +57,11 @@ class DdsResourceManagersTester
         receiver_participant, "buffer_filtered", channel);
     connext_lib::DdsSenderResourcesManager sender(
         sender_participant, channel + "_other");
-    sender.StartProcessing(10ms);
-    receiver.Announce();
+    sender.startProcessing(10ms);
+    receiver.announce();
     std::this_thread::sleep_for(200ms);
-    sender.StopProcessing();
-    RTI_TEST_ASSERT(sender.Destinations().empty());
+    sender.stopProcessing();
+    RTI_TEST_ASSERT(sender.destinations().empty());
   }
 
  private:

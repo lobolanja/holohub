@@ -38,16 +38,16 @@ DdsReceiverResourcesManager::DdsReceiverResourcesManager(
       buffer_id_(std::move(buffer_id)),
       channel_(topic_.name()) {}
 
-rti::core::policy::Property DdsReceiverResourcesManager::BuildProperties()
+rti::core::policy::Property DdsReceiverResourcesManager::buildProperties()
     const {
   rti::core::policy::Property properties;
   properties.set({kBufferIdProperty, buffer_id_}, true);
   properties.set({kChannelProperty, channel_}, true);
-  properties.set({kGuidProperty, GuidString()}, true);
+  properties.set({kGuidProperty, guidString()}, true);
   return properties;
 }
 
-bool DdsReceiverResourcesManager::ApplyProperties(
+bool DdsReceiverResourcesManager::applyProperties(
     const ReceiverPropertySet& properties) {
   auto qos = reader_.qos();
   auto property_policy = qos.policy<rti::core::policy::Property>();
@@ -60,7 +60,7 @@ bool DdsReceiverResourcesManager::ApplyProperties(
   return true;
 }
 
-std::string DdsReceiverResourcesManager::GuidString() const {
+std::string DdsReceiverResourcesManager::guidString() const {
   auto protocol =
       reader_.qos().policy<rti::core::policy::DataReaderProtocol>();
   return GuidToString(protocol.virtual_guid());
@@ -91,7 +91,7 @@ DdsSenderResourcesManager::DdsSenderResourcesManager(
   subscription_reader_ = readers.front();
 }
 
-void DdsSenderResourcesManager::PollOnce() {
+void DdsSenderResourcesManager::pollOnce() {
   auto samples = subscription_reader_.take();
   for (const auto& sample : samples) {
     if (!sample.info().valid()) {
@@ -108,7 +108,7 @@ void DdsSenderResourcesManager::PollOnce() {
     if (!channel_filter_.empty() && *channel != channel_filter_) {
       continue;
     }
-    RegisterReceiver(*guid, *buffer_id);
+    registerReceiver(*guid, *buffer_id);
   }
 }
 

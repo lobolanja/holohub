@@ -7,20 +7,20 @@ namespace connext_lib {
 AbstractSenderResourcesManager::AbstractSenderResourcesManager() = default;
 
 AbstractSenderResourcesManager::~AbstractSenderResourcesManager() {
-  StopProcessing();
+  AbstractSenderResourcesManager::stopProcessing();
 }
 
-void AbstractSenderResourcesManager::StartProcessing(
+void AbstractSenderResourcesManager::startProcessing(
     std::chrono::milliseconds poll_interval) {
   // Always stop any existing worker before spinning up another to avoid
   // accidental thread leaks when operators restart.
-  StopProcessing();
+  stopProcessing();
   should_stop_.store(false);
-  worker_ = std::thread(&AbstractSenderResourcesManager::WorkerLoop, this,
+  worker_ = std::thread(&AbstractSenderResourcesManager::workerLoop, this,
                         poll_interval);
 }
 
-void AbstractSenderResourcesManager::StopProcessing() {
+void AbstractSenderResourcesManager::stopProcessing() {
   should_stop_.store(true);
   if (worker_.joinable()) {
     // Joining here keeps teardown synchronous which helps tests avoid races.
@@ -28,27 +28,26 @@ void AbstractSenderResourcesManager::StopProcessing() {
   }
 }
 
-void AbstractSenderResourcesManager::RegisterReceiver(std::string destination,
+void AbstractSenderResourcesManager::registerReceiver(std::string destination,
                                                       std::string buffer_id) {
   // Overwrite existing entries so reconnects simply refresh the buffer id.
   resources_[std::move(destination)] = std::move(buffer_id);
 }
 
-void AbstractSenderResourcesManager::UnregisterReceiver(
+void AbstractSenderResourcesManager::unregisterReceiver(
     const std::string& destination) {
   resources_.erase(destination);
 }
 
-void AbstractSenderResourcesManager::RequestStop() {
+void AbstractSenderResourcesManager::requestStop() {
   should_stop_.store(true);
 }
 
-void AbstractSenderResourcesManager::WorkerLoop(
-    std::chrono::milliseconds poll_interval) {
+void AbstractSenderResourcesManager::workerLoop(const std::chrono::milliseconds poll_interval) {
   while (!should_stop_.load()) {
     // Derived managers fetch DDS samples and invoke Register/Unregister within
     // this hook. Keeping the loop tiny makes behavior easy to reason about.
-    PollOnce();
+    pollOnce();
     std::this_thread::sleep_for(poll_interval);
   }
 }

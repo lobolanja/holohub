@@ -54,8 +54,8 @@ class PayloadTransportDdsTester
     connext_lib::PayloadReaderOptions reader_opts;
     reader_opts.channel = writer_opts.channel;
 
-    auto reader = transport.CreateReader(reader_opts);
-    auto writer = transport.CreateWriter(writer_opts);
+    auto reader = transport.createReader(reader_opts);
+    auto writer = transport.createWriter(writer_opts);
 
     // Allow DDS discovery to complete before writing.
     std::this_thread::sleep_for(200ms);
@@ -64,11 +64,11 @@ class PayloadTransportDdsTester
     connext_lib::PayloadBufferView buffer{
         reinterpret_cast<const std::uint8_t*>(message.data()),
         message.size()};
-    writer->SetBuffer(buffer);
-    RTI_TEST_ASSERT(writer->WriteTo("broadcast"));
+    writer->setBuffer(buffer);
+    RTI_TEST_ASSERT(writer->writeTo("broadcast"));
 
     std::vector<std::uint8_t> destination;
-    RTI_TEST_ASSERT(reader->ReadNext(destination, 2s));
+    RTI_TEST_ASSERT(reader->readNext(destination, 2s));
     const std::string received(destination.begin(), destination.end());
     RTI_TEST_ASSERT(received == message);
   }

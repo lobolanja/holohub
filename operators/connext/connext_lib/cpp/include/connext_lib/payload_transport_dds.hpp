@@ -17,9 +17,9 @@ class DdsPayloadWriter : public PayloadWriterInterface {
                    std::string topic_name,
                    std::size_t max_payload_bytes);
 
-  void SetBuffer(const PayloadBufferView& buffer) override;
+  void setBuffer(const PayloadBufferView& buffer) override;
   // TODO: Remove destination_reference parameter because it will be handled internally by the implementation
-  bool WriteTo(const std::string& destination_reference) override;
+  bool writeTo(const std::string& destination_reference) override;
 
  private:
   dds::domain::DomainParticipant participant_;
@@ -35,7 +35,7 @@ class DdsPayloadReader : public PayloadReaderInterface {
  public:
   DdsPayloadReader(int domain_id, std::string topic_name);
 
-  bool ReadNext(std::vector<std::uint8_t>& destination,
+  bool readNext(std::vector<std::uint8_t>& destination,
                 std::chrono::milliseconds timeout) override;
 
  private:
@@ -51,10 +51,10 @@ class DdsPayloadTransport : public PayloadTransport {
   explicit DdsPayloadTransport(int domain_id);
   ~DdsPayloadTransport() override;
 
-  std::unique_ptr<PayloadWriterInterface> CreateWriter(
+  std::unique_ptr<PayloadWriterInterface> createWriter(
       const PayloadWriterOptions& options) override;
 
-  std::unique_ptr<PayloadReaderInterface> CreateReader(
+  std::unique_ptr<PayloadReaderInterface> createReader(
       const PayloadReaderOptions& options) override;
 
  private:

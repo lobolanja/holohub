@@ -35,7 +35,7 @@ DdsPayloadWriter::DdsPayloadWriter(int domain_id,
                   "BuiltinQosLib::Pattern.Status")),
       max_payload_bytes_(max_payload_bytes) {}
 
-void DdsPayloadWriter::SetBuffer(const PayloadBufferView& buffer) {
+void DdsPayloadWriter::setBuffer(const PayloadBufferView& buffer) {
   if (buffer.data == nullptr || buffer.size_bytes == 0) {
     payload_.clear();
     return;
@@ -47,7 +47,7 @@ void DdsPayloadWriter::SetBuffer(const PayloadBufferView& buffer) {
   payload_.assign(buffer.data, buffer.data + buffer.size_bytes);
 }
 
-bool DdsPayloadWriter::WriteTo(const std::string& /*destination_reference*/) {
+bool DdsPayloadWriter::writeTo(const std::string& /*destination_reference*/) {
   // DDS topics are multicast by default; destination_reference is ignored. Because dds will handle dicvoery matchhing
   try {
     dds::core::BytesTopicType sample(payload_);
@@ -69,7 +69,7 @@ DdsPayloadReader::DdsPayloadReader(int domain_id, std::string topic_name)
               dds::core::QosProvider::Default().datareader_qos(
                   "BuiltinQosLib::Pattern.Status")) {}
 
-bool DdsPayloadReader::ReadNext(std::vector<std::uint8_t>& destination,
+bool DdsPayloadReader::readNext(std::vector<std::uint8_t>& destination,
                                 std::chrono::milliseconds timeout) {
 
   // TODO: this method will take(consume) the data, so we will lost samples if
@@ -116,12 +116,12 @@ DdsPayloadTransport::DdsPayloadTransport(int domain_id)
 
 DdsPayloadTransport::~DdsPayloadTransport() = default;
 
-std::unique_ptr<PayloadWriterInterface> DdsPayloadTransport::CreateWriter(
+std::unique_ptr<PayloadWriterInterface> DdsPayloadTransport::createWriter(
     const PayloadWriterOptions& options) {
   return MakeDdsPayloadWriter(domain_id_, options);
 }
 
-std::unique_ptr<PayloadReaderInterface> DdsPayloadTransport::CreateReader(
+std::unique_ptr<PayloadReaderInterface> DdsPayloadTransport::createReader(
     const PayloadReaderOptions& options) {
   return MakeDdsPayloadReader(domain_id_, options);
 }

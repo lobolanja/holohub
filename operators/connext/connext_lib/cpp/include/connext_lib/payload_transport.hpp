@@ -40,11 +40,11 @@ class PayloadWriterInterface {
  public:
   virtual ~PayloadWriterInterface() = default;
 
-  /** Copies the supplied payload so the writer can reuse it during WriteTo(). */
-  virtual void SetBuffer(const PayloadBufferView& buffer) = 0;
+  /** Copies the supplied payload so the writer can reuse it during writeTo(). */
+  virtual void setBuffer(const PayloadBufferView& buffer) = 0;
 
   /** Sends the previously staged payload to the specified destination. */
-  virtual bool WriteTo(const std::string& destination_reference) = 0;
+  virtual bool writeTo(const std::string& destination_reference) = 0;
 };
 
 /** Interface shared by all payload readers (DDS or ANO). */
@@ -53,7 +53,7 @@ class PayloadReaderInterface {
   virtual ~PayloadReaderInterface() = default;
 
   /** Blocks until data arrives or timeout expires and writes bytes into output. */
-  virtual bool ReadNext(std::vector<std::uint8_t>& destination,
+  virtual bool readNext(std::vector<std::uint8_t>& destination,
                         std::chrono::milliseconds timeout) = 0;
 };
 
@@ -62,10 +62,10 @@ class PayloadTransport {
  public:
   virtual ~PayloadTransport() = default;
 
-  virtual std::unique_ptr<PayloadWriterInterface> CreateWriter(
+  virtual std::unique_ptr<PayloadWriterInterface> createWriter(
       const PayloadWriterOptions& options) = 0;
 
-  virtual std::unique_ptr<PayloadReaderInterface> CreateReader(
+  virtual std::unique_ptr<PayloadReaderInterface> createReader(
       const PayloadReaderOptions& options) = 0;
 };
 

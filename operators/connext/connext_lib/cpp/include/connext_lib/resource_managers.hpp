@@ -17,17 +17,20 @@ using ReceiverPropertySet = rti::core::policy::Property;
 
 /** Interface responsible for advertising receiver buffer references over DDS. */
 class ReceiverResourcesManagerInterface {
+ protected:
+ /** Build the property set that will be injected into DDS QoS. */
+ [[nodiscard]] virtual ReceiverPropertySet buildProperties() const = 0;
+
+ /** Apply the supplied property set to the DDS entity. */
+ virtual bool applyProperties(const ReceiverPropertySet& properties) = 0;
+
  public:
   virtual ~ReceiverResourcesManagerInterface() = default;
 
-  /** Build the property set that will be injected into DDS QoS. */
-  virtual ReceiverPropertySet BuildProperties() const = 0;
 
-  /** Apply the supplied property set to the DDS entity. */
-  virtual bool ApplyProperties(const ReceiverPropertySet& properties) = 0;
 
   /** Convenience wrapper that builds then applies the QoS properties. */
-  bool Announce() { return ApplyProperties(BuildProperties()); }
+  bool announce() { return applyProperties(buildProperties()); }
 };
 
 /** Interface that consumes receiver announcements and exposes destinations. */
@@ -35,10 +38,10 @@ class SenderResourcesManagerInterface {
  public:
   virtual ~SenderResourcesManagerInterface() = default;
 
-  virtual void StartProcessing(std::chrono::milliseconds poll_interval) = 0;
-  virtual void StopProcessing() = 0;
+  virtual void startProcessing(std::chrono::milliseconds poll_interval) = 0;
+  virtual void stopProcessing() = 0;
 
-  virtual const std::map<std::string, std::string>& Destinations() const = 0;
+  [[nodiscard]] virtual const std::map<std::string, std::string>& destinations() const = 0;
 };
 
 /** Base class that implements polling boilerplate for sender managers.
@@ -48,28 +51,28 @@ class AbstractSenderResourcesManager : public SenderResourcesManagerInterface {
   AbstractSenderResourcesManager();
   ~AbstractSenderResourcesManager() override;
 
-  void StartProcessing(std::chrono::milliseconds poll_interval) override;
-  void StopProcessing() override;
+  void startProcessing(std::chrono::milliseconds poll_interval) override;
+  void stopProcessing() override;
 
-  const std::map<std::string, std::string>& Destinations() const override {
+  [[nodiscard]] const std::map<std::string, std::string>& destinations() const override {
     return resources_;
   }
 
  protected:
   /** Called by derived classes whenever a new receiver is discovered. */
-  void RegisterReceiver(std::string destination, std::string buffer_id);
+  void registerReceiver(std::string destination, std::string buffer_id);
 
   /** Remove a receiver entry when it becomes unavailable. */
-  void UnregisterReceiver(const std::string& destination);
+  void unregisterReceiver(const std::string& destination);
 
   /** Utility for derived classes that wish to stop the polling loop. */
-  void RequestStop();
+  void requestStop();
 
   /** Hook invoked by the polling loop to fetch fresh DDS samples. */
-  virtual void PollOnce() = 0;
+  virtual void pollOnce() = 0;
 
  private:
-  void WorkerLoop(std::chrono::milliseconds poll_interval);
+  void workerLoop(std::chrono::milliseconds poll_interval);
 
   std::thread worker_;
   std::atomic<bool> should_stop_{true};
