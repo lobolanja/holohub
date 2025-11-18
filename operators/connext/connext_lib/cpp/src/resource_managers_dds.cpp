@@ -55,6 +55,7 @@ bool DdsReceiverResourcesManager::ApplyProperties(
   for (const auto& entry : entries) {
     property_policy.set(entry, properties.propagate(entry.first));
   }
+  qos.policy(property_policy);
   reader_.qos(qos);
   return true;
 }
