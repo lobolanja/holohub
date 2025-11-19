@@ -34,6 +34,8 @@ DdsReceiverResourcesManager::DdsReceiverResourcesManager(
     : participant_(std::move(participant)),
       subscriber_(participant_),
       topic_(participant_, std::move(channel), dds::topic::qos::TopicQos()),
+      // TODO: If the properties delays in propagation, consider enabling the datareader after the
+      //properties are aplied in the qos's
       reader_(subscriber_, topic_),
       buffer_id_(std::move(buffer_id)),
       channel_(topic_.name()) {}
@@ -45,6 +47,10 @@ rti::core::policy::Property DdsReceiverResourcesManager::buildProperties()
   properties.set({kChannelProperty, channel_}, true);
   properties.set({kGuidProperty, guidString()}, true);
   return properties;
+}
+
+bool DdsReceiverResourcesManager::announce() {
+  return applyProperties(buildProperties());
 }
 
 bool DdsReceiverResourcesManager::applyProperties(

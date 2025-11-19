@@ -15,10 +15,11 @@ class DdsReceiverResourcesManager : public ReceiverResourcesManagerInterface {
                               std::string buffer_id,
                               std::string channel);
 
-  [[nodiscard]] ReceiverPropertySet buildProperties() const override;
-  bool applyProperties(const ReceiverPropertySet& properties) override;
+ bool announce() override;
 
  private:
+  [[nodiscard]] ReceiverPropertySet buildProperties() const;
+  bool applyProperties(const ReceiverPropertySet& properties);
   [[nodiscard]] std::string guidString() const;
 
   dds::domain::DomainParticipant participant_;

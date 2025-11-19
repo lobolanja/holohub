@@ -17,20 +17,12 @@ using ReceiverPropertySet = rti::core::policy::Property;
 
 /** Interface responsible for advertising receiver buffer references over DDS. */
 class ReceiverResourcesManagerInterface {
- protected:
- /** Build the property set that will be injected into DDS QoS. */
- [[nodiscard]] virtual ReceiverPropertySet buildProperties() const = 0;
-
- /** Apply the supplied property set to the DDS entity. */
- virtual bool applyProperties(const ReceiverPropertySet& properties) = 0;
 
  public:
   virtual ~ReceiverResourcesManagerInterface() = default;
 
-
-
   /** Convenience wrapper that builds then applies the QoS properties. */
-  bool announce() { return applyProperties(buildProperties()); }
+  virtual bool announce() = 0;
 };
 
 /** Interface that consumes receiver announcements and exposes destinations. */
