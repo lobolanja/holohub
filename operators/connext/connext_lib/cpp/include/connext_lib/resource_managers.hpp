@@ -3,6 +3,7 @@
 #include <atomic>
 #include <chrono>
 #include <map>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <utility>
@@ -33,7 +34,7 @@ class SenderResourcesManagerInterface {
   virtual void startProcessing(std::chrono::milliseconds poll_interval) = 0;
   virtual void stopProcessing() = 0;
 
-  [[nodiscard]] virtual const std::map<std::string, std::string>& destinations() const = 0;
+  [[nodiscard]] virtual std::map<std::string, std::string> destinations() const = 0;
 };
 
 /** Base class that implements polling boilerplate for sender managers.
@@ -46,9 +47,8 @@ class AbstractSenderResourcesManager : public SenderResourcesManagerInterface {
   void startProcessing(std::chrono::milliseconds poll_interval) override;
   void stopProcessing() override;
 
-  [[nodiscard]] const std::map<std::string, std::string>& destinations() const override {
-    return resources_;
-  }
+  // Return a copy to avoid holding the lock during iteration
+  [[nodiscard]] std::map<std::string, std::string> destinations() const override;
 
  protected:
   /** Called by derived classes whenever a new receiver is discovered. */
@@ -68,6 +68,7 @@ class AbstractSenderResourcesManager : public SenderResourcesManagerInterface {
 
   std::thread worker_;
   std::atomic<bool> should_stop_{true};
+  mutable std::mutex resources_mutex_;
   std::map<std::string, std::string> resources_;
 };
 

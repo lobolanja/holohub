@@ -24,7 +24,7 @@ include(CTest)
 
 add_subdirectory(connext_lib)
 
-add_subdirectory(connext_ops)
+#add_subdirectory(connext_ops)
 
 if(HOLOHUB_BUILD_PYTHON)
   add_subdirectory(connext_ano)

@@ -7,22 +7,23 @@
 
 #include "connext_lib/payload_transport.hpp"
 #include "dds/dds.hpp"
+#include <dds/domain/DomainParticipant.hpp>
 
 namespace connext_lib {
 
 /** Concrete writer that stages payload bytes and publishes them via DDS. */
 class DdsPayloadWriter : public PayloadWriterInterface {
  public:
-  DdsPayloadWriter(int domain_id,
-                   std::string topic_name,
+  DdsPayloadWriter(dds::domain::DomainParticipant& participant,
+                   const std::string& topic_name,
                    std::size_t max_payload_bytes);
 
   void setBuffer(const PayloadBufferView& buffer) override;
-  // TODO: Remove destination_reference parameter because it will be handled internally by the implementation
+  // TODO: [not sure, reviewing after implementing ANO] Remove destination_reference parameter because it will be handled internally by the implementation
   bool writeTo(const std::string& destination_reference) override;
 
  private:
-  dds::domain::DomainParticipant participant_;
+  dds::domain::DomainParticipant& participant_;
   dds::topic::Topic<dds::core::BytesTopicType> topic_;
   dds::pub::Publisher publisher_;
   dds::pub::DataWriter<dds::core::BytesTopicType> writer_;
@@ -33,13 +34,15 @@ class DdsPayloadWriter : public PayloadWriterInterface {
 /** DDS reader that blocks until a valid sample is available. */
 class DdsPayloadReader : public PayloadReaderInterface {
  public:
-  DdsPayloadReader(int domain_id, std::string topic_name);
+  DdsPayloadReader(dds::domain::DomainParticipant& participant,
+                   const std::string& topic_name,
+                   const std::string& destination_reference);
 
   bool readNext(std::vector<std::uint8_t>& destination,
                 std::chrono::milliseconds timeout) override;
 
  private:
-  dds::domain::DomainParticipant participant_;
+  dds::domain::DomainParticipant& participant_;
   dds::topic::Topic<dds::core::BytesTopicType> topic_;
   dds::sub::Subscriber subscriber_;
   dds::sub::DataReader<dds::core::BytesTopicType> reader_;
@@ -48,7 +51,7 @@ class DdsPayloadReader : public PayloadReaderInterface {
 /** Factory that instantiates DDS-based payload writers/readers. */
 class DdsPayloadTransport : public PayloadTransport {
  public:
-  explicit DdsPayloadTransport(int domain_id);
+  explicit DdsPayloadTransport(dds::domain::DomainParticipant& dp);
   ~DdsPayloadTransport() override;
 
   std::unique_ptr<PayloadWriterInterface> createWriter(
@@ -58,7 +61,7 @@ class DdsPayloadTransport : public PayloadTransport {
       const PayloadReaderOptions& options) override;
 
  private:
-  int domain_id_{0};
+  dds::domain::DomainParticipant domain_participant_;
 };
 
 std::unique_ptr<PayloadWriterInterface> MakeDdsPayloadWriter(

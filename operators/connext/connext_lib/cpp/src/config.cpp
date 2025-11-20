@@ -12,9 +12,11 @@ DdsConfig::DdsConfig(bool enabled,
       topic_type_name_(std::move(topic_type_name)) {}
 
 AnoConfig::AnoConfig(std::string channel_name,
+                     std::string buffer_id,
                      std::size_t max_payload_bytes,
                      bool enabled)
     : channel_name_(std::move(channel_name)),
+      buffer_id_(std::move(buffer_id)),
       max_payload_bytes_(max_payload_bytes),
       enabled_(enabled) {}
 

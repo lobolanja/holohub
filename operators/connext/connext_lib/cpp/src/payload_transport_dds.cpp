@@ -21,12 +21,12 @@ std::string ResolveChannel(const std::string& channel) {
 
 namespace connext_lib {
 
-DdsPayloadWriter::DdsPayloadWriter(int domain_id,
-                                   std::string topic_name,
+DdsPayloadWriter::DdsPayloadWriter(dds::domain::DomainParticipant& participant,
+                                   const std::string& topic_name,
                                    std::size_t max_payload_bytes)
-    : participant_(domain_id),
+    : participant_(participant),
       topic_(participant_,
-             std::move(topic_name),
+             topic_name,
              dds::topic::qos::TopicQos()),
       publisher_(participant_),
       writer_(publisher_,
@@ -47,9 +47,25 @@ void DdsPayloadWriter::setBuffer(const PayloadBufferView& buffer) {
   payload_.assign(buffer.data, buffer.data + buffer.size_bytes);
 }
 
-bool DdsPayloadWriter::writeTo(const std::string& /*destination_reference*/) {
-  // DDS topics are multicast by default; destination_reference is ignored. Because dds will handle dicvoery matchhing
+bool DdsPayloadWriter::writeTo(const std::string& destination_reference) {
+  // DDS topics are multicast by default; using partitions to emulate
   try {
+    // Get current publisher QoS
+    auto pub_qos = publisher_.qos();
+
+    // Set the partition
+    // if (!destination_reference.empty()) {
+    //   pub_qos << dds::core::policy::Partition(destination_reference);
+    // } else {
+    //   pub_qos << dds::core::policy::Partition("*");  // Clear partitions
+    // }
+
+    pub_qos << dds::core::policy::Partition("*");
+
+    // Apply the new QoS to the publisher
+    publisher_.qos(pub_qos);
+
+    // Write the sample
     dds::core::BytesTopicType sample(payload_);
     writer_.write(sample);
     return true;
@@ -58,12 +74,13 @@ bool DdsPayloadWriter::writeTo(const std::string& /*destination_reference*/) {
   }
 }
 
-DdsPayloadReader::DdsPayloadReader(int domain_id, std::string topic_name)
-    : participant_(domain_id),
+DdsPayloadReader::DdsPayloadReader(dds::domain::DomainParticipant& participant, const std::string& topic_name, const std::string& destination_reference)
+    : participant_(participant),
       topic_(participant_,
-             std::move(topic_name),
+             topic_name,
              dds::topic::qos::TopicQos()),
-      subscriber_(participant_),
+      subscriber_(participant_,
+                  dds::sub::qos::SubscriberQos() << dds::core::policy::Partition(destination_reference)),
       reader_(subscriber_,
               topic_,
               dds::core::QosProvider::Default().datareader_qos(
@@ -97,33 +114,32 @@ bool DdsPayloadReader::readNext(std::vector<std::uint8_t>& destination,
 
 // TODO: We can remove the MakeDdsPayloadWriter/Reader functions and move their
 // logic directly into the DdsPayloadTransport methods.
-std::unique_ptr<PayloadWriterInterface> MakeDdsPayloadWriter(
-    int domain_id,
+std::unique_ptr<PayloadWriterInterface> MakeDdsPayloadWriter(dds::domain::DomainParticipant& dp,
     const PayloadWriterOptions& options) {
   return std::make_unique<DdsPayloadWriter>(
-      domain_id, ResolveChannel(options.channel), options.max_payload_bytes);
+      dp, ResolveChannel(options.channel), options.max_payload_bytes);
 }
 
 std::unique_ptr<PayloadReaderInterface> MakeDdsPayloadReader(
-    int domain_id,
+    dds::domain::DomainParticipant& dp,
     const PayloadReaderOptions& options) {
   return std::make_unique<DdsPayloadReader>(
-      domain_id, ResolveChannel(options.channel));
+      dp, ResolveChannel(options.channel), options.buffer_id);
 }
 
-DdsPayloadTransport::DdsPayloadTransport(int domain_id)
-    : domain_id_(domain_id) {}
+DdsPayloadTransport::DdsPayloadTransport(dds::domain::DomainParticipant& dp)
+    : domain_participant_(dp) {}
 
 DdsPayloadTransport::~DdsPayloadTransport() = default;
 
 std::unique_ptr<PayloadWriterInterface> DdsPayloadTransport::createWriter(
     const PayloadWriterOptions& options) {
-  return MakeDdsPayloadWriter(domain_id_, options);
+  return MakeDdsPayloadWriter(domain_participant_, options);
 }
 
 std::unique_ptr<PayloadReaderInterface> DdsPayloadTransport::createReader(
     const PayloadReaderOptions& options) {
-  return MakeDdsPayloadReader(domain_id_, options);
+  return MakeDdsPayloadReader(domain_participant_, options);
 }
 
 }  // namespace connext_lib

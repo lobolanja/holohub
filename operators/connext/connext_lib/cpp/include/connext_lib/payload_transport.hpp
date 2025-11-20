@@ -31,8 +31,10 @@ struct PayloadWriterOptions {
 struct PayloadReaderOptions {
   /// Logical channel name (DDS subscription or ANO stream identifier).
   std::string channel;
-  /// Optional hint that lets transports pre-allocate their receive buffers.
+  /// Optional hint that lets transports pre-allocate their reception buffers.
   std::size_t expected_payload_bytes{0};
+  /// Identifier for the buffer to read from (ANO-specific).
+  std::string buffer_id;
 };
 
 /** Interface shared by all payload writers (DDS or ANO). */

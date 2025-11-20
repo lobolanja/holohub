@@ -30,12 +30,14 @@ void AbstractSenderResourcesManager::stopProcessing() {
 
 void AbstractSenderResourcesManager::registerReceiver(std::string destination,
                                                       std::string buffer_id) {
+  std::lock_guard<std::mutex> lock(resources_mutex_);
   // Overwrite existing entries so reconnects simply refresh the buffer id.
   resources_[std::move(destination)] = std::move(buffer_id);
 }
 
 void AbstractSenderResourcesManager::unregisterReceiver(
     const std::string& destination) {
+  std::lock_guard<std::mutex> lock(resources_mutex_);
   resources_.erase(destination);
 }
 
@@ -50,6 +52,11 @@ void AbstractSenderResourcesManager::workerLoop(const std::chrono::milliseconds 
     pollOnce();
     std::this_thread::sleep_for(poll_interval);
   }
+}
+
+std::map<std::string, std::string> AbstractSenderResourcesManager::destinations() const {
+  std::lock_guard<std::mutex> lock(resources_mutex_);
+  return resources_;
 }
 
 }  // namespace connext_lib

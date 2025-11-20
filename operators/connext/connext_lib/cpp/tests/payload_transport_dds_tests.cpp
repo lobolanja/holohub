@@ -47,15 +47,18 @@ class PayloadTransportDdsTester
    * - The received message is identical to the sent message, confirming correct roundtrip behavior.
    */
   void payload_roundtrip_uses_dds() {
-    connext_lib::DdsPayloadTransport transport(domain_id());
+    dds::domain::DomainParticipant dp1(domain_id());
+    connext_lib::DdsPayloadTransport transport1(dp1);
+    dds::domain::DomainParticipant dp2(domain_id());
+    connext_lib::DdsPayloadTransport transport2(dp2);
     connext_lib::PayloadWriterOptions writer_opts;
     writer_opts.channel = UniqueChannel();
     writer_opts.max_payload_bytes = 1024;
     connext_lib::PayloadReaderOptions reader_opts;
     reader_opts.channel = writer_opts.channel;
 
-    auto reader = transport.createReader(reader_opts);
-    auto writer = transport.createWriter(writer_opts);
+    auto reader = transport1.createReader(reader_opts);
+    auto writer = transport2.createWriter(writer_opts);
 
     // Allow DDS discovery to complete before writing.
     std::this_thread::sleep_for(200ms);
@@ -65,7 +68,8 @@ class PayloadTransportDdsTester
         reinterpret_cast<const std::uint8_t*>(message.data()),
         message.size()};
     writer->setBuffer(buffer);
-    RTI_TEST_ASSERT(writer->writeTo("broadcast"));
+    // writes to everyone by using "*" as destination reference
+    RTI_TEST_ASSERT(writer->writeTo("*"));
 
     std::vector<std::uint8_t> destination;
     RTI_TEST_ASSERT(reader->readNext(destination, 2s));

@@ -37,17 +37,19 @@ class ConfigTester : public rti::test::Tester,
   }
 
   void ano_config_defaults() {
-    connext_lib::AnoConfig cfg{"channel", 4096, true};
+    connext_lib::AnoConfig cfg{"channel", "buffer_01", 4096, true};
     RTI_TEST_ASSERT(cfg.enabled());
     RTI_TEST_ASSERT(cfg.channel_name() == "channel");
+    RTI_TEST_ASSERT(cfg.buffer_id() == "buffer_01");
     RTI_TEST_ASSERT_EQUALS_INT(4096,
                                static_cast<int>(cfg.max_payload_bytes()));
   }
 
   void ano_config_custom_ctor() {
-    connext_lib::AnoConfig cfg{"custom_channel", 8192, true};
+    connext_lib::AnoConfig cfg{"custom_channel", "custom_buffer", 8192, true};
     RTI_TEST_ASSERT(cfg.enabled());
     RTI_TEST_ASSERT(cfg.channel_name() == "custom_channel");
+    RTI_TEST_ASSERT(cfg.buffer_id() == "custom_buffer");
     RTI_TEST_ASSERT_EQUALS_INT(8192,
                                static_cast<int>(cfg.max_payload_bytes()));
   }

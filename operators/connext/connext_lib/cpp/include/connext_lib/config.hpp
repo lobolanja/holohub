@@ -45,15 +45,18 @@ class AnoConfig {
  public:
   AnoConfig() = default;
   AnoConfig(std::string channel_name,
+            std::string buffer_id,
             std::size_t max_payload_bytes,
             bool enabled);
 
   const std::string& channel_name() const { return channel_name_; }
   std::size_t max_payload_bytes() const { return max_payload_bytes_; }
   bool enabled() const { return enabled_; }
+  const std::string& buffer_id() const {return buffer_id_;}
 
  private:
   std::string channel_name_{"connext_ano_stream"};
+  std::string buffer_id_{"ano_buffer_01"};
   std::size_t max_payload_bytes_{1024};
   bool enabled_{false};
 };

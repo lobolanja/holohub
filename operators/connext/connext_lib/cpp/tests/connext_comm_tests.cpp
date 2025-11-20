@@ -24,21 +24,22 @@ class ConnextCommTester : public rti::test::Tester,
   void rx_announces_and_reads() {
     const std::string channel =
         "comm_channel_" + std::to_string(++channel_counter_);
-    dds::domain::DomainParticipant receiver_participant(domain_id());
+    dds::domain::DomainParticipant dp_read(domain_id());
     auto receiver = std::make_unique<connext_lib::DdsReceiverResourcesManager>(
-        receiver_participant, "rx_buffer", channel);
+        dp_read, "rx_buffer", channel);
     auto reader = std::make_unique<connext_lib::DdsPayloadReader>(
-        domain_id(), channel);
+        dp_read, "GPU/"+channel, "rx_buffer");
     connext_lib::ConnextRx rx(std::move(receiver), std::move(reader));
 
     // Allow discovery plus QoS propagation.
     std::this_thread::sleep_for(200ms);
+    dds::domain::DomainParticipant dp_write(domain_id());
 
-    connext_lib::DdsPayloadWriter writer(domain_id(), channel, 16);
+    connext_lib::DdsPayloadWriter writer(dp_write, "GPU/"+channel, 16);
     const std::array<std::uint8_t, 3> payload{1, 2, 3};
     connext_lib::PayloadBufferView view{payload.data(), payload.size()};
     writer.setBuffer(view);
-    RTI_TEST_ASSERT(writer.writeTo(""));
+    RTI_TEST_ASSERT(writer.writeTo("rx_buffer"));
 
     std::vector<std::uint8_t> buffer;
     RTI_TEST_ASSERT(rx.receive(buffer, 2s));
@@ -52,49 +53,63 @@ class ConnextCommTester : public rti::test::Tester,
   void tx_broadcasts_to_destinations() {
     const std::string channel =
         "comm_channel_" + std::to_string(++channel_counter_);
-
+    dds::domain::DomainParticipant dp_reader1(domain_id());
     auto rx_a = std::make_unique<connext_lib::ConnextRx>(
-        std::make_unique<connext_lib::DdsReceiverResourcesManager>(
-            dds::domain::DomainParticipant(domain_id()),
+        std::make_unique<connext_lib::DdsReceiverResourcesManager>(dp_reader1
+            ,
             "buffer_a",
             channel),
-        std::make_unique<connext_lib::DdsPayloadReader>(domain_id(), channel));
+        std::make_unique<connext_lib::DdsPayloadReader>(dp_reader1, "GPU/"+channel,"buffer_a"));
+
+    dds::domain::DomainParticipant dp_reader2(domain_id());
     auto rx_b = std::make_unique<connext_lib::ConnextRx>(
         std::make_unique<connext_lib::DdsReceiverResourcesManager>(
-            dds::domain::DomainParticipant(domain_id()),
+            dp_reader2,
             "buffer_b",
             channel),
-        std::make_unique<connext_lib::DdsPayloadReader>(domain_id(), channel));
+        std::make_unique<connext_lib::DdsPayloadReader>(dp_reader2, "GPU/"+channel,"buffer_b"));
 
     dds::domain::DomainParticipant sender_participant(domain_id());
     auto sender = std::make_unique<connext_lib::DdsSenderResourcesManager>(
         sender_participant, channel);
     auto writer = std::make_unique<connext_lib::DdsPayloadWriter>(
-        domain_id(), channel, 0);
+        sender_participant, "GPU/"+channel, 1024);
     connext_lib::ConnextTx tx(std::move(sender), std::move(writer), 10ms);
-    
-    // TODO: sent 2 diferent payloads to verify both are received
-    const std::array<std::uint8_t, 4> payload{5, 4, 3, 2};
-    connext_lib::PayloadBufferView view{payload.data(), payload.size()};
-    tx.setBuffer(view);
 
-    std::size_t sent = 0;
-    for (int attempt = 0; attempt < 80 && sent < 2; ++attempt) {
-      sent = tx.broadcast();
-      if (sent < 2) {
-        std::this_thread::sleep_for(50ms);
+    const std::array<std::uint8_t, 4> payload1{5, 4, 3, 2};
+    const std::array<std::uint8_t, 3> payload2{9, 8, 7};
+    const std::vector<std::pair<const std::uint8_t*, std::size_t>> payloads = {
+      {payload1.data(), payload1.size()},
+      {payload2.data(), payload2.size()}
+    };
+
+    // Broadcast all payloads first
+    for (const auto& [payload_data, payload_size] : payloads) {
+      connext_lib::PayloadBufferView view{payload_data, payload_size};
+      tx.setBuffer(view);
+
+      std::size_t sent = 0;
+      for (int attempt = 0; attempt < 80 && sent < 2; ++attempt) {
+        sent = tx.broadcast();
+        if (sent < 2) {
+          std::this_thread::sleep_for(100ms);
+        }
+      }
+      RTI_TEST_ASSERT_EQUALS_INT(2, static_cast<int>(sent));
+
+      std::vector<std::uint8_t> buf_a;
+      std::vector<std::uint8_t> buf_b;
+      RTI_TEST_ASSERT(rx_a->receive(buf_a, 5s));
+      RTI_TEST_ASSERT(rx_b->receive(buf_b, 5s));
+      RTI_TEST_ASSERT_EQUALS_INT(static_cast<int>(payload_size),
+                                 static_cast<int>(buf_a.size()));
+      RTI_TEST_ASSERT_EQUALS_INT(static_cast<int>(payload_size),
+                                 static_cast<int>(buf_b.size()));
+      for (std::size_t i = 0; i < payload_size; ++i) {
+        RTI_TEST_ASSERT_EQUALS_INT(payload_data[i], buf_a[i]);
+        RTI_TEST_ASSERT_EQUALS_INT(payload_data[i], buf_b[i]);
       }
     }
-    RTI_TEST_ASSERT_EQUALS_INT(2, static_cast<int>(sent));
-
-    std::vector<std::uint8_t> buf_a;
-    std::vector<std::uint8_t> buf_b;
-    RTI_TEST_ASSERT(rx_a->receive(buf_a, 2s));
-    RTI_TEST_ASSERT(rx_b->receive(buf_b, 2s));
-    RTI_TEST_ASSERT_EQUALS_INT(static_cast<int>(payload.size()),
-                               static_cast<int>(buf_a.size()));
-    RTI_TEST_ASSERT_EQUALS_INT(static_cast<int>(payload.size()),
-                               static_cast<int>(buf_b.size()));
   }
 
  private:
