@@ -15,7 +15,7 @@ namespace {
 
 constexpr char kBufferIdProperty[] = "connext_lib.receiver.buffer_id";
 constexpr char kChannelProperty[] = "connext_lib.receiver.channel";
-constexpr char kGuidProperty[] = "connext_lib.receiver.writer_guid";
+constexpr char kGuidProperty[] = "connext_lib.receiver.reader_guid";
 
 std::string GuidToString(const rti::core::Guid& guid) {
   std::ostringstream oss;
