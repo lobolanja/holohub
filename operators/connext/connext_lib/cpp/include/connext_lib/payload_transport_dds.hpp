@@ -22,6 +22,8 @@ class DdsPayloadWriter : public PayloadWriterInterface {
   // TODO: [not sure, reviewing after implementing ANO] Remove destination_reference parameter because it will be handled internally by the implementation
   bool writeTo(const std::string& destination_reference) override;
 
+  dds::pub::DataWriter<dds::core::BytesTopicType>& get_dds_writer() { return writer_; }
+
  private:
   dds::domain::DomainParticipant& participant_;
   dds::topic::Topic<dds::core::BytesTopicType> topic_;
@@ -40,6 +42,8 @@ class DdsPayloadReader : public PayloadReaderInterface {
 
   bool readNext(std::vector<std::uint8_t>& destination,
                 std::chrono::milliseconds timeout) override;
+
+  dds::sub::DataReader<dds::core::BytesTopicType>& get_dds_reader() { return reader_; }
 
  private:
   dds::domain::DomainParticipant& participant_;

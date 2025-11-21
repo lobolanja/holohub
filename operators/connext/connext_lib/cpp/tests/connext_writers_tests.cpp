@@ -116,52 +116,10 @@ class ConnextWritersTester : public rti::test::Tester,
     RTI_TEST_ASSERT(rx_b_all == message);
   }
 
-  //TODO: move this test to its own file so we create an integration test for testing ConnextANOReader and ConnextANOWriter together
-  void ano_writer_roundtrip() {
-    const std::string channel_name = "TestAnoChannel";
-    const std::string buffer_id = "ano_buffer_test";
-    const std::string topic = "TestAnoTopic";
-    const int domain = domain_id();
-    const std::string test_message = "ano_writer_roundtrip_message";
-    const std::size_t max_payload_bytes = 1024;
-
-    connext_lib::AnoConfig ano_config(channel_name, buffer_id, max_payload_bytes, true);
-    connext_lib::DdsConfig dds_config(true, domain, topic, "BytesTopicType");
-    std::chrono::milliseconds poll_interval_ms(100);
-
-    // Writer (SUT)
-    connext_lib::ConnextANOWriter writer(ano_config, dds_config, poll_interval_ms);
-
-    // Reader
-    connext_lib::ConnextANOReader reader(ano_config, dds_config, poll_interval_ms);
-
-    // Allow discovery
-    std::this_thread::sleep_for(std::chrono::seconds(3));
-
-    // Write payload
-    std::vector<std::uint8_t> payload_v(test_message.begin(), test_message.end());
-    connext_lib::PayloadBufferView buffer_to_send{
-      reinterpret_cast<const std::uint8_t*>(test_message.data()), test_message.size()};
-    auto res = writer.broadcast(buffer_to_send);
-    RTI_TEST_ASSERT(res>0);
-
-    // Poll for sample availability up to timeout
-    std::vector<std::uint8_t> samples;
-    const int max_attempts = 30; // 3 seconds total
-    for (int attempt = 0; attempt < max_attempts; ++attempt) {
-      samples = reader.readSamples();
-      if (!samples.empty()) break;
-      std::this_thread::sleep_for(poll_interval_ms);
-    }
-    std::string received(samples.begin(), samples.end());
-    RTI_TEST_ASSERT(received == test_message);
-  }
-
  private:
   ConnextWritersTester() : rti::test::Tester("connext_lib_writers_tests") {
     RTI_TEST_FUNCTION_ADD(ConnextWritersTester, dds_writer_broadcasts_to_single_receiver);
     RTI_TEST_FUNCTION_ADD(ConnextWritersTester, ano_writer_broadcast_destination);
-    RTI_TEST_FUNCTION_ADD(ConnextWritersTester, ano_writer_roundtrip);
   }
 
   std::atomic<int> channel_counter_{0};
