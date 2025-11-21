@@ -1,27 +1,19 @@
 #pragma once
-
 #include <string>
-
-#include "connext_lib/resource_managers.hpp"
-
+#include "connext_lib/resource/resource_managers.hpp"
 #include "dds/dds.hpp"
 #include "dds/topic/BuiltinTopic.hpp"
-
 namespace connext_lib {
-
 class DdsReceiverResourcesManager : public ReceiverResourcesManagerInterface {
  public:
   DdsReceiverResourcesManager(dds::domain::DomainParticipant participant,
                               std::string buffer_id,
                               std::string channel);
-
  bool announce() override;
-
  private:
   [[nodiscard]] ReceiverPropertySet buildProperties() const;
   bool applyProperties(const ReceiverPropertySet& properties);
   [[nodiscard]] std::string guidString() const;
-
   dds::domain::DomainParticipant participant_;
   dds::sub::Subscriber subscriber_;
   dds::topic::Topic<dds::core::BytesTopicType> topic_;
@@ -29,15 +21,12 @@ class DdsReceiverResourcesManager : public ReceiverResourcesManagerInterface {
   std::string buffer_id_;
   std::string channel_;
 };
-
 class DdsSenderResourcesManager : public AbstractSenderResourcesManager {
  public:
   DdsSenderResourcesManager(dds::domain::DomainParticipant participant,
                             std::string channel);
-
  protected:
   void pollOnce() override;
-
  private:
   dds::domain::DomainParticipant participant_;
   dds::pub::Publisher publisher_;
@@ -46,5 +35,4 @@ class DdsSenderResourcesManager : public AbstractSenderResourcesManager {
   dds::sub::DataReader<dds::topic::SubscriptionBuiltinTopicData> subscription_reader_;
   std::string channel_filter_;
 };
-
 }  // namespace connext_lib

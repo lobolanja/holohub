@@ -1,5 +1,5 @@
-#include "connext_lib/connext_lib.hpp"
-#include "connext_lib/dds_hello.hpp"
+#include "connext_lib/core/connext_lib.hpp"
+#include "connext_lib/comm/dds_hello.hpp"
 
 #include "ndds/rtitest/Tester.hpp"
 #include "ndds/rtitest/test_setting_impl.h"

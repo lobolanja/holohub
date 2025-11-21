@@ -1,4 +1,4 @@
-#include "connext_lib/connext_lib.hpp"
+#include "connext_lib/core/connext_lib.hpp"
 
 namespace connext_lib {
 
@@ -8,4 +8,3 @@ int version() {
 }
 
 }  // namespace connext_lib
-

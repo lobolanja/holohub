@@ -8,15 +8,15 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../../cmake/mod
 include(RTIConnextDDS)
 
 set(CONNEXT_LIB_CPP_SOURCES
-    src/connext_lib.cpp
-    src/dds_hello.cpp
-    src/config.cpp
-    src/resource_managers.cpp
-    src/resource_managers_dds.cpp
-    src/payload_transport_dds.cpp
-    src/connext_comm.cpp
-    src/connext_readers.cpp
-    src/connext_writers.cpp
+    src/config/config.cpp
+        src/core/connext_lib.cpp
+    src/comm/connext_comm.cpp
+    src/comm/connext_readers.cpp
+    src/comm/connext_writers.cpp
+    src/comm/dds_hello.cpp
+    src/transport/payload_transport_dds.cpp
+    src/resource/resource_managers.cpp
+    src/resource/resource_managers_dds.cpp
 )
 
 add_library(connext_lib STATIC ${CONNEXT_LIB_CPP_SOURCES})
@@ -55,11 +55,11 @@ if(BUILD_TESTING)
   add_test(NAME connext_lib_config_tests COMMAND connext_lib_config_tests)
 
   add_executable(connext_lib_payload_transport_tests tests/payload_transport_tests.cpp)
-  target_link_libraries(connext_lib_payload_transport_tests PRIVATE connext_lib RTIConnextDDS::test)
+  target_link_libraries(connext_lib_payload_transport_tests PRIVATE connext_lib RTIConnextDDS::test RTIConnextDDS::test_helpers)
   add_test(NAME connext_lib_payload_transport_tests COMMAND connext_lib_payload_transport_tests)
 
   add_executable(connext_lib_payload_transport_dds_tests tests/payload_transport_dds_tests.cpp)
-  target_link_libraries(connext_lib_payload_transport_dds_tests PRIVATE connext_lib RTIConnextDDS::test)
+  target_link_libraries(connext_lib_payload_transport_dds_tests PRIVATE connext_lib RTIConnextDDS::test RTIConnextDDS::test_helpers)
   add_test(NAME connext_lib_payload_transport_dds_tests COMMAND connext_lib_payload_transport_dds_tests)
 
   add_executable(connext_lib_resource_managers_dds_tests tests/resource_managers_dds_tests.cpp)

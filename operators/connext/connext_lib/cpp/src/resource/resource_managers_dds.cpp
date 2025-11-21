@@ -1,15 +1,15 @@
-#include "connext_lib/resource_managers_dds.hpp"
-
+#include <connext_lib/resource/resource_managers_dds.hpp>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "dds/core/QosProvider.hpp"
 #include "dds/sub/find.hpp"
 #include "ndds/dds_c/dds_c_builtin.h"
+#include "ndds/hpp/rti/topic/BuiltinTopicImpl.hpp"
 #include "rti/core/Guid.hpp"
 #include "rti/core/policy/CorePolicy.hpp"
-#include "ndds/hpp/rti/topic/BuiltinTopicImpl.hpp"
 
 namespace {
 

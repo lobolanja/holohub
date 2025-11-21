@@ -1,4 +1,9 @@
-#include "connext_lib/connext_readers.hpp"
+#include "connext_lib/comm/connext_readers.hpp"
+#include "connext_lib/resource/resource_managers_dds.hpp"
+#include "connext_lib/transport/payload_transport_dds.hpp"
+#include "connext_lib/comm/connext_rx.hpp"
+#include <memory>
+#include <vector>
 #include <chrono>
 
 namespace connext_lib {

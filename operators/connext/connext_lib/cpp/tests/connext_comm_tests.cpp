@@ -1,7 +1,7 @@
-#include "connext_lib/connext_rx.hpp"
-#include "connext_lib/connext_tx.hpp"
-#include "connext_lib/payload_transport_dds.hpp"
-#include "connext_lib/resource_managers_dds.hpp"
+#include "connext_lib/comm/connext_rx.hpp"
+#include "connext_lib/comm/connext_tx.hpp"
+#include "connext_lib/transport/payload_transport_dds.hpp"
+#include "connext_lib/resource/resource_managers_dds.hpp"
 
 #include <array>
 #include <atomic>

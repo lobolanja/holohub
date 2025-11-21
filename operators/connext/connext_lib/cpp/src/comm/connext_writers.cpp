@@ -1,8 +1,11 @@
-#include "connext_lib/config.hpp"
-#include "connext_lib/connext_writers.hpp"
-#include "connext_lib/connext_tx.hpp"
-#include "connext_lib/resource_managers_dds.hpp"
-#include "connext_lib/payload_transport_dds.hpp"
+#include "connext_lib/config/config.hpp"
+#include "connext_lib/comm/connext_writers.hpp"
+#include "connext_lib/comm/connext_tx.hpp"
+#include "connext_lib/resource/resource_managers_dds.hpp"
+#include "connext_lib/transport/payload_transport_dds.hpp"
+#include <memory>
+#include <stdexcept>
+#include <vector>
 #include <chrono>
 
 namespace connext_lib {

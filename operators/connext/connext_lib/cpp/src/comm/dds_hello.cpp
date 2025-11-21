@@ -1,4 +1,4 @@
-#include "connext_lib/dds_hello.hpp"
+#include "connext_lib/comm/dds_hello.hpp"
 
 #include <chrono>
 #include <exception>

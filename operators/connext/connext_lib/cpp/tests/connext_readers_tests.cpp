@@ -1,4 +1,4 @@
-#include "connext_lib/connext_readers.hpp"
+#include "connext_lib/comm/connext_readers.hpp"
 #include "ndds/rtitest/Tester.hpp"
 #include "ndds/rtitest/test_setting_impl.h"
 

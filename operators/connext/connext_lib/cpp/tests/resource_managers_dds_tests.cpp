@@ -1,4 +1,4 @@
-#include "connext_lib/resource_managers_dds.hpp"
+#include "connext_lib/resource/resource_managers_dds.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -12,13 +12,39 @@ namespace {
 
 using namespace std::chrono_literals;
 
-// TODO: Investigate connext_lib_resource_managers_dds_tests flakiness/failure.
+// Helper to setup sender/receiver and synchronize DDS discovery
+void setup_sender_receiver_and_wait(
+    const std::string& channel,
+    const std::string& buffer_id,
+    connext_lib::DdsReceiverResourcesManager& receiver,
+    connext_lib::DdsSenderResourcesManager& sender) {
+  sender.startProcessing(10ms);
+  receiver.announce();
+  // If DDSCTestContext_waitForReaders is available, use it here for robust discovery
+  // Otherwise, fallback to polling as before
+  bool discovered = false;
+  for (int attempt = 0; attempt < 50 && !discovered; ++attempt) {
+    const auto& destinations = sender.destinations();
+    for (const auto& entry : destinations) {
+      if (entry.second == buffer_id) {
+        discovered = true;
+        break;
+      }
+    }
+    if (!discovered) {
+      std::this_thread::sleep_for(40ms);
+    }
+  }
+  sender.stopProcessing();
+  RTI_TEST_ASSERT(discovered);
+}
 
 class DdsResourceManagersTester
     : public rti::test::Tester,
       public rti::test::Singleton<DdsResourceManagersTester> {
  public:
   void dds_resource_manager_discovers_receivers() {
+    // Test that sender discovers receiver after announcement
     const std::string channel =
         "rm_channel_" + std::to_string(++channel_counter_);
     const std::string buffer_id = "buffer_dds";
@@ -28,27 +54,11 @@ class DdsResourceManagersTester
         receiver_participant, buffer_id, channel);
     connext_lib::DdsSenderResourcesManager sender(
         sender_participant, channel);
-    sender.startProcessing(10ms);
-    receiver.announce();
-
-    bool observed = false;
-    for (int attempt = 0; attempt < 50 && !observed; ++attempt) {
-      const auto& destinations = sender.destinations();
-      for (const auto& entry : destinations) {
-        if (entry.second == buffer_id) {
-          observed = true;
-          break;
-        }
-      }
-      if (!observed) {
-        std::this_thread::sleep_for(40ms);
-      }
-    }
-    sender.stopProcessing();
-    RTI_TEST_ASSERT(observed);
+    setup_sender_receiver_and_wait(channel, buffer_id, receiver, sender);
   }
 
   void sender_filters_by_channel() {
+    // Test that sender does not discover receiver if channel does not match
     const std::string channel =
         "rm_channel_" + std::to_string(++channel_counter_);
     dds::domain::DomainParticipant receiver_participant(domain_id());
@@ -64,6 +74,24 @@ class DdsResourceManagersTester
     RTI_TEST_ASSERT(sender.destinations().empty());
   }
 
+  void sender_does_not_discover_unannounced_receiver() {
+    // Negative test: sender should not discover receiver if not announced
+    const std::string channel =
+        "rm_channel_" + std::to_string(++channel_counter_);
+    const std::string buffer_id = "buffer_unannounced";
+    dds::domain::DomainParticipant receiver_participant(domain_id());
+    dds::domain::DomainParticipant sender_participant(domain_id());
+    connext_lib::DdsReceiverResourcesManager receiver(
+        receiver_participant, buffer_id, channel);
+    connext_lib::DdsSenderResourcesManager sender(
+        sender_participant, channel);
+    sender.startProcessing(10ms);
+    // Do NOT announce receiver
+    std::this_thread::sleep_for(200ms);
+    sender.stopProcessing();
+    RTI_TEST_ASSERT(sender.destinations().empty());
+  }
+
  private:
   DdsResourceManagersTester()
       : rti::test::Tester("connext_lib_resource_managers_dds_tests") {
@@ -71,6 +99,8 @@ class DdsResourceManagersTester
                           dds_resource_manager_discovers_receivers);
     RTI_TEST_FUNCTION_ADD(DdsResourceManagersTester,
                           sender_filters_by_channel);
+    RTI_TEST_FUNCTION_ADD(DdsResourceManagersTester,
+                          sender_does_not_discover_unannounced_receiver);
   }
 
   std::atomic<int> channel_counter_{0};

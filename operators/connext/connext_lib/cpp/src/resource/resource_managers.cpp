@@ -1,5 +1,8 @@
-#include "connext_lib/resource_managers.hpp"
+#include "connext_lib/resource/resource_managers.hpp"
 
+#include <atomic>
+#include <map>
+#include <mutex>
 #include <thread>
 
 namespace connext_lib {

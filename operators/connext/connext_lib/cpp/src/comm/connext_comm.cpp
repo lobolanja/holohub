@@ -1,7 +1,12 @@
-#include "connext_lib/connext_rx.hpp"
-#include "connext_lib/connext_tx.hpp"
+#include "connext_lib/comm/connext_rx.hpp"
+#include "connext_lib/comm/connext_tx.hpp"
+#include "connext_lib/resource/resource_managers.hpp"
+#include "connext_lib/transport/payload_transport.hpp"
 
+#include <chrono>
+#include <memory>
 #include <stdexcept>
+#include <vector>
 
 namespace connext_lib {
 
@@ -62,4 +67,3 @@ std::size_t ConnextTx::broadcast() {
 }
 
 }  // namespace connext_lib
-

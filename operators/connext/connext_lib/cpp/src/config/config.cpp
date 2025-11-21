@@ -1,4 +1,4 @@
-#include "connext_lib/config.hpp"
+#include "connext_lib/config/config.hpp"
 
 namespace connext_lib {
 

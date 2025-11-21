@@ -16,7 +16,7 @@
 set(RTI_CONNEXT_DDS_DIR "$ENV{NDDSHOME}" CACHE PATH "RTI Connext DDS Path")
 
 list(APPEND CMAKE_MODULE_PATH ${RTI_CONNEXT_DDS_DIR}/resource/cmake)
-find_package(RTIConnextDDS COMPONENTS test REQUIRED)
+find_package(RTIConnextDDS COMPONENTS test test_helpers REQUIRED)
 
 # Uses the rtiddsgen tool to generate source code from an DDS IDL type specification.
 function(rticodegen)

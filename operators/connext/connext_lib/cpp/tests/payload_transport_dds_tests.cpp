@@ -1,4 +1,5 @@
-#include "connext_lib/payload_transport_dds.hpp"
+#include "connext_lib/transport/payload_transport_dds.hpp"
+#include "ndds/ddsctesthelpers/test_context.h"
 
 #include <atomic>
 #include <chrono>
@@ -12,7 +13,6 @@
 #include "ndds/rtitest/test_setting_impl.h"
 
 namespace {
-
 using namespace std::chrono_literals;
 
 // Each test run uses a unique topic name to avoid crosstalk with stale entities.
@@ -21,11 +21,57 @@ std::string UniqueChannel() {
   return "connext_lib_payload_" + std::to_string(++counter);
 }
 
+int domain_id() {
+  // You may want to use a fixed domain or get from environment/config
+  return 0;
+}
+
+// Helper to setup DDS transport, writer, and reader
+struct DdsTransportTestContext {
+  dds::domain::DomainParticipant dp_reader;
+  dds::domain::DomainParticipant dp_writer;
+  connext_lib::DdsPayloadTransport transport_reader;
+  connext_lib::DdsPayloadTransport transport_writer;
+  connext_lib::PayloadWriterOptions writer_opts;
+  connext_lib::PayloadReaderOptions reader_opts;
+  std::unique_ptr<connext_lib::PayloadReaderInterface> reader;
+  std::unique_ptr<connext_lib::PayloadWriterInterface> writer;
+  std::string channel;
+
+  DdsTransportTestContext()
+      : dp_reader(domain_id()),
+        dp_writer(domain_id()),
+        transport_reader(dp_reader),
+        transport_writer(dp_writer),
+        writer_opts(),
+        reader_opts(),
+        reader(nullptr),
+        writer(nullptr),
+        channel(UniqueChannel()) {
+    writer_opts.channel = channel;
+    writer_opts.max_payload_bytes = 1024;
+    reader_opts.channel = channel;
+    reader = transport_reader.createReader(reader_opts);
+    writer = transport_writer.createWriter(writer_opts);
+  }
+
+  // Wait for DDS discovery using helper (1 reader, 5s timeout)
+  void wait_for_discovery() {
+    // Downcast to DdsPayloadWriter to access get_dds_writer()
+    auto* dds_writer = dynamic_cast<connext_lib::DdsPayloadWriter*>(writer.get());
+    if (dds_writer) {
+      DDSCTestContext_waitForReaders(1, dds_writer->get_dds_writer()->native_writer(), 5);
+    } else {
+      // Fallback: sleep if downcast fails
+      std::this_thread::sleep_for(200ms);
+    }
+  }
+};
+
 class PayloadTransportDdsTester
     : public rti::test::Tester,
       public rti::test::Singleton<PayloadTransportDdsTester> {
  public:
-
   /**
    * @brief Tests the roundtrip of a payload using DDS transport.
    *
@@ -47,34 +93,29 @@ class PayloadTransportDdsTester
    * - The received message is identical to the sent message, confirming correct roundtrip behavior.
    */
   void payload_roundtrip_uses_dds() {
-    dds::domain::DomainParticipant dp1(domain_id());
-    connext_lib::DdsPayloadTransport transport1(dp1);
-    dds::domain::DomainParticipant dp2(domain_id());
-    connext_lib::DdsPayloadTransport transport2(dp2);
-    connext_lib::PayloadWriterOptions writer_opts;
-    writer_opts.channel = UniqueChannel();
-    writer_opts.max_payload_bytes = 1024;
-    connext_lib::PayloadReaderOptions reader_opts;
-    reader_opts.channel = writer_opts.channel;
-
-    auto reader = transport1.createReader(reader_opts);
-    auto writer = transport2.createWriter(writer_opts);
-
-    // Allow DDS discovery to complete before writing.
-    std::this_thread::sleep_for(200ms);
-
+    // Test that payload is sent and received correctly via DDS
+    DdsTransportTestContext ctx;
+    ctx.wait_for_discovery();
     const std::string message = "dds_payload_roundtrip";
     connext_lib::PayloadBufferView buffer{
         reinterpret_cast<const std::uint8_t*>(message.data()),
         message.size()};
-    writer->setBuffer(buffer);
-    // writes to everyone by using "*" as destination reference
-    RTI_TEST_ASSERT(writer->writeTo("*"));
-
+    ctx.writer->setBuffer(buffer);
+    RTI_TEST_ASSERT(ctx.writer->writeTo("*"));
     std::vector<std::uint8_t> destination;
-    RTI_TEST_ASSERT(reader->readNext(destination, 2s));
+    RTI_TEST_ASSERT(ctx.reader->readNext(destination, 2s));
     const std::string received(destination.begin(), destination.end());
+    RTI_TEST_ASSERT_EQUALS_INT(static_cast<int>(message.size()), static_cast<int>(received.size()));
     RTI_TEST_ASSERT(received == message);
+  }
+
+  void payload_read_times_out_if_no_data() {
+    // Negative test: reader should time out if no payload is sent
+    DdsTransportTestContext ctx;
+    ctx.wait_for_discovery();
+    std::vector<std::uint8_t> destination;
+    RTI_TEST_ASSERT(!ctx.reader->readNext(destination, 500ms));
+    RTI_TEST_ASSERT(destination.empty());
   }
 
  private:
@@ -82,6 +123,8 @@ class PayloadTransportDdsTester
       : rti::test::Tester("connext_lib_payload_transport_dds_tests") {
     RTI_TEST_FUNCTION_ADD(PayloadTransportDdsTester,
                           payload_roundtrip_uses_dds);
+    RTI_TEST_FUNCTION_ADD(PayloadTransportDdsTester,
+                          payload_read_times_out_if_no_data);
   }
 
   friend class rti::test::Singleton<PayloadTransportDdsTester>;
