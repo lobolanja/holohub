@@ -8,9 +8,9 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include "connext_lib/config.hpp"
-#include "connext_lib/connext_tx.hpp"
-#include "connext_lib/payload_transport.hpp"
+#include "connext_lib/config/config.hpp"
+#include "connext_lib/comm/connext_tx.hpp"
+#include "connext_lib/transport/payload_transport.hpp"
 
 namespace connext_lib {
 

@@ -82,6 +82,10 @@ if(BUILD_TESTING)
   target_link_libraries(connext_lib_ano_integration_tests PRIVATE connext_lib RTIConnextDDS::test)
   add_test(NAME connext_lib_ano_integration_tests COMMAND connext_lib_ano_integration_tests)
 
+  add_executable(connext_lib_public_api_tests tests/connext_lib_public_api_tests.cpp)
+  target_link_libraries(connext_lib_public_api_tests PRIVATE connext_lib RTIConnextDDS::test)
+  add_test(NAME connext_lib_public_api_tests COMMAND connext_lib_public_api_tests)
+
   add_custom_target(connext_lib_cpp_tests
     DEPENDS
       connext_lib_dds_tests
@@ -92,7 +96,8 @@ if(BUILD_TESTING)
       connext_lib_comm_tests
       connext_lib_readers_tests
       connext_lib_writers_tests
-      connext_lib_ano_integration_tests)
+      connext_lib_ano_integration_tests
+      connext_lib_public_api_tests)
 
   set(CONNEXT_LIB_TEST_ENV "")
   if(DEFINED ENV{NDDSHOME})
@@ -120,5 +125,7 @@ if(BUILD_TESTING)
       connext_lib_writers_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
     set_tests_properties(
       connext_lib_ano_integration_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
+    set_tests_properties(
+      connext_lib_public_api_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
   endif()
 endif()
