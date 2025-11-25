@@ -26,11 +26,12 @@ std::size_t ConnextANOWriter::broadcast(const PayloadBufferView& buffer) {
     return tx_->broadcast();
 }
 
-ConnextDDSWriter::ConnextDDSWriter(std::unique_ptr<PayloadWriterInterface> payload_writer)
-    : payload_writer_(std::move(payload_writer)) {
-    if (!payload_writer_) {
-        throw std::invalid_argument("ConnextDDSWriter requires a valid payload_writer");
-    }
+ConnextDDSWriter::ConnextDDSWriter(const DdsConfig& dds_config, int max_payload_bytes){
+  int domain_id = dds_config.domain_id();
+  std::string topic_name = dds_config.topic_name();
+  dds::domain::DomainParticipant dp(domain_id);
+  payload_writer_ = std::make_unique<DdsPayloadWriter>(dp,topic_name,max_payload_bytes);
+
 }
 
 ConnextDDSWriter::~ConnextDDSWriter() = default;

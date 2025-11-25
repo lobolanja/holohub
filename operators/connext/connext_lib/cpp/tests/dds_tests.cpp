@@ -1,4 +1,4 @@
-#include "connext_lib/core/connext_lib.hpp"
+#include "connext_lib.hpp"
 #include "connext_lib/comm/dds_hello.hpp"
 
 #include "ndds/rtitest/Tester.hpp"

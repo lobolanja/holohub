@@ -95,6 +95,58 @@ class ConnextLibPublicAPITester : public rti::test::Tester,
   }
 
   /**
+ * Test: DDS Writer and Reader roundtrip communication.
+ * Demonstrates complete end-to-end usage of the public API:
+ * 1. Configure DDS settings
+ * 2. Create writer and reader
+ * 3. Send data through writer
+ * 4. Receive data through reader
+ * 5. Verify data integrity
+ */
+void test_dds_writer_reader_roundtrip() {
+  const std::string topic = "PublicAPIDDSTopic";
+  const int domain = domain_id();
+  const std::string test_message = "Hello from DDS public API!";
+  const std::size_t max_payload_bytes = 1024;
+
+  // Step 1: Configure DDS
+  connext_lib::DdsConfig dds_config(true, domain, topic, "BytesTopicType");
+  std::chrono::milliseconds poll_interval_ms(100);
+
+  // Step 2: Create writer and reader
+  connext_lib::ConnextDDSWriter writer(dds_config, max_payload_bytes);
+  connext_lib::ConnextDDSReader reader(dds_config, poll_interval_ms);
+
+  // Allow DDS discovery to complete
+  std::this_thread::sleep_for(std::chrono::seconds(3));
+
+  // Step 3: Prepare and send payload
+  connext_lib::PayloadBufferView buffer_to_send{
+      reinterpret_cast<const std::uint8_t*>(test_message.data()),
+      test_message.size()
+  };
+
+  std::size_t sent_count = writer.broadcast(buffer_to_send);
+  RTI_TEST_ASSERT(sent_count > 0);
+
+  // Step 4: Poll for received samples
+  std::vector<std::uint8_t> samples;
+  const int max_attempts = 30;  // 3 seconds total
+  for (int attempt = 0; attempt < max_attempts; ++attempt) {
+    samples = reader.readSamples();
+    if (!samples.empty()) {
+      break;
+    }
+    std::this_thread::sleep_for(poll_interval_ms);
+  }
+
+  // Step 5: Verify received data
+  RTI_TEST_ASSERT(!samples.empty());
+  std::string received(samples.begin(), samples.end());
+  RTI_TEST_ASSERT(received == test_message);
+}
+
+  /**
    * Test: ANO Writer and Reader roundtrip communication.
    * Demonstrates complete end-to-end usage of the public API:
    * 1. Configure DDS and ANO settings
@@ -201,6 +253,7 @@ class ConnextLibPublicAPITester : public rti::test::Tester,
     RTI_TEST_FUNCTION_ADD(ConnextLibPublicAPITester, test_version_accessible);
     RTI_TEST_FUNCTION_ADD(ConnextLibPublicAPITester, test_configuration_types);
     RTI_TEST_FUNCTION_ADD(ConnextLibPublicAPITester, test_payload_buffer_view);
+    RTI_TEST_FUNCTION_ADD(ConnextLibPublicAPITester, test_dds_writer_reader_roundtrip);
     RTI_TEST_FUNCTION_ADD(ConnextLibPublicAPITester, test_ano_writer_reader_roundtrip);
     RTI_TEST_FUNCTION_ADD(ConnextLibPublicAPITester, test_multiple_messages);
   }

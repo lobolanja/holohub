@@ -9,7 +9,6 @@ include(RTIConnextDDS)
 
 set(CONNEXT_LIB_CPP_SOURCES
     src/config/config.cpp
-        src/core/connext_lib.cpp
     src/comm/connext_comm.cpp
     src/comm/connext_readers.cpp
     src/comm/connext_writers.cpp

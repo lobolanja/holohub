@@ -20,19 +20,17 @@ class ConnextWritersTester : public rti::test::Tester,
  public:
   void dds_writer_broadcasts_to_single_receiver() {
     const int domain = domain_id();
-    const std::string channel = "writers_channel_" + std::to_string(++channel_counter_);
+    const std::string topic = "writers_channel_" + std::to_string(++channel_counter_);
     const std::string buffer_id = "*";
 
     // Receiver side (announce resources then prepare payload reader)
     dds::domain::DomainParticipant dp_rx(domain);
     auto payload_reader = std::make_unique<connext_lib::DdsPayloadReader>(
-        dp_rx, channel, buffer_id);
+        dp_rx, topic, buffer_id);
 
     // Sender side (SUT)
-    dds::domain::DomainParticipant dp_tx(domain);
-    auto payload_writer = std::make_unique<connext_lib::DdsPayloadWriter>(
-        dp_tx, channel, 1024);
-    connext_lib::ConnextDDSWriter writer(std::move(payload_writer));
+    connext_lib::DdsConfig dds_config(true, domain, topic, "BytesTopicType");
+    connext_lib::ConnextDDSWriter writer(dds_config, 1025);
 
     // Allow discovery
     //TODO: change for the test helper that ensures discovery is completed
