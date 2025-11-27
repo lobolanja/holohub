@@ -1,3 +1,6 @@
+#include <chrono>
+#include <vector>
+
 #include "connext_ops/connext_rx.hpp"
 
 namespace holoscan::ops {
@@ -47,13 +50,30 @@ void ConnextRxOp::refresh_configs() {
 
   ano_config_ =
       connext_lib::AnoConfig(ano_channel_.get(),
+                              "", 
                              static_cast<std::size_t>(ano_max_payload_.get()),
                              enable_ano_.get());
+
+
 }
 
 void ConnextRxOp::start() {
-  Operator::start();
   refresh_configs();
+
+  if (dds_config_.enabled() == false && ano_config_.enabled() == false) {
+    throw std::runtime_error("ConnextRxOp requires at least one transport to be enabled (DDS or ANO).");
+  } else if (dds_config_.enabled() && ano_config_.enabled()) {
+    throw std::runtime_error("ConnextRxOp currently supports only one transport at a time (DDS or ANO).");
+  } else if (dds_config_.enabled()) {
+    HOLOSCAN_LOG_INFO("ConnextRxOp: DDS transport enabled.");
+    dds_reader_ = std::make_unique<connext_lib::ConnextDDSReader>(dds_config_);
+  } else if (ano_config_.enabled()) {
+    HOLOSCAN_LOG_INFO("ConnextRxOp: ANO transport enabled.");
+    constexpr std::chrono::milliseconds kAnoReaderPollInterval{100};
+    ano_reader_ = std::make_unique<connext_lib::ConnextANOReader>(
+        ano_config_, dds_config_, kAnoReaderPollInterval);
+  }
+
   HOLOSCAN_LOG_INFO(
       "ConnextRxOp starting (dds_enabled={}, ano_enabled={}, channel={})",
       dds_config_.enabled(),
@@ -62,16 +82,62 @@ void ConnextRxOp::start() {
 }
 
 void ConnextRxOp::stop() {
-  payload_reader_.reset();
-  payload_transport_.reset();
-  Operator::stop();
+  dds_reader_.reset();
+  ano_reader_.reset();
 }
 
 void ConnextRxOp::compute(InputContext& input, OutputContext& output, ExecutionContext& context) {
   (void)input;
-  (void)output;
   (void)context;
-  // No-op for now – payload handling will be implemented in follow-up changes.
+
+  if (!output_.get()) {
+    throw std::runtime_error("ConnextRxOp output IO spec is not set.");
+  }
+
+  std::vector<std::uint8_t> received_data;
+
+  if (dds_config_.enabled() && dds_reader_) {
+    received_data = dds_reader_->readSamples();
+  } else if (ano_config_.enabled() && ano_reader_) {
+    received_data = ano_reader_->readSamples();
+  }
+
+  if (received_data.empty()) { return; }
+
+  auto payload_storage =
+      std::make_shared<std::vector<std::uint8_t>>(std::move(received_data));
+
+  auto entity = nvidia::gxf::Entity::New(context.context());
+  if (!entity) {
+    throw std::runtime_error("Failed to create GXF entity for received payload.");
+  }
+
+  auto payload_tensor = entity.value().add<nvidia::gxf::Tensor>("payload");
+  if (!payload_tensor) {
+    throw std::runtime_error("Failed to add payload tensor to GXF entity.");
+  }
+
+  nvidia::gxf::Shape payload_shape{
+      static_cast<int32_t>(payload_storage->size())};
+
+  auto wrap_result = payload_tensor.value()->wrapMemory(
+      payload_shape,
+      nvidia::gxf::PrimitiveType::kUnsigned8,
+      sizeof(std::uint8_t),
+      nvidia::gxf::ComputeTrivialStrides(payload_shape, sizeof(std::uint8_t)),
+      nvidia::gxf::MemoryStorageType::kSystem,
+      payload_storage->data(),
+      [payload_storage](void*) mutable {
+        payload_storage.reset();
+        return nvidia::gxf::Success;
+      });
+
+  if (!wrap_result) {
+    throw std::runtime_error("Failed to wrap payload buffer in tensor component.");
+  }
+
+  auto gxf_entity = gxf::Entity(std::move(entity.value()));
+  output.emit(gxf_entity, "output");
 }
 
 }  // namespace holoscan::ops

@@ -52,6 +52,7 @@ void ConnextTxOp::refresh_configs() {
 
   ano_config_ =
       connext_lib::AnoConfig(ano_channel_.get(),
+                              "",
                              static_cast<std::size_t>(ano_max_payload_.get()),
                              enable_ano_.get());
 }
@@ -68,8 +69,8 @@ void ConnextTxOp::start() {
 }
 
 void ConnextTxOp::stop() {
-  payload_writer_.reset();
-  payload_transport_.reset();
+  dds_writer_.reset();
+  ano_writer_.reset();
   Operator::stop();
 }
 

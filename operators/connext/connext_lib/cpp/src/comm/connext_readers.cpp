@@ -8,7 +8,8 @@
 
 namespace connext_lib {
 
-ConnextDDSReader::ConnextDDSReader(const DdsConfig& dds_config, std::chrono::milliseconds poll_interval_ms=std::chrono::milliseconds(100)):poll_interval_ms_(poll_interval_ms) {
+ConnextDDSReader::ConnextDDSReader(const DdsConfig& dds_config, std::chrono::milliseconds poll_interval_ms)
+:poll_interval_ms_(poll_interval_ms) {
   int domain_id = dds_config.domain_id();
   std::string topic_name = dds_config.topic_name();
 

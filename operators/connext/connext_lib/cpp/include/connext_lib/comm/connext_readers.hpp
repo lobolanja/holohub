@@ -20,7 +20,7 @@ namespace connext_lib {
  */
 class ConnextDDSReader {
 public:
-    explicit ConnextDDSReader(const DdsConfig& dds_config, std::chrono::milliseconds poll_interval_ms);
+    ConnextDDSReader(const DdsConfig& dds_config, std::chrono::milliseconds poll_interval_ms = std::chrono::milliseconds(100));
     /**
      * Polls for new samples from DDS. Returns a vector of bytes if available.
      * Used in tests to verify roundtrip message delivery.

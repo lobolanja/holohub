@@ -6,8 +6,7 @@
 
 #include <holoscan/holoscan.hpp>
 
-#include "connext_lib/config.hpp"
-#include "connext_lib/payload_transport.hpp"
+#include "connext_lib.hpp"
 
 namespace holoscan::ops {
 
@@ -44,8 +43,8 @@ class ConnextRxOp : public Operator {
   connext_lib::DdsConfig dds_config_{};
   connext_lib::AnoConfig ano_config_{};
 
-  std::unique_ptr<connext_lib::PayloadTransport> payload_transport_;
-  std::unique_ptr<connext_lib::PayloadReaderInterface> payload_reader_;
+  std::unique_ptr<connext_lib::ConnextDDSReader> dds_reader_;
+  std::unique_ptr<connext_lib::ConnextANOReader> ano_reader_;
 };
 
 }  // namespace holoscan::ops

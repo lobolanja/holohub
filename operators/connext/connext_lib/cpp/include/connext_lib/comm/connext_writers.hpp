@@ -39,7 +39,7 @@ class ConnextANOWriter {
  */
 class ConnextDDSWriter {
  public:
-  explicit ConnextDDSWriter(const DdsConfig& dds_config, int max_payload_bytes);
+  ConnextDDSWriter(const DdsConfig& dds_config, int max_payload_bytes);
   ConnextDDSWriter(const ConnextDDSWriter&) = delete;
   ConnextDDSWriter& operator=(const ConnextDDSWriter&) = delete;
   ~ConnextDDSWriter();
