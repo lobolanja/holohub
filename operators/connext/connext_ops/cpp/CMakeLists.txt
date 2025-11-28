@@ -57,4 +57,30 @@ install(DIRECTORY include/
 
 if(BUILD_TESTING)
   enable_testing()
+  add_executable(test_connext_rx_integration tests/test_connext_rx_integration.cpp)
+  target_link_libraries(test_connext_rx_integration
+    PRIVATE
+      connext_ops
+      holoscan::core
+      holoscan::ops::connext_lib
+      gtest
+      gtest_main
+  )
+  add_test(NAME test_connext_rx_integration COMMAND test_connext_rx_integration)
+
+  add_custom_target(connext_ops_cpp_tests
+          DEPENDS
+          test_connext_rx_integration
+  )
+  set(CONNEXT_LIB_TEST_ENV "")
+  if(DEFINED ENV{NDDSHOME})
+    list(APPEND CONNEXT_LIB_TEST_ENV "NDDSHOME=$ENV{NDDSHOME}")
+  endif()
+  if(DEFINED ENV{RTI_LICENSE_FILE})
+    list(APPEND CONNEXT_LIB_TEST_ENV "RTI_LICENSE_FILE=$ENV{RTI_LICENSE_FILE}")
+  endif()
+  if(CONNEXT_LIB_TEST_ENV)
+    set_tests_properties(
+            test_connext_rx_integration PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
+  endif()
 endif()
