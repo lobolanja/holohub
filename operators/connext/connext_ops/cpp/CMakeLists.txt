@@ -63,8 +63,7 @@ if(BUILD_TESTING)
       connext_ops
       holoscan::core
       holoscan::ops::connext_lib
-      gtest
-      gtest_main
+      RTIConnextDDS::test
   )
   add_test(NAME test_connext_rx_integration COMMAND test_connext_rx_integration)
 

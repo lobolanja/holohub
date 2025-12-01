@@ -20,6 +20,7 @@ namespace holoscan::ops {
 class ConnextRxOp : public Operator {
  public:
   HOLOSCAN_OPERATOR_FORWARD_ARGS(ConnextRxOp)
+  ConnextRxOp() = default;
 
   void setup(OperatorSpec& spec) override;
   void start() override;

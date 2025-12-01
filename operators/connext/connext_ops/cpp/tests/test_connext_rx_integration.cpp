@@ -15,12 +15,16 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <holoscan/holoscan.hpp>
 #include <connext_ops/connext_rx.hpp>
+#include <connext_ops/connext_tx.hpp>
+#include <ndds/rtitest/Tester.hpp>
+#include <ndds/rtitest/test_setting_impl.h>
+#include <holoscan/core/conditions/gxf/count.hpp>
 #include <thread>
 #include <chrono>
 #include <string>
+#include <cstring>
 
 using namespace holoscan;
 using namespace holoscan::ops;
@@ -34,6 +38,8 @@ constexpr char kAnoChannel[] = "TestAnoChannel";
 
 class DummySourceOp : public Operator {
  public:
+  HOLOSCAN_OPERATOR_FORWARD_ARGS(DummySourceOp)
+  DummySourceOp() = default;
   void setup(OperatorSpec& spec) override {
     spec.output<nvidia::gxf::Entity>("output");
   }
@@ -56,6 +62,8 @@ class DummySourceOp : public Operator {
 
 class TestReceiverOp : public Operator {
  public:
+  HOLOSCAN_OPERATOR_FORWARD_ARGS(TestReceiverOp)
+  TestReceiverOp() = default;
   std::string received_payload;
   void setup(OperatorSpec& spec) override {
     spec.input<nvidia::gxf::Entity>("input");
@@ -64,41 +72,93 @@ class TestReceiverOp : public Operator {
     auto entity = input.receive<nvidia::gxf::Entity>("input").value();
     auto tensor = entity.get<nvidia::gxf::Tensor>("payload");
     if (tensor) {
-      const auto* data = static_cast<const uint8_t*>(tensor->data());
-      received_payload.assign(reinterpret_cast<const char*>(data), tensor->getShape().dimension(0));
+      auto tensor_handle = tensor.value();
+      auto data_expected = tensor_handle->data<uint8_t>();
+      if (data_expected) {
+        const auto* data = data_expected.value();
+        const auto& shape = tensor_handle->shape();
+        received_payload.assign(reinterpret_cast<const char*>(data), shape.dimension(0));
+      }
     }
   }
 };
 
-void run_connext_rx_test(bool enable_dds, bool enable_ano) {
-  Fragment fragment;
-  auto source = fragment.make_operator<DummySourceOp>("source");
-  auto rx = fragment.make_operator<ConnextRxOp>("rx");
-  auto sink = fragment.make_operator<TestReceiverOp>("sink");
+class ConnextOpsApp : public Application {
+ public:
+ ConnextOpsApp(bool enable_dds, bool enable_ano)
+      : enable_dds_(enable_dds), enable_ano_(enable_ano) {}
 
-  rx->add_arg(Arg("enable_dds", enable_dds));
-  rx->add_arg(Arg("enable_ano", enable_ano));
-  rx->add_arg(Arg("domain_id", kDomainId));
-  rx->add_arg(Arg("topic_name", kTopicName));
-  rx->add_arg(Arg("ano_channel", kAnoChannel));
+  const std::string& received_payload() const { return sink_op_->received_payload; }
 
-  fragment.add_flow(source, rx, { {"output", "input"} });
-  fragment.add_flow(rx, sink, { {"output", "input"} });
+  void compose() override {
+    auto source_count = make_condition<CountCondition>(10);
+    auto rx_count = make_condition<CountCondition>(10);
 
-  Executor executor(&fragment);
-  executor.run();
+    auto source = make_operator<DummySourceOp>("source", source_count);
+    auto tx = make_operator<ConnextTxOp>("tx",
+                                         Arg("enable_dds", enable_dds_),
+                                         Arg("enable_ano", enable_ano_),
+                                         Arg("domain_id", kDomainId),
+                                         Arg("topic_name", kTopicName),
+                                         Arg("ano_channel", kAnoChannel));
+    auto rx = make_operator<ConnextRxOp>("rx",
+                                         Arg("enable_dds", enable_dds_),
+                                         Arg("enable_ano", enable_ano_),
+                                         Arg("domain_id", kDomainId),
+                                         Arg("topic_name", kTopicName),
+                                         Arg("ano_channel", kAnoChannel),
+                                         rx_count);
+    sink_op_ = make_operator<TestReceiverOp>("sink");
 
-  std::this_thread::sleep_for(std::chrono::seconds(2));
-  auto* sink_op = static_cast<TestReceiverOp*>(sink.get());
-  ASSERT_EQ(sink_op->received_payload, kTestPayload);
+    add_flow(source, tx, {{"output", "input"}});
+    add_flow(rx, sink_op_, {{"output", "input"}});
+  }
+
+ private:
+  bool enable_dds_;
+  bool enable_ano_;
+  std::shared_ptr<TestReceiverOp> sink_op_;
+};
+
+void run_connext_tx_rx_roundtrip_test(bool enable_dds, bool enable_ano) {
+  ConnextOpsApp app(enable_dds, enable_ano);
+  app.run();
+  RTI_TEST_ASSERT(app.received_payload() == kTestPayload);
 }
 
-TEST(ConnextRxIntegration, DDS) {
-  run_connext_rx_test(true, false);
-}
+class ConnextOpsIntegrationTester : public rti::test::Tester,
+                                    public rti::test::Singleton<ConnextOpsIntegrationTester> {
+ public:
+  void dds_roundtrip() { run_connext_tx_rx_roundtrip_test(true, false); }
+  void ano_roundtrip() { run_connext_tx_rx_roundtrip_test(false, true); }
 
-TEST(ConnextRxIntegration, ANO) {
-  run_connext_rx_test(false, true);
-}
+ private:
+  ConnextOpsIntegrationTester() : rti::test::Tester("connext_ops_integration_tests") {
+    RTI_TEST_FUNCTION_ADD(ConnextOpsIntegrationTester, dds_roundtrip);
+    RTI_TEST_FUNCTION_ADD(ConnextOpsIntegrationTester, ano_roundtrip);
+  }
+
+  friend class rti::test::Singleton<ConnextOpsIntegrationTester>;
+};
+
+class ConnextOpsIntegrationTestContainer : public rti::test::TesterContainer,
+                                           public rti::test::Singleton<ConnextOpsIntegrationTestContainer> {
+ private:
+  ConnextOpsIntegrationTestContainer()
+      : rti::test::TesterContainer("connext_ops_integration") {
+    add_tester<ConnextOpsIntegrationTester>();
+  }
+
+  bool on_tests_begin(const RTITestSetting& setting) override {
+    RTITestSetting_setupStandalone();
+    return rti::test::TesterContainer::on_tests_begin(setting);
+  }
+
+  friend class rti::test::Singleton<ConnextOpsIntegrationTestContainer>;
+};
 
 } // namespace
+
+int main(int argc, char** argv) {
+  return ConnextOpsIntegrationTestContainer::get_instance().run_tests(argc, argv);
+}

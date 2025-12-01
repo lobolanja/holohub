@@ -1,3 +1,5 @@
+#include <chrono>
+
 #include "connext_ops/connext_tx.hpp"
 
 namespace holoscan::ops {
@@ -60,6 +62,24 @@ void ConnextTxOp::refresh_configs() {
 void ConnextTxOp::start() {
   Operator::start();
   refresh_configs();
+
+  if (!dds_config_.enabled() && !ano_config_.enabled()) {
+    throw std::runtime_error(
+        "ConnextTxOp requires at least one transport to be enabled (DDS or ANO).");
+  } else if (dds_config_.enabled() && ano_config_.enabled()) {
+    throw std::runtime_error(
+        "ConnextTxOp currently supports only one transport at a time (DDS or ANO).");
+  }
+
+  if (dds_config_.enabled()) {
+    dds_writer_ = std::make_unique<connext_lib::ConnextDDSWriter>(
+        dds_config_, static_cast<int>(ano_max_payload_.get()));
+  } else if (ano_config_.enabled()) {
+    constexpr std::chrono::milliseconds kAnoWriterPollInterval{100};
+    ano_writer_ = std::make_unique<connext_lib::ConnextANOWriter>(
+        ano_config_, dds_config_, kAnoWriterPollInterval);
+  }
+
   HOLOSCAN_LOG_INFO(
       "ConnextTxOp starting (dds_enabled={}, ano_enabled={}, channel={}, destination={})",
       dds_config_.enabled(),
@@ -75,10 +95,26 @@ void ConnextTxOp::stop() {
 }
 
 void ConnextTxOp::compute(InputContext& input, OutputContext& output, ExecutionContext& context) {
-  (void)input;
   (void)output;
   (void)context;
-  // No-op placeholder – actual payload handling will be implemented later.
+
+  auto entity_expected = input.receive<gxf::Entity>("input");
+  if (!entity_expected) { return; }
+
+  auto tensor = entity_expected.value().get<Tensor>("payload");
+  if (!tensor) { return; }
+
+  auto* data = static_cast<std::uint8_t*>(tensor->data());
+  if (!data) { return; }
+
+  const auto payload_size = static_cast<std::size_t>(tensor->nbytes());
+  connext_lib::PayloadBufferView buffer{data, payload_size};
+
+  if (dds_config_.enabled() && dds_writer_) {
+    dds_writer_->broadcast(buffer);
+  } else if (ano_config_.enabled() && ano_writer_) {
+    ano_writer_->broadcast(buffer);
+  }
 }
 
 }  // namespace holoscan::ops
