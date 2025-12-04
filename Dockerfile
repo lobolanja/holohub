@@ -104,6 +104,8 @@ RUN apt update \
     && apt install --no-install-recommends -y \
         openjdk-21-jre
 RUN echo 'export JREHOME=$(readlink /etc/alternatives/java | sed -e "s/\/bin\/java//")' >> /etc/bash.bashrc
+RUN pip install rti.connext==7.3.0
+RUN pip install pytest
 
 # Set default Holohub data directory
 ENV HOLOSCAN_INPUT_PATH=/workspace/holohub/data

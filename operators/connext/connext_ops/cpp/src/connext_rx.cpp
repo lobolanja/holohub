@@ -35,6 +35,11 @@ void ConnextRxOp::setup(OperatorSpec& spec) {
              "ANO Channel",
              "Logical ANO channel name.",
              std::string("connext_ano_stream"));
+  spec.param(ano_buffer_id_,
+             "ano_buffer_id",
+             "ANO Buffer ID",
+             "Identifier used by ANO shared memory buffers.",
+             std::string("ano_buffer_01"));
   spec.param(ano_max_payload_,
              "ano_max_payload",
              "Max ANO Payload (bytes)",
@@ -50,9 +55,9 @@ void ConnextRxOp::refresh_configs() {
 
   ano_config_ =
       connext_lib::AnoConfig(ano_channel_.get(),
-                              "", 
-                             static_cast<std::size_t>(ano_max_payload_.get()),
-                             enable_ano_.get());
+                 ano_buffer_id_.get(), 
+                 static_cast<std::size_t>(ano_max_payload_.get()),
+                 enable_ano_.get());
 
 
 }

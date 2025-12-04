@@ -91,8 +91,8 @@ class ConnextOpsApp : public Application {
   const std::string& received_payload() const { return sink_op_->received_payload; }
 
   void compose() override {
-    auto source_count = make_condition<CountCondition>(10);
-    auto rx_count = make_condition<CountCondition>(10);
+    auto source_count = make_condition<CountCondition>(3);
+    auto rx_count = make_condition<CountCondition>(3);
 
     auto source = make_operator<DummySourceOp>("source", source_count);
     auto tx = make_operator<ConnextTxOp>("tx",

@@ -39,6 +39,7 @@ class ConnextRxOp : public Operator {
   Parameter<std::string> topic_type_name_;
   Parameter<bool> enable_ano_;
   Parameter<std::string> ano_channel_;
+  Parameter<std::string> ano_buffer_id_;
   Parameter<uint64_t> ano_max_payload_;
 
   connext_lib::DdsConfig dds_config_{};
