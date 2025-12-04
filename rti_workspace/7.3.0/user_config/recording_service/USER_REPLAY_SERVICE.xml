@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- All of our files start with a dds tag -->
+<dds xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:noNamespaceSchemaLocation="http://community.rti.com/schema/7.3.0/rti_replay_service.xsd">
+
+
+    <replay_service name="UserReplayService">
+        <!-- This will look for files in the directory 'cdr_recording' in the 
+             current working directory. This is integrated with the Recorder
+             configuration 'UserRecorderService' in the file 
+             USER_RECORDING_SERVICE.xml -->
+        <storage>
+            <sqlite>
+                <storage_format>XCDR_AUTO</storage_format>
+                <database_dir>cdr_recording</database_dir>
+            </sqlite>
+        </storage>
+
+        <!-- Optionally select the begin and end times for the data to be 
+             replayed -->
+        <!--data_selection>
+            <time_range>
+                <begin_time>
+                    <sec>0</sec>
+                    <nanosec>0</nanosec>
+                </begin_time>
+            </time_range>
+        </data_selection-->
+
+        <!-- Specify playback behavior, including what local time to start -->
+        <!--playback>
+        </playback-->
+      
+        <domain_participant name="DefaultParticipant">
+            <domain_id>0</domain_id>
+        </domain_participant>
+
+        <session name="DefaultSession" 
+                 default_participant_ref="DefaultParticipant">
+            <!-- Topics to replay in this session -->
+            <topic_group name="DefaultTopicGroup">
+                <!-- Topics to replay -->
+                <allow_topic_name_filter>*</allow_topic_name_filter>
+                <deny_topic_name_filter>rti/*</deny_topic_name_filter>
+            </topic_group>
+        </session>
+    </replay_service>
+    
+    <replay_service name="UserReplayServiceJson">
+        <!-- This will look for files in the directory 'json_recording' in the 
+             current working directory. This is integrated with the Recorder
+             configuration 'UserRecorderServiceJson' in the file 
+             USER_RECORDING_SERVICE.xml -->
+        <storage>
+            <sqlite>
+                <storage_format>JSON_SQLITE</storage_format>
+                <database_dir>json_recording</database_dir>
+            </sqlite>
+        </storage>
+
+        <!-- Optionally select the begin and end times for the data to be 
+             replayed -->
+        <!--data_selection>
+            <time_range>
+                <begin_time>
+                    <sec>0</sec>
+                    <nanosec>0</nanosec>
+                </begin_time>
+            </time_range>
+        </data_selection-->
+
+        <!-- Specify playback behavior, including what local time to start -->
+        <!--playback>
+        </playback-->
+      
+        <domain_participant name="DefaultParticipant">
+            <domain_id>0</domain_id>
+        </domain_participant>
+
+        <session name="DefaultSession" 
+                 default_participant_ref="DefaultParticipant">
+            <!-- Topics to replay in this session -->
+            <topic_group name="DefaultTopicGroup">
+                <!-- Topics to replay -->
+                <allow_topic_name_filter>*</allow_topic_name_filter>
+                <deny_topic_name_filter>rti/*</deny_topic_name_filter>
+            </topic_group>
+        </session>
+    </replay_service>
+    
+</dds>
+

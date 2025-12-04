@@ -102,7 +102,7 @@ If you want a more detailed command to build and run a specific application, ple
 
 #### Build
 
-Holohub provides a default development container that can be used to build and run applications. However several applications and operator requires specific dependencies that are not available in the default development container and are provided by specific docker files. Please refer to the README of each application or operator for more information.
+Holohub provides a default development container that can be used to build and run applications. How  ever several applications and operator requires specific dependencies that are not available in the default development container and are provided by specific docker files. Please refer to the README of each application or operator for more information.
 
 Run the following command to build the development container for a given project. The build may take a few minutes.
 

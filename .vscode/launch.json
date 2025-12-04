@@ -1469,7 +1469,7 @@
             "env": {
                 "LD_LIBRARY_PATH": "${workspaceFolder}/.venv/lib/python3.10/site-packages/nvidia/cuda_runtime/lib:${env:LD_LIBRARY_PATH}",
                 "PYTHONPATH": "${workspaceFolder}/operators/connext/connext_ano/python/src:${workspaceFolder}/operators/connext/connext_lib/python/src:${env:PYTHONPATH}",
-                "RTI_LICENSE_FILE": "/home/juanca/Downloads/rti_holoscan_license.dat"
+                "RTI_LICENSE_FILE": "/workspace/rti/rti_connext_dds-7.3.0/rti_license.dat"
             },
             "args": [
                 "tests/test_connext_op.py",
@@ -1494,7 +1494,7 @@
             "env": {
                 "LD_LIBRARY_PATH": "${workspaceFolder}/.venv/lib/python3.10/site-packages/nvidia/cuda_runtime/lib:${env:LD_LIBRARY_PATH}",
                 "PYTHONPATH": "${workspaceFolder}/operators/connext/connext_ano/python/src:${workspaceFolder}/operators/connext/connext_lib/python/src:${env:PYTHONPATH}",
-                "RTI_LICENSE_FILE": "/home/juanca/Downloads/rti_holoscan_license.dat"
+                "RTI_LICENSE_FILE": "/workspace/rti/rti_connext_dds-7.3.0/rti_license.dat"
             },
             "args": [
                 "tests/test_connext_op.py",
@@ -1520,7 +1520,7 @@
             "env": {
                 "LD_LIBRARY_PATH": "${workspaceFolder}/.venv/lib/python3.10/site-packages/nvidia/cuda_runtime/lib:${env:LD_LIBRARY_PATH}",
                 "PYTHONPATH": "${workspaceFolder}/operators/connext/connext_ano/python/src:${workspaceFolder}/operators/connext/connext_lib/python/src:${env:PYTHONPATH}",
-                "RTI_LICENSE_FILE": "/home/juanca/Downloads/rti_holoscan_license.dat"
+                "RTI_LICENSE_FILE": "/workspace/rti/rti_connext_dds-7.3.0/rti_license.dat"
             },
             "args": [
                 "tests/test_connext_app.py",
@@ -1538,11 +1538,11 @@
             "name": "(gdb) connext_lib_tests",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/connext_lib/cpp/connext_lib_tests",
+            "program": "${workspaceFolder}/build/operators/connext/connext_lib/cpp/connext_lib_ano_integration_tests",
             "args": [],
             "envFile": "${workspaceFolder}/.vscode/connext.env",
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/build/connext_lib",
+            "cwd": "${workspaceFolder}/build/operators/connext/connext_lib/cpp/",
             "externalConsole": false,
             "MIMode": "gdb",
             "setupCommands": [
@@ -1613,8 +1613,8 @@
             "args": [],
             "cwd": "${workspaceFolder}/build/connext_lib/cpp",
             "environment": [
-                { "name": "NDDSHOME", "value": "/opt/rti.com/rti_connext_dds-7.3.0" },
-                { "name": "RTI_LICENSE_FILE", "value": "/home/juanca/holo/holohub/rti_license.dat" }
+                { "name": "NDDSHOME", "value": "/workspace/rti/rti_connext_dds-7.3.0" },
+                { "name": "RTI_LICENSE_FILE", "value": "/workspace/rti/rti_connext_dds-7.3.0/rti_license.dat" }
             ],
             "stopAtEntry": false,
             "externalConsole": false,
@@ -1639,8 +1639,8 @@
             "args": [],
             "cwd": "${workspaceFolder}/build/connext_lib/cpp",
             "environment": [
-                { "name": "NDDSHOME", "value": "/opt/rti.com/rti_connext_dds-7.3.0" },
-                { "name": "RTI_LICENSE_FILE", "value": "/home/juanca/holo/holohub/rti_license.dat" }
+                { "name": "NDDSHOME", "value": "/workspace/rti/rti_connext_dds-7.3.0" },
+                { "name": "RTI_LICENSE_FILE", "value": "/workspace/rti/rti_connext_dds-7.3.0/rti_license.dat" }
             ],
             "stopAtEntry": false,
             "externalConsole": false,
@@ -1659,6 +1659,31 @@
             }
         },
         //#endregion connext_lib_cpp
+         //#region connext_ops_cpp
+        {
+            "name": "(gdb) connext_ops_tests",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/operators/connext/connext_ops/cpp/test_connext_rx_integration",
+            "args": [],
+            "envFile": "${workspaceFolder}/.vscode/connext.env",
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build/operators/connext/connext_ops/cpp/",
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "presentation": {
+                "hidden": false,
+                "group": "connext_ops",
+                "order": 1
+            }
+        }
     ],
     "compounds": [
         {

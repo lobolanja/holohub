@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ (c) Copyright, Real-Time Innovations, 2012-2016.
+ All rights reserved.
+ Permission to modify and use for internal purposes granted.
+ This software is provided "as is", without warranty, express or implied.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified">
+
+    <xs:simpleType name="domainTagType">
+        <xs:restriction base="xs:string">
+            <xs:whiteSpace value="collapse"/>
+            <xs:maxLength value="255"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:complexType name="participantPartitionType">
+        <xs:sequence>
+            <xs:element name="participantPartition"
+                        type="xs:string"
+                        minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="fileConfig">
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute name="load" type="xs:boolean"/>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+
+    <xs:complexType name="qosConfig">
+        <xs:sequence>
+            <xs:element name="file" type="fileConfig" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="rtiShapesDemoConfig">
+        <xs:sequence>
+            <xs:element name="domainId" type="xs:nonNegativeInteger"/>
+            <xs:element name="domainTag" type="domainTagType"/>
+            <xs:element name="participantPartitions"
+                        type="participantPartitionType"/>
+            <xs:element name="welcomeScreen" type="xs:boolean"/>
+            <xs:element name="popupConfig" type="xs:boolean"/>
+            <xs:element name="pubInterval"
+                        type="xs:nonNegativeInteger"
+                        minOccurs="0"/>
+            <xs:element name="subInterval"
+                        type="xs:nonNegativeInteger"
+                        minOccurs="0"/>
+            <xs:element name="initialPeers"
+                        type="xs:string"
+                        minOccurs="0"/>
+            <xs:element name="qos" type="qosConfig"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:element name="dds">
+        <xs:complexType>
+            <xs:all>
+                <xs:element name="rti_shapes_demo" type="rtiShapesDemoConfig"/>
+            </xs:all>
+        </xs:complexType>
+    </xs:element>
+
+</xs:schema>

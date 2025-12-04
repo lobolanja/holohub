@@ -1,0 +1,9 @@
+[user]
+	email = irene@rti.com
+	name = irene
+[init]
+	defaultBranch = main
+[credential]
+	helper = "!f() { /workspace/holohub/.vscode-server/bin/bf9252a2fb45be6893dd8870c0bf37e2e1766d61/node /tmp/vscode-remote-containers-16e851cf-ba94-46a9-9ddb-8df175cc06d2.js git-credential-helper $*; }; f"
+[safe]
+	directory = /workspace/holohub
