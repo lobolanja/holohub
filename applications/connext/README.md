@@ -34,7 +34,7 @@ Run the application after ensuring
 ```sh
 export RTI_LICENSE_FILE=/path/to/rti_license.dat
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
-cmake -S operators/connext -B build -DHOLOHUB_BUILD_PYTHON=ON -DBUILD_TESTING=ON
+cmake -B build -DHOLOHUB_BUILD_PYTHON=ON -DBUILD_TESTING=ON
 cmake --build build --target connext_lib_python connext_ano_python
 python3 applications/connext/python/src/run_demo.py --transport ano
 ```
@@ -49,6 +49,10 @@ To launch through the Holohub helper script instead of invoking Python directly,
 ```
 
 Use `--run-args="--transport dds"` to switch to DDS networking mode.
+
+### C++ application
+
+Please, refear to this [Readme.md](cpp/Readme.md) file to run the applications involved.
 
 ## Container Support
 

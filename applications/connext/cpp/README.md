@@ -41,13 +41,13 @@ transport and channel identifiers.
 Terminal 1 (receiver):
 ```sh
 ./holohub run connext --language cpp \
-  --run-args="--mode=rx --use-ano --ano-channel=demo_channel --ano-buffer-id=demo_buffer"
+  --run-args="--mode=rx --use-ano --ano-channel=demo_channel --ano-buffer-id=demo_buffer_rx"
 ```
 
 Terminal 2 (transmitter):
 ```sh
 ./holohub run connext --language cpp \
-  --run-args="--mode=tx --use-ano --ano-channel=demo_channel --ano-buffer-id=demo_buffer --message-count=5"
+  --run-args="--mode=tx --use-ano --ano-channel=demo_channel --ano-buffer-id=demo_buffer_tx_0 --message-count=5"
 ```
 
 The transmitter emits five payloads with the default base string
@@ -60,13 +60,13 @@ assign both applications the same domain ID and topic name:
 Terminal 1:
 ```sh
 ./holohub run connext --language cpp \
-  --run-args="--mode=rx --use-dds --dds-domain-id=1 --dds-topic-name=ConnextDemoTopic"
+  --run-args="--mode=tx --use-dds --dds-domain-id=1 --dds-topic-name=ConnextDemoTopic"
 ```
 
 Terminal 2:
 ```sh
 ./holohub run connext --language cpp \
-  --run-args="--mode=tx --use-dds --dds-domain-id=1 --dds-topic-name=ConnextDemoTopic --message-count=5"
+  --run-args="--mode=rx --use-dds --dds-domain-id=1 --dds-topic-name=ConnextDemoTopic"
 ```
 
 Increase `--message-count` or omit it entirely for continuous publishing.

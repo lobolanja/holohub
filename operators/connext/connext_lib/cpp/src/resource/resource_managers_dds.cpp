@@ -36,7 +36,9 @@ DdsReceiverResourcesManager::DdsReceiverResourcesManager(
       topic_(participant_, std::move(channel), dds::topic::qos::TopicQos()),
       // TODO: If the properties delays in propagation, consider enabling the datareader after the
       //properties are aplied in the qos's
-      reader_(subscriber_, topic_),
+      reader_(subscriber_, topic_,
+              dds::core::QosProvider::Default().datareader_qos(
+                  "BuiltinQosLib::Generic.KeepLastReliable.Transient")),
       buffer_id_(std::move(buffer_id)),
       channel_(topic_.name()) {}
 
@@ -81,7 +83,7 @@ DdsSenderResourcesManager::DdsSenderResourcesManager(
       writer_(publisher_,
               topic_,
               dds::core::QosProvider::Default().datawriter_qos(
-                  "BuiltinQosLib::Pattern.Status")),
+                  "BuiltinQosLib::Generic.KeepLastReliable.Transient")),
       subscription_reader_(dds::core::null),
       channel_filter_(topic_.name()) {
   dds::sub::Subscriber builtin = dds::sub::builtin_subscriber(participant_);
@@ -98,16 +100,25 @@ DdsSenderResourcesManager::DdsSenderResourcesManager(
 }
 
 void DdsSenderResourcesManager::pollOnce() {
+
+  //TODO: Delete this
+  //dds::core::BytesTopicType sample;
+  //writer_.write(sample);
+  //writer_.wait_for_acknowledgments(dds::core::Duration(10));
   auto samples = subscription_reader_.take();
   for (const auto& sample : samples) {
     if (!sample.info().valid()) {
       continue;
     }
-
+    
     const auto& property = sample.data().delegate().property();
     const auto buffer_id = property.try_get(kBufferIdProperty);
     const auto channel = property.try_get(kChannelProperty);
     const auto guid = property.try_get(kGuidProperty);
+    //TODO: Delete this
+    std::cout<<"INFO: Sample received in sender manager: buffer_id=" << (buffer_id ? *buffer_id : "null")
+             << ", channel=" << (channel ? *channel : "null")
+             << ", guid=" << (guid ? *guid : "null") << std::endl;
     if (!buffer_id || !channel || !guid) {
       continue;
     }
