@@ -1,12 +1,13 @@
-# Connext ANO Loopback Application (Python)
+# Connext ANO Applications (Python a C++)
 
-This example Holoscan application demonstrates how to integrate the Python Connext ANO transmit and receive operators
-in a single fragment. A configurable source operator emits a handful of string payloads that travel through the
-Connext ANO transmitter and back into the process via the Connext ANO receiver. The received payloads are stored by a
-sink operator so they can be validated in tests or further processed by additional stages.
+This example Holoscan application demonstrates how to:
+- integrate the Python Connext ANO transmit and receive operators in a single Holoscan Application
+- integrate the C++ Connext ANO transmit and receive operators, running in two different Holoscan Applications.
+A configurable source operator emits a handful of string payloads that travel through the
+Connext ANO transmitter and back into the process via the Connext ANO receiver. The received payloads are stored by a sink operator so they can be validated in tests or further processed by additional stages.
 
 ## Dependencies
-This application requires the RTI Connext DDS Python package and a valid RTI license file. You can install the package
+This application requires the RTI Connext DDS (C++ and Python) package and a valid RTI license file. You can install the package
 using pip:
 ```sh
 pip install rti.connext==7.3.0
@@ -65,11 +66,13 @@ To launch through the Holohub helper script instead of invoking Python directly,
 
 Use `--run-args="--transport dds"` to switch to DDS networking mode.
 
-### C++ application
+### C++ Holoscan Application
 
 Please refer to the C++ specific instructions in `applications/connext/cpp/README.md`.
 
 ## Container Support
+
+<!--TODO-JUANCA: update this docker file with the changes in the main one -->
 
 A reference Dockerfile is provided to simplify deployment. Build and run the application inside the container with:
 
