@@ -1,9 +1,9 @@
 # Connext C++ Demo
 
 This Holoscan sample demonstrates a Connext-powered roundtrip in C++. Two separate
-processes exchange string payloads over either the ANO or DDS transports. The
-transmitter (`--mode=tx`) publishes incrementing messages, while the receiver
-(`--mode=rx`) prints every payload as it arrives.
+processes exchange string payloads over either the ANO or DDS transports. YAML
+configuration files control which mode to run and how each transport is
+parameterized.
 
 ## Prerequisites
 - Holohub environment set up with the Holoscan SDK 3.0 runtime.
@@ -34,52 +34,42 @@ artifacts under the workspace:
 ```
 
 ## Run
-Start the receiver first, then the transmitter. Both processes must agree on the
-transport and channel identifiers.
+Start the transmitter first, then the receiver. Both processes must agree on the
+transport and channel identifiers. The build drops two configuration files next
+to the executable:
 
-### ANO roundtrip example
-Terminal 1 (receiver):
+- `connext_receiver.yaml` configures the application in RX mode.
+- `connext_sender.yaml` configures the application in TX mode.
+
+Launch each process by passing the desired YAML file as the sole argument. The
+command below assumes the default Holohub run directory (`holohub_bin`) where
+the binary and configuration files are staged.
+
+Terminal 1 (transmitter):
 ```sh
 ./holohub run connext --language cpp \
-  --run-args="--mode=rx --use-ano --ano-channel=demo_channel --ano-buffer-id=demo_buffer_rx"
+  --run-args="examples/connext/connext_sender.yaml"
 ```
 
-Terminal 2 (transmitter):
+Terminal 2 (receiver):
 ```sh
 ./holohub run connext --language cpp \
-  --run-args="--mode=tx --use-ano --ano-channel=demo_channel --ano-buffer-id=demo_buffer_tx_0 --message-count=5"
+  --run-args="examples/connext/connext_receiver.yaml"
 ```
 
-The transmitter emits five payloads with the default base string
-`hello_holoscan`. The receiver prints each arrival to stdout.
-
-### DDS roundtrip example
-If you prefer to exercise DDS networking, provide the `--use-dds` flag and
-assign both applications the same domain ID and topic name:
-
-Terminal 1:
+If you run the binary directly from the build tree, point it at the YAML file:
 ```sh
-./holohub run connext --language cpp \
-  --run-args="--mode=tx --use-dds --dds-domain-id=1 --dds-topic-name=ConnextDemoTopic"
+./build/applications/connext/cpp/connext_sender_receiver ./connext_receiver.yaml
 ```
 
-Terminal 2:
-```sh
-./holohub run connext --language cpp \
-  --run-args="--mode=rx --use-dds --dds-domain-id=1 --dds-topic-name=ConnextDemoTopic"
-```
+Each file contains these sections:
 
-Increase `--message-count` or omit it entirely for continuous publishing.
-Receiver-side `--discovery-wait-ms` (default 3000) controls how long the
-application allows DDS discovery to complete before pulling messages.
+- `demo`: Shared runtime controls. Adjust `message_count`, `message_period_ms`, and
+  `discovery_wait_ms` (receiver only). The `mode` field is pre-populated.
+- `payload_source`: Sets the base payload string appended by the TX path.
+- `connext_tx` / `connext_rx`: Transport-specific parameters used by the Holoscan
+  Connext operators. Update `enable_dds`/`enable_ano`, `domain_id`, `topic_name`,
+  `ano_channel`, and related entries so both peers agree on the same transport configuration.
 
-## Additional options
-Key flags exposed by the binary (see `connext_common.cpp` for the full list):
-- `--payload` sets the base string appended with an incrementing counter.
-- `--message-period-ms` throttles continuous publishing.
-- `--destination` passes an optional destination reference to the Connext
-  transport layer.
-- `--ano-max-payload` adjusts the maximum payload size negotiated with ANO.
-
-Run `./holohub run connext --language cpp --run-args="--help"` to see the full
-usage text.
+Keep the sender and receiver YAML files in sync for the selected transport—DDS domain
+ID and topic name must match, as do ANO channel and buffer identifiers.

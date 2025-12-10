@@ -2,204 +2,26 @@
 
 #include <algorithm>
 #include <cctype>
-#include <cstdlib>
+#include <chrono>
+#include <thread>
 
-namespace connext_demo {
+#include <connext_ops/connext_rx.hpp>
+#include <connext_ops/connext_tx.hpp>
+#include <holoscan/core/conditions/gxf/count.hpp>
+#include <holoscan/core/conditions/gxf/periodic.hpp>
 
 namespace {
 
-bool parse_positive_int(const char* arg, int& value_out) {
-  char* end = nullptr;
-  long value = std::strtol(arg, &end, 10);
-  if (end == arg || value <= 0 || value > std::numeric_limits<int>::max()) { return false; }
-  value_out = static_cast<int>(value);
-  return true;
-}
-
-bool parse_non_negative_int(const char* arg, int& value_out) {
-  char* end = nullptr;
-  long value = std::strtol(arg, &end, 10);
-  if (end == arg || value < 0 || value > std::numeric_limits<int>::max()) { return false; }
-  value_out = static_cast<int>(value);
-  return true;
-}
-
-bool parse_positive_uint64(const char* arg, std::uint64_t& value_out) {
-  char* end = nullptr;
-  unsigned long long value = std::strtoull(arg, &end, 10);
-  if (end == arg || value == 0) { return false; }
-  value_out = static_cast<std::uint64_t>(value);
-  return true;
+std::string ToLower(std::string value) {
+  std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
+    return static_cast<char>(std::tolower(ch));
+  });
+  return value;
 }
 
 }  // namespace
 
-void print_usage(const char* program_name) {
-  std::cout << "Usage: " << program_name << " [options]\n"
-            << "Options:\n"
-            << "  --payload <string>           Base payload to transmit (default: hello_holoscan)\n"
-            << "  --mode <tx|rx>               Run as transmitter (tx) or receiver (rx) (default: tx)\n"
-            << "  --message-count <int>        Number of payloads to send (0 for continuous, default: 0)\n"
-            << "  --message-period-ms <int>    Delay between payloads when continuous (default: 1000)\n"
-            << "  --use-dds                    Enable DDS transport (default: ANO)\n"
-            << "  --use-ano                    Enable ANO transport (default if --use-dds not set)\n"
-            << "  --dds-domain-id <int>        DDS domain identifier (default: 2)\n"
-            << "  --dds-topic-name <string>    DDS topic name (default: ConnextDemoTopic)\n"
-            << "  --dds-topic-type <string>    DDS topic type name (optional)\n"
-            << "  --ano-channel <string>       ANO channel name (default: connext_demo_channel)\n"
-            << "  --ano-buffer-id <string>     ANO buffer identifier (default: connext_demo_buffer)\n"
-            << "  --ano-max-payload <bytes>    Maximum ANO payload size (default: 4096)\n"
-            << "  --destination <string>       Optional destination reference hint\n"
-            << "  --discovery-wait-ms <int>    Wait before activating sink in DDS mode (default: 3000)\n"
-            << "  --help                       Show this message and exit\n";
-}
-
-bool parse_arguments(int argc, char** argv, DemoAppConfig& config, bool& show_usage) {
-  bool dds_selected = false;
-  bool ano_selected = false;
-
-  static struct option long_options[] = {
-      {"mode", required_argument, nullptr, 'o'},
-      {"payload", required_argument, nullptr, 'p'},
-      {"message-count", required_argument, nullptr, 'm'},
-      {"message-period-ms", required_argument, nullptr, 'P'},
-      {"use-dds", no_argument, nullptr, 'D'},
-      {"use-ano", no_argument, nullptr, 'A'},
-      {"dds-domain-id", required_argument, nullptr, 'i'},
-      {"dds-topic-name", required_argument, nullptr, 't'},
-      {"dds-topic-type", required_argument, nullptr, 'T'},
-      {"ano-channel", required_argument, nullptr, 'a'},
-      {"ano-buffer-id", required_argument, nullptr, 'B'},
-      {"ano-max-payload", required_argument, nullptr, 'M'},
-      {"destination", required_argument, nullptr, 'r'},
-      {"discovery-wait-ms", required_argument, nullptr, 'w'},
-      {"help", no_argument, nullptr, 'h'},
-      {nullptr, 0, nullptr, 0}};
-
-  opterr = 0;
-  optind = 1;
-
-  while (true) {
-    int option_index = 0;
-    int c = getopt_long(argc, argv, "", long_options, &option_index);
-    if (c == -1) { break; }
-
-    switch (c) {
-      case 'o': {
-        if (!optarg) {
-          std::cerr << "--mode requires an argument (tx or rx)." << std::endl;
-          return false;
-        }
-        std::string mode_str(optarg);
-        std::transform(mode_str.begin(), mode_str.end(), mode_str.begin(),
-                       [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-        if (mode_str == "tx") {
-          config.mode = DemoMode::kTx;
-        } else if (mode_str == "rx") {
-          config.mode = DemoMode::kRx;
-        } else {
-          std::cerr << "Invalid --mode value: " << optarg << std::endl;
-          return false;
-        }
-        break;
-      }
-      case 'p':
-        config.payload = optarg ? optarg : "";
-        break;
-      case 'm': {
-        int value = 0;
-        if (!parse_non_negative_int(optarg, value)) {
-          std::cerr << "Invalid --message-count value: " << optarg << std::endl;
-          return false;
-        }
-        config.message_count = value;
-        break;
-      }
-      case 'P': {
-        int value = 0;
-        if (!parse_positive_int(optarg, value)) {
-          std::cerr << "Invalid --message-period-ms value: " << optarg << std::endl;
-          return false;
-        }
-        config.message_period_ms = value;
-        break;
-      }
-      case 'D':
-        dds_selected = true;
-        break;
-      case 'A':
-        ano_selected = true;
-        break;
-      case 'i': {
-        int value = 0;
-        if (!parse_non_negative_int(optarg, value)) {
-          std::cerr << "Invalid --dds-domain-id value: " << optarg << std::endl;
-          return false;
-        }
-        config.dds_domain_id = value;
-        break;
-      }
-      case 't':
-        config.dds_topic_name = optarg ? optarg : "";
-        break;
-      case 'T':
-        config.dds_topic_type = optarg ? optarg : "";
-        break;
-      case 'a':
-        config.ano_channel = optarg ? optarg : "";
-        break;
-      case 'B':
-        config.ano_buffer_id = optarg ? optarg : "";
-        break;
-      case 'M': {
-        std::uint64_t value = 0;
-        if (!parse_positive_uint64(optarg, value)) {
-          std::cerr << "Invalid --ano-max-payload value: " << optarg << std::endl;
-          return false;
-        }
-        config.ano_max_payload = value;
-        break;
-      }
-      case 'r':
-        config.destination_reference = optarg ? optarg : "";
-        break;
-      case 'w': {
-        int value = 0;
-        if (!parse_non_negative_int(optarg, value)) {
-          std::cerr << "Invalid --discovery-wait-ms value: " << optarg << std::endl;
-          return false;
-        }
-        config.discovery_wait_ms = value;
-        break;
-      }
-      case 'h':
-        show_usage = true;
-        return false;
-      default:
-        std::cerr << "Unknown option encountered." << std::endl;
-        return false;
-    }
-  }
-
-  if (optind < argc) {
-    std::cerr << "Unexpected positional argument: " << argv[optind] << std::endl;
-    return false;
-  }
-
-  if (dds_selected && ano_selected) {
-    std::cerr << "DDS and ANO transports are mutually exclusive. Choose only one." << std::endl;
-    return false;
-  }
-
-  if (dds_selected) {
-    config.use_dds = true;
-  } else if (ano_selected) {
-    config.use_dds = false;
-  }
-
-  return true;
-}
-
+namespace connext_demo {
 void PayloadSourceOp::setup(holoscan::OperatorSpec& spec) {
   spec.output<nvidia::gxf::Entity>("output");
   spec.param(base_payload_, "base_payload", "Base Payload", "Base payload string.");
@@ -281,6 +103,195 @@ void PayloadSinkOp::compute(holoscan::InputContext& input, holoscan::OutputConte
   std::cout << "PayloadSink received payload: " << payload << std::endl;
 
   if (storage_) { storage_->push_back(std::move(payload)); }
+}
+
+ConnextDemoApp::ConnextDemoApp()
+    : received_payloads_(std::make_shared<std::vector<std::string>>()) {}
+
+DemoAppConfig ConnextDemoApp::load_demo_config() {
+  DemoAppConfig result{};
+
+  if (from_config("demo").size() == 0) {
+    throw std::runtime_error("Missing 'demo' section in configuration");
+  }
+
+  std::string mode_value = "tx";
+  if (auto mode_arg = from_config("demo.mode"); mode_arg.size() > 0) {
+    mode_value = mode_arg.as<std::string>();
+  }
+  mode_value = ToLower(mode_value);
+  if (mode_value == "tx" || mode_value == "sender") {
+    result.mode = DemoMode::kTx;
+  } else if (mode_value == "rx" || mode_value == "receiver") {
+    result.mode = DemoMode::kRx;
+  } else {
+    throw std::runtime_error("demo.mode must be 'tx'/'sender' or 'rx'/'receiver'");
+  }
+
+  if (auto count_arg = from_config("demo.message_count"); count_arg.size() > 0) {
+    auto count_value = count_arg.as<int>();
+    if (count_value < 0) { throw std::runtime_error("demo.message_count must be >= 0"); }
+    result.message_count = count_value;
+  }
+
+  if (auto period_arg = from_config("demo.message_period_ms"); period_arg.size() > 0) {
+    auto period_value = period_arg.as<int>();
+    if (period_value <= 0) { throw std::runtime_error("demo.message_period_ms must be > 0"); }
+    result.message_period_ms = period_value;
+  }
+
+  if (auto wait_arg = from_config("demo.discovery_wait_ms"); wait_arg.size() > 0) {
+    auto wait_value = wait_arg.as<int>();
+    if (wait_value < 0) { throw std::runtime_error("demo.discovery_wait_ms must be >= 0"); }
+    result.discovery_wait_ms = wait_value;
+  }
+
+  if (auto payload_arg = from_config("payload_source.base_payload");
+      payload_arg.size() > 0) {
+    result.payload = payload_arg.as<std::string>();
+  }
+
+  auto apply_transport_info = [&](const std::string& section) -> bool {
+    if (from_config(section).size() == 0) { return false; }
+
+    const auto enable_dds_key = section + ".enable_dds";
+    if (auto enable_dds_arg = from_config(enable_dds_key); enable_dds_arg.size() > 0) {
+      result.use_dds = enable_dds_arg.as<bool>();
+    } else if (auto enable_ano_arg = from_config(section + ".enable_ano");
+               enable_ano_arg.size() > 0) {
+      result.use_dds = !enable_ano_arg.as<bool>();
+    }
+
+    if (auto domain_arg = from_config(section + ".domain_id"); domain_arg.size() > 0) {
+      auto domain_value = domain_arg.as<int>();
+      if (domain_value < 0) { throw std::runtime_error("domain_id must be >= 0"); }
+      result.dds_domain_id = domain_value;
+    }
+    if (auto topic_name_arg = from_config(section + ".topic_name");
+        topic_name_arg.size() > 0) {
+      result.dds_topic_name = topic_name_arg.as<std::string>();
+    }
+    if (auto topic_type_arg = from_config(section + ".topic_type_name");
+        topic_type_arg.size() > 0) {
+      result.dds_topic_type = topic_type_arg.as<std::string>();
+    }
+    if (auto ano_channel_arg = from_config(section + ".ano_channel");
+        ano_channel_arg.size() > 0) {
+      result.ano_channel = ano_channel_arg.as<std::string>();
+    }
+    if (auto ano_buffer_arg = from_config(section + ".ano_buffer_id");
+        ano_buffer_arg.size() > 0) {
+      result.ano_buffer_id = ano_buffer_arg.as<std::string>();
+    }
+    if (auto ano_max_payload_arg = from_config(section + ".ano_max_payload");
+        ano_max_payload_arg.size() > 0) {
+      auto value = ano_max_payload_arg.as<std::uint64_t>();
+      if (value == 0) { throw std::runtime_error("ano_max_payload must be > 0"); }
+      result.ano_max_payload = value;
+    }
+    if (auto destination_arg = from_config(section + ".destination_reference");
+        destination_arg.size() > 0) {
+      result.destination_reference = destination_arg.as<std::string>();
+    }
+
+    return true;
+  };
+
+  if (result.mode == DemoMode::kTx) {
+    apply_transport_info("connext_tx");
+  } else {
+    const bool has_rx = apply_transport_info("connext_rx");
+    if (!has_rx) {
+      if (auto tx_enable_dds = from_config("connext_tx.enable_dds");
+          tx_enable_dds.size() > 0) {
+        result.use_dds = tx_enable_dds.as<bool>();
+      }
+    }
+  }
+
+  if (auto use_dds_override = from_config("demo.use_dds"); use_dds_override.size() > 0) {
+    result.use_dds = use_dds_override.as<bool>();
+  }
+
+  return result;
+}
+
+void ConnextDemoApp::compose() {
+  using namespace holoscan;
+
+  demo_config_ = load_demo_config();
+  received_payloads_ = std::make_shared<std::vector<std::string>>();
+
+  if (demo_config_.mode == DemoMode::kTx) {
+    std::shared_ptr<Condition> source_condition;
+    if (demo_config_.message_count > 0) {
+      source_condition = make_condition<CountCondition>(demo_config_.message_count);
+    } else {
+      source_condition = make_condition<PeriodicCondition>(
+          "payload_source_period", std::chrono::milliseconds(demo_config_.message_period_ms));
+    }
+
+    auto source = make_operator<PayloadSourceOp>(
+        "payload_source", from_config("payload_source"), source_condition);
+
+    auto tx = make_operator<holoscan::ops::ConnextTxOp>("connext_tx", from_config("connext_tx"));
+
+    add_flow(source, tx, {{"output", "input"}});
+
+    if (demo_config_.message_count > 0) {
+      HOLOSCAN_LOG_INFO(
+          "Connext sender configured. transport={}, payload='{}', iterations={}, period_ms={}",
+          demo_config_.use_dds ? "dds" : "ano",
+          demo_config_.payload,
+          demo_config_.message_count,
+          demo_config_.message_period_ms);
+    } else {
+      HOLOSCAN_LOG_INFO(
+          "Connext sender configured. transport={}, payload='{}', iterations=continuous, period_ms={}",
+          demo_config_.use_dds ? "dds" : "ano",
+          demo_config_.payload,
+          demo_config_.message_period_ms);
+    }
+  } else {
+    std::shared_ptr<Condition> rx_condition;
+    if (demo_config_.message_count > 0) {
+      rx_condition = make_condition<CountCondition>(demo_config_.message_count);
+    } else {
+      rx_condition = make_condition<PeriodicCondition>(
+          "rx_poll_period", std::chrono::milliseconds(demo_config_.message_period_ms));
+    }
+
+    auto rx = make_operator<holoscan::ops::ConnextRxOp>(
+        "connext_rx", from_config("connext_rx"), rx_condition);
+
+    if (demo_config_.use_dds && demo_config_.discovery_wait_ms > 0) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(demo_config_.discovery_wait_ms));
+    }
+
+    std::shared_ptr<PayloadSinkOp> sink;
+    if (demo_config_.message_count > 0) {
+      sink = make_operator<PayloadSinkOp>(
+          "payload_sink", make_condition<CountCondition>(demo_config_.message_count));
+    } else {
+      sink = make_operator<PayloadSinkOp>("payload_sink");
+    }
+    sink->set_storage(received_payloads_);
+
+    add_flow(rx, sink, {{"output", "input"}});
+
+    if (demo_config_.message_count > 0) {
+      HOLOSCAN_LOG_INFO(
+          "Connext receiver configured. transport={}, iterations={}, discovery_wait_ms={}",
+          demo_config_.use_dds ? "dds" : "ano",
+          demo_config_.message_count,
+          demo_config_.discovery_wait_ms);
+    } else {
+      HOLOSCAN_LOG_INFO(
+          "Connext receiver configured. transport={}, iterations=continuous, discovery_wait_ms={}",
+          demo_config_.use_dds ? "dds" : "ano",
+          demo_config_.discovery_wait_ms);
+    }
+  }
 }
 
 }  // namespace connext_demo

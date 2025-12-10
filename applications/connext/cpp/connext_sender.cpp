@@ -61,9 +61,10 @@ class ConnextSenderApp : public holoscan::Application {
   DemoAppConfig config_{};
 };
 
-int run_sender(const DemoAppConfig& config) {
+int run_sender(const DemoAppConfig& config, const std::string& config_path) {
   try {
     ConnextSenderApp app(config);
+    if (!config_path.empty()) { app.config(config_path); }
     app.run();
   } catch (const std::exception& err) {
     HOLOSCAN_LOG_ERROR("Connext sender failed: {}", err.what());

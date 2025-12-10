@@ -9,8 +9,6 @@ find_package(holoscan 3.0 REQUIRED CONFIG
 add_executable(connext_sender_receiver
   main.cpp
   connext_common.cpp
-  connext_sender.cpp
-  connext_receiver.cpp
 )
 
 target_compile_features(connext_sender_receiver PRIVATE cxx_std_17)
@@ -22,10 +20,34 @@ target_link_libraries(connext_sender_receiver
     holoscan::ops::connext_lib
 )
 
+add_custom_target(connext_sender_receiver_yaml
+  COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/connext_sender.yaml" ${CMAKE_CURRENT_BINARY_DIR}
+  COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/connext_receiver.yaml" ${CMAKE_CURRENT_BINARY_DIR}
+  DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/connext_sender.yaml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/connext_receiver.yaml"
+  BYPRODUCTS
+    "${CMAKE_CURRENT_BINARY_DIR}/connext_sender.yaml"
+    "${CMAKE_CURRENT_BINARY_DIR}/connext_receiver.yaml"
+)
+
+add_dependencies(connext_sender_receiver connext_sender_receiver_yaml)
+
 install(
   TARGETS connext_sender_receiver
   DESTINATION examples/connext
   COMPONENT connext-cpp
+)
+
+install(
+  FILES
+    connext_sender.yaml
+    connext_receiver.yaml
+  DESTINATION examples/connext
+  COMPONENT connext-cpp
+  PERMISSIONS OWNER_READ OWNER_WRITE
+              GROUP_READ GROUP_WRITE
+              WORLD_READ WORLD_WRITE
 )
 
 install(
@@ -41,10 +63,10 @@ install(
 install(
   FILES
     main.cpp
-    connext_sender.cpp
-    connext_receiver.cpp
     connext_common.hpp
     connext_common.cpp
+    connext_sender.yaml
+    connext_receiver.yaml
   DESTINATION examples/connext
   COMPONENT connext-cppsrc
   PERMISSIONS OWNER_READ OWNER_WRITE

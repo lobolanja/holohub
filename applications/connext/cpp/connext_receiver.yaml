@@ -1,0 +1,22 @@
+%YAML 1.2
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+---
+demo:
+  mode: rx
+  message_count: 0
+  message_period_ms: 1000
+  discovery_wait_ms: 3000
+
+payload_source:
+  base_payload: hello_holoscan
+
+connext_rx:
+  enable_dds: false
+  enable_ano: true
+  domain_id: 2
+  topic_name: ConnextDemoTopic
+  topic_type_name: ""
+  ano_channel: connext_demo_channel
+  ano_buffer_id: connext_demo_buffer
+  ano_max_payload: 4096

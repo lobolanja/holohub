@@ -1,9 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include <getopt.h>
 #include <iostream>
-#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -34,12 +32,6 @@ struct DemoAppConfig {
   DemoMode mode = DemoMode::kTx;
 };
 
-void print_usage(const char* program_name);
-bool parse_arguments(int argc, char** argv, DemoAppConfig& config, bool& show_usage);
-
-int run_sender(const DemoAppConfig& config);
-int run_receiver(const DemoAppConfig& config);
-
 class PayloadSourceOp : public holoscan::Operator {
  public:
   HOLOSCAN_OPERATOR_FORWARD_ARGS(PayloadSourceOp)
@@ -69,6 +61,22 @@ class PayloadSinkOp : public holoscan::Operator {
 
  private:
   std::shared_ptr<std::vector<std::string>> storage_;
+};
+
+class ConnextDemoApp : public holoscan::Application {
+ public:
+  ConnextDemoApp();
+
+  void compose() override;
+
+  DemoMode mode() const { return demo_config_.mode; }
+  const std::vector<std::string>& received_payloads() const { return *received_payloads_; }
+
+ private:
+  DemoAppConfig load_demo_config();
+
+  DemoAppConfig demo_config_{};
+  std::shared_ptr<std::vector<std::string>> received_payloads_;
 };
 
 }  // namespace connext_demo

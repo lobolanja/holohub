@@ -73,9 +73,10 @@ class ConnextReceiverApp : public holoscan::Application {
   std::shared_ptr<std::vector<std::string>> received_payloads_;
 };
 
-int run_receiver(const DemoAppConfig& config) {
+int run_receiver(const DemoAppConfig& config, const std::string& config_path) {
   try {
     ConnextReceiverApp app(config);
+    if (!config_path.empty()) { app.config(config_path); }
     app.run();
 
     const auto& payloads = app.received_payloads();
