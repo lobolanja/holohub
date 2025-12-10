@@ -1,4 +1,4 @@
-# Connext ANO Loopback Application
+# Connext ANO Loopback Application (Python)
 
 This example Holoscan application demonstrates how to integrate the Python Connext ANO transmit and receive operators
 in a single fragment. A configurable source operator emits a handful of string payloads that travel through the
@@ -14,22 +14,37 @@ pip install rti.connext==7.3.0
 Make sure to set the `RTI_LICENSE_FILE` environment variable to point to your RTI license file before running the
 application.
 
-Cupy is also required to provide access to the CUDA runtime libraries. You can install cupy via pip:
+CuPy is also required to provide access to the CUDA runtime libraries. You can install CuPy via pip:
 ```sh
 pip install cupy
 ```
-Alternatively, ensure that the CUDA toolkit libraries are available in your `LD_LIBRARY_PATH`. You can set this environment variable as follows:
+Select the wheel that matches your CUDA toolkit (for example `cupy-cuda12x` for CUDA 12). Refer to the
+[CuPy installation matrix](https://docs.cupy.dev/en/stable/install.html) if the default wheel does not match the
+toolkit bundled with your system or container image.
+
+Alternatively, ensure that the CUDA toolkit libraries are available in your `LD_LIBRARY_PATH`. You can set this
+environment variable as follows:
 ```sh
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 ```
+Either path works—pick one and keep it consistent to avoid accidentally mixing CUDA versions.
+
+### License reminder
+
+RTI requires a valid license file to run the Connext middleware. Obtain the license through the RTI customer portal or
+your organization’s RTI administrator, then set `RTI_LICENSE_FILE` to the absolute path of the license file before
+launching any Holoscan Connext component.
 
 ## Building and Running
 
 Run the application after ensuring
-- RTI Connext DDS python pakackage is installed: "pip install rti.connext==7.3.0"
+- RTI Connext DDS Python package is installed: `pip install rti.connext==7.3.0`
 - the `RTI_LICENSE_FILE` environment variable points to a valid license
-- `LD_LIBRARY_PATH` includes the CUDA toolkit libraries: "/usr/local/cuda/lib64"
-  - alternatively you can install cupy with `pip install cupy` to get the CUDA libraries included automatically
+- CUDA runtime libraries are available either through CuPy (`pip install cupy`) or by exporting
+  `LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH`
+
+Developers frequently work inside a virtual environment. If you do, remember to activate it before running the commands
+below so both the Holoscan dependencies and Connext bindings resolve correctly.
 
 ```sh
 export RTI_LICENSE_FILE=/path/to/rti_license.dat
@@ -52,7 +67,7 @@ Use `--run-args="--transport dds"` to switch to DDS networking mode.
 
 ### C++ application
 
-Please, refear to this [Readme.md](cpp/Readme.md) file to run the applications involved.
+Please refer to the C++ specific instructions in `applications/connext/cpp/README.md`.
 
 ## Container Support
 

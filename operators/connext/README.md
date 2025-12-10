@@ -7,9 +7,20 @@ Holoscan platform:
   and high-level send/receive helpers. During a CMake build (with `HOLOHUB_BUILD_PYTHON=ON`), this package is copied into
   the Holohub Python namespace so other operators can simply `import holohub.connext_lib` or install the library
   standalone via its `pyproject.toml`.
-- **`connext_ano`** – Python transmit/receive operators (`ConnextTxOp` and `ConnextRxOp`) built on the support library to
-  advertise and consume buffers over DDS.
-[//]: # (TODO: rewrite connext_ano description when it is done)
+- **`connext_ano`** – Python transmit/receive operators (`ConnextTxOp` and `ConnextRxOp`) built on the support library.
+  They coordinate DDS discovery and negotiate an optional ANO fast path when both peers support shared-memory transport.
+- **`connext_ops`** – C++ Python transmit/receive operators (`ConnextTxOp` and `ConnextRxOp`) 
+
+## Prerequisites
+
+Before building any Connext component, make sure the following prerequisites are satisfied:
+- RTI Connext DDS 7.3.0 SDK installed and `NDDSHOME` pointing at the SDK root (for example `/opt/rti/rti_connext_dds-7.3.0`).
+- RTI Connext Python bindings staged locally: `pip install rti.connext==7.3.0`.
+- Valid RTI license file with `RTI_LICENSE_FILE` exporting the absolute path.
+- CUDA runtime libraries available either via CuPy (`pip install cupy` or the CUDA-specific wheel such as `cupy-cuda12x`) or by exporting `LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH`.
+
+These environment variables must be present when invoking CMake or running the tests. Keep the CUDA configuration
+consistent (all CuPy wheels and toolkits should target the same CUDA major/minor version).
 
 ## Building
 
@@ -28,12 +39,18 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 > that directory and ensure the license file is reachable before building the DDS helpers—CMake will fail early if the
 > SDK is missing. If you only need the Python packaging, disable the native build via `-DCONNEXT_LIB_BUILD_CPP=OFF`.
 
-### C++ helper library
+### RTI license reminder
+
+All Connext components require a valid RTI license. If you obtained the SDK through your organization, ask your RTI
+administrator for the license file. Otherwise, visit the RTI Customer Portal to request an evaluation. Export
+`RTI_LICENSE_FILE` before launching builds, tests, or sample applications.
+
+### C++ helper library and operators
 
 ```sh
-cmake -S operators/connext -B build  -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
-cmake --build build --target connext_lib connext_lib_cpp_tests
-ctest --test-dir build -R connext_lib -V
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+cmake --build build --target connext_lib connext_lib_cpp_tests connext_ops connext_ops_cpp_tests
+ctest --test-dir build -R connext -V
 ```
 
 - `connext_lib` emits a static archive plus headers/metadata so future native operators can link against a stable
@@ -46,9 +63,8 @@ ctest --test-dir build -R connext_lib -V
 ### Python packages
 
 ```sh
-cmake -S operators/connext -B build -DHOLOHUB_BUILD_PYTHON=ON -DBUILD_TESTING=ON
-cmake --build build --target connext_lib_cpp_tests connext_lib_python connext_ano_python
-ctest --test-dir build -R connext -V
+cmake -B build -DHOLOHUB_BUILD_PYTHON=ON -DBUILD_TESTING=ON
+cmake --build build --target connext_lib_python connext_ano_python
 ```
 
 - `connext_lib_python` mirrors the support library into `build/python/lib/holohub/connext_lib`, including its pytest

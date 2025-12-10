@@ -6,7 +6,9 @@ This project packages reusable DDS buffer advertisement and payload IO helpers f
 ## Prerequisites
 - Python 3.10 or higher
 - RTI Connext DDS 7.3.0 Python package: `pip install rti.connext==7.3.0`
-- Development dependencies for testing: `pip install pytest`
+- Development dependencies for testing (installed via the `[dev]` extra) such as pytest
+- CUDA runtime libraries reachable either through CuPy (`pip install cupy` or `pip install cupy-cuda12x`) or by
+   exporting `LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH`
 
 ## Running the Tests
 

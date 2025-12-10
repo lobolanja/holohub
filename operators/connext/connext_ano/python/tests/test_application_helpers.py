@@ -50,7 +50,7 @@ class ConnextApplicationANODummy(Application):
     def compose(self):
 
         # Set the scheduler
-        self.__set_event_based_scheduler()
+        #self.__set_event_based_scheduler()
 
         # Create a count condition to limit the number of transmissions
         self._count_condition = CountCondition(self, count=10)

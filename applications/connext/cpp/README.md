@@ -9,7 +9,7 @@ parameterized.
 - Holohub environment set up with the Holoscan SDK 3.0 runtime.
 - RTI Connext DDS libraries and a valid license.
   - Install the Python bindings (they stage the native shared libraries required by
-    the Holoscan Connext operators):
+    the Holoscan Connext operators even when you only run the C++ sample):
     ```sh
     pip install rti.connext==7.3.0
     ```
@@ -18,8 +18,9 @@ parameterized.
     ```sh
     export RTI_LICENSE_FILE=/path/to/rti_license.dat
     ```
-- CUDA runtime libraries discoverable at runtime, either by installing CuPy or
-  exporting `LD_LIBRARY_PATH` to include your CUDA toolkit location:
+- CUDA runtime libraries discoverable at runtime, either by installing CuPy (choose the
+  wheel matching your CUDA toolkit, for example `cupy-cuda12x`) or exporting
+  `LD_LIBRARY_PATH` to include your CUDA toolkit location:
   ```sh
   pip install cupy
   # or
@@ -36,7 +37,8 @@ artifacts under the workspace:
 ## Run
 Start the transmitter first, then the receiver. Both processes must agree on the
 transport and channel identifiers. The build drops two configuration files next
-to the executable:
+to the executable inside `holohub_bin/examples/connext/` (or the relative path you chose with
+`--local`):
 
 - `connext_receiver.yaml` configures the application in RX mode.
 - `connext_sender.yaml` configures the application in TX mode.
@@ -57,10 +59,14 @@ Terminal 2 (receiver):
   --run-args="examples/connext/connext_receiver.yaml"
 ```
 
-If you run the binary directly from the build tree, point it at the YAML file:
+If you run the binary directly from the build tree, point it at the staged YAML file explicitly:
 ```sh
-./build/applications/connext/cpp/connext_sender_receiver ./connext_receiver.yaml
+./build/applications/connext/cpp/connext_sender_receiver \
+  holohub_bin/examples/connext/connext_receiver.yaml
 ```
+
+You can keep the YAML files under version control or customize copies on disk—just ensure
+both peers load configurations with consistent transport and channel values.
 
 Each file contains these sections:
 
