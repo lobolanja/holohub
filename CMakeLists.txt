@@ -74,16 +74,6 @@ if(NOT CMAKE_CUDA_ARCHITECTURES)
   set(CMAKE_CUDA_ARCHITECTURES "native")
 endif()
 
-# FetchContent for GoogleTest
-include(FetchContent)
-FetchContent_Declare(
-  googletest
-  URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
-)
-# Prevent GoogleTest from overriding our compiler/linker options
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
-
 # Build packaging
 add_subdirectory(pkg)
 

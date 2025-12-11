@@ -12,6 +12,7 @@
 		"changelog": {
 			"0.1": "Beta"
 		},
+		"dockerfile": "applications/connext/connext_app_cpp/Dockerfile",
 		"holoscan_sdk": {
 			"minimum_required_version": "3.0.1",
 			"tested_versions": [

@@ -6,7 +6,8 @@ cmake_minimum_required(VERSION 3.20)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/modules")
 
-add_subdirectory(cpp)
+add_holohub_application(connext_app_cpp DEPENDS
+                        OPERATORS connext_ops)
 
 if(HOLOHUB_BUILD_PYTHON)
   #add_subdirectory(python)
