@@ -13,6 +13,15 @@ parameterized.
     ```sh
     pip install rti.connext==7.3.0
     ```
+  - Install the debian packages for the Connext C++ libraries from
+    the RTI website according to your platform.
+    ```sh
+    sudo apt install rti-connext-dds-7.3.0
+    ```
+  - source rti setenv script to set up environment variables:
+    ```sh
+    source /opt/rti.com/rti_connext_dds-7.3.0/resource/scripts/rtisetenv_x64Linux4gcc7.3.0.bash
+    ```
   - Point `RTI_LICENSE_FILE` at the license file provided with your Connext
     distribution:
     ```sh
@@ -50,13 +59,13 @@ the binary and configuration files are staged.
 Terminal 1 (transmitter):
 ```sh
 ./holohub run connext --language cpp \
-  --run-args="examples/connext/connext_sender.yaml"
+  --run-args="examples/connext/connext_sender.yaml" --local
 ```
 
 Terminal 2 (receiver):
 ```sh
 ./holohub run connext --language cpp \
-  --run-args="examples/connext/connext_receiver.yaml"
+  --run-args="examples/connext/cpp/connext_receiver.yaml"
 ```
 
 If you run the binary directly from the build tree, point it at the staged YAML file explicitly:
