@@ -59,13 +59,13 @@ the binary and configuration files are staged.
 Terminal 1 (transmitter):
 ```sh
 ./holohub run connext --language cpp \
-  --run-args="examples/connext/connext_sender.yaml" --local
+  --run-args="connext/applications/connext/cpp/connext_sender.yaml"
 ```
 
 Terminal 2 (receiver):
 ```sh
 ./holohub run connext --language cpp \
-  --run-args="examples/connext/cpp/connext_receiver.yaml"
+  --run-args="connext/applications/connext/cpp/connext_receiver.yaml"
 ```
 
 If you run the binary directly from the build tree, point it at the staged YAML file explicitly:

@@ -74,6 +74,8 @@ class ConnextDemoApp : public holoscan::Application {
 
  private:
   DemoAppConfig load_demo_config();
+  void configure_tx_operators();
+  void configure_rx_operators();
 
   DemoAppConfig demo_config_{};
   std::shared_ptr<std::vector<std::string>> received_payloads_;
