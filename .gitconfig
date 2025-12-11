@@ -4,6 +4,6 @@
 [init]
 	defaultBranch = main
 [credential]
-	helper = "!f() { /workspace/holohub/.vscode-server/bin/bf9252a2fb45be6893dd8870c0bf37e2e1766d61/node /tmp/vscode-remote-containers-8d65861a-84da-493f-ab0c-04adda38e968.js git-credential-helper $*; }; f"
+	helper = "!f() { /workspace/holohub/.vscode-server/bin/bf9252a2fb45be6893dd8870c0bf37e2e1766d61/node /tmp/vscode-remote-containers-73750042-88e0-4e43-ab70-51b6e35c2eba.js git-credential-helper $*; }; f"
 [safe]
 	directory = /workspace/holohub

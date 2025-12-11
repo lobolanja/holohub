@@ -111,10 +111,40 @@ ConnextDemoApp::ConnextDemoApp()
 DemoAppConfig ConnextDemoApp::load_demo_config() {
   DemoAppConfig result{};
 
+  // Demo section parser
+  // Validate that the "demo" section exists
   if (from_config("demo").size() == 0) {
     throw std::runtime_error("Missing 'demo' section in configuration");
   }
 
+  // Parse message_count
+  if (config_keys().find("demo.message_count") != config_keys().end()) {
+    if (auto count_arg = from_config("demo.message_count"); count_arg.size() > 0) {
+      auto count_value = count_arg.as<int>();
+      if (count_value < 0) { throw std::runtime_error("demo.message_count must be >= 0"); }
+      result.message_count = count_value;
+    }
+  }
+
+  // Parse message_period_ms
+  if(config_keys().find("demo.message_period_ms") != config_keys().end()) {
+    if (auto period_arg = from_config("demo.message_period_ms"); period_arg.size() > 0) {
+      auto period_value = period_arg.as<int>();
+      if (period_value <= 0) { throw std::runtime_error("demo.message_period_ms must be > 0"); }
+      result.message_period_ms = period_value;
+    }
+  }
+
+  // Parse discovery_wait_ms
+  if (config_keys().find("demo.discovery_wait_ms") != config_keys().end()) {
+    if (auto wait_arg = from_config("demo.discovery_wait_ms"); wait_arg.size() > 0) {
+      auto wait_value = wait_arg.as<int>();
+      if (wait_value < 0) { throw std::runtime_error("demo.discovery_wait_ms must be >= 0"); }
+      result.discovery_wait_ms = wait_value;
+    }
+  }
+
+  // Parse mode. It must be either "tx" or "rx" for sender and receiver respectively.
   std::string mode_value = "tx";
   if (auto mode_arg = from_config("demo.mode"); mode_arg.size() > 0) {
     mode_value = mode_arg.as<std::string>();
@@ -128,29 +158,13 @@ DemoAppConfig ConnextDemoApp::load_demo_config() {
     throw std::runtime_error("demo.mode must be 'tx'/'sender' or 'rx'/'receiver'");
   }
 
-  if (auto count_arg = from_config("demo.message_count"); count_arg.size() > 0) {
-    auto count_value = count_arg.as<int>();
-    if (count_value < 0) { throw std::runtime_error("demo.message_count must be >= 0"); }
-    result.message_count = count_value;
-  }
-
-  if (auto period_arg = from_config("demo.message_period_ms"); period_arg.size() > 0) {
-    auto period_value = period_arg.as<int>();
-    if (period_value <= 0) { throw std::runtime_error("demo.message_period_ms must be > 0"); }
-    result.message_period_ms = period_value;
-  }
-
-  if (auto wait_arg = from_config("demo.discovery_wait_ms"); wait_arg.size() > 0) {
-    auto wait_value = wait_arg.as<int>();
-    if (wait_value < 0) { throw std::runtime_error("demo.discovery_wait_ms must be >= 0"); }
-    result.discovery_wait_ms = wait_value;
-  }
-
+  // Parse payload. The payload is optional; default is "hello_holoscan".
   if (auto payload_arg = from_config("payload_source.base_payload");
       payload_arg.size() > 0) {
     result.payload = payload_arg.as<std::string>();
   }
 
+  // Transport-specific configuration lambda
   auto apply_transport_info = [&](const std::string& section) -> bool {
     if (from_config(section).size() == 0) { return false; }
 
@@ -162,6 +176,7 @@ DemoAppConfig ConnextDemoApp::load_demo_config() {
       result.use_dds = !enable_ano_arg.as<bool>();
     }
 
+    // DDS configuration
     if (auto domain_arg = from_config(section + ".domain_id"); domain_arg.size() > 0) {
       auto domain_value = domain_arg.as<int>();
       if (domain_value < 0) { throw std::runtime_error("domain_id must be >= 0"); }
@@ -175,6 +190,8 @@ DemoAppConfig ConnextDemoApp::load_demo_config() {
         topic_type_arg.size() > 0) {
       result.dds_topic_type = topic_type_arg.as<std::string>();
     }
+
+    // ANO configuration
     if (auto ano_channel_arg = from_config(section + ".ano_channel");
         ano_channel_arg.size() > 0) {
       result.ano_channel = ano_channel_arg.as<std::string>();
@@ -189,108 +206,118 @@ DemoAppConfig ConnextDemoApp::load_demo_config() {
       if (value == 0) { throw std::runtime_error("ano_max_payload must be > 0"); }
       result.ano_max_payload = value;
     }
-    if (auto destination_arg = from_config(section + ".destination_reference");
-        destination_arg.size() > 0) {
-      result.destination_reference = destination_arg.as<std::string>();
+    // Optional destination_reference used for the tx so it only send to this destination
+    if (config_keys().find(section + ".destination_reference") != config_keys().end()) {
+      if (auto destination_arg = from_config(section + ".destination_reference");
+          destination_arg.size() > 0) {
+        result.destination_reference = destination_arg.as<std::string>();
+      }
     }
 
     return true;
   };
 
+  // Apply transport info based on mode
   if (result.mode == DemoMode::kTx) {
     apply_transport_info("connext_tx");
   } else {
-    const bool has_rx = apply_transport_info("connext_rx");
-    if (!has_rx) {
-      if (auto tx_enable_dds = from_config("connext_tx.enable_dds");
-          tx_enable_dds.size() > 0) {
-        result.use_dds = tx_enable_dds.as<bool>();
-      }
-    }
-  }
-
-  if (auto use_dds_override = from_config("demo.use_dds"); use_dds_override.size() > 0) {
-    result.use_dds = use_dds_override.as<bool>();
+    apply_transport_info("connext_rx");
   }
 
   return result;
 }
 
 void ConnextDemoApp::compose() {
-  using namespace holoscan;
-
   demo_config_ = load_demo_config();
   received_payloads_ = std::make_shared<std::vector<std::string>>();
 
   if (demo_config_.mode == DemoMode::kTx) {
-    std::shared_ptr<Condition> source_condition;
-    if (demo_config_.message_count > 0) {
-      source_condition = make_condition<CountCondition>(demo_config_.message_count);
-    } else {
-      source_condition = make_condition<PeriodicCondition>(
-          "payload_source_period", std::chrono::milliseconds(demo_config_.message_period_ms));
-    }
-
-    auto source = make_operator<PayloadSourceOp>(
-        "payload_source", from_config("payload_source"), source_condition);
-
-    auto tx = make_operator<holoscan::ops::ConnextTxOp>("connext_tx", from_config("connext_tx"));
-
-    add_flow(source, tx, {{"output", "input"}});
-
-    if (demo_config_.message_count > 0) {
-      HOLOSCAN_LOG_INFO(
-          "Connext sender configured. transport={}, payload='{}', iterations={}, period_ms={}",
-          demo_config_.use_dds ? "dds" : "ano",
-          demo_config_.payload,
-          demo_config_.message_count,
-          demo_config_.message_period_ms);
-    } else {
-      HOLOSCAN_LOG_INFO(
-          "Connext sender configured. transport={}, payload='{}', iterations=continuous, period_ms={}",
-          demo_config_.use_dds ? "dds" : "ano",
-          demo_config_.payload,
-          demo_config_.message_period_ms);
-    }
+    configure_tx_operators();
   } else {
-    std::shared_ptr<Condition> rx_condition;
-    if (demo_config_.message_count > 0) {
-      rx_condition = make_condition<CountCondition>(demo_config_.message_count);
-    } else {
-      rx_condition = make_condition<PeriodicCondition>(
-          "rx_poll_period", std::chrono::milliseconds(demo_config_.message_period_ms));
-    }
+    configure_rx_operators();
+  }
+}
 
-    auto rx = make_operator<holoscan::ops::ConnextRxOp>(
-        "connext_rx", from_config("connext_rx"), rx_condition);
+void ConnextDemoApp::configure_tx_operators() {
+  using namespace holoscan;
 
-    if (demo_config_.use_dds && demo_config_.discovery_wait_ms > 0) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(demo_config_.discovery_wait_ms));
-    }
+  std::shared_ptr<Condition> source_condition;
+  if (demo_config_.message_count > 0) {
+    source_condition = make_condition<CountCondition>(demo_config_.message_count);
+  } else {
+    source_condition = make_condition<PeriodicCondition>(
+        "payload_source_period", std::chrono::milliseconds(demo_config_.message_period_ms));
+  }
 
-    std::shared_ptr<PayloadSinkOp> sink;
-    if (demo_config_.message_count > 0) {
-      sink = make_operator<PayloadSinkOp>(
-          "payload_sink", make_condition<CountCondition>(demo_config_.message_count));
-    } else {
-      sink = make_operator<PayloadSinkOp>("payload_sink");
-    }
-    sink->set_storage(received_payloads_);
+  auto source = make_operator<PayloadSourceOp>(
+      "payload_source", from_config("payload_source"), source_condition);
 
-    add_flow(rx, sink, {{"output", "input"}});
+  auto tx = make_operator<holoscan::ops::ConnextTxOp>("connext_tx", from_config("connext_tx"));
 
-    if (demo_config_.message_count > 0) {
-      HOLOSCAN_LOG_INFO(
-          "Connext receiver configured. transport={}, iterations={}, discovery_wait_ms={}",
-          demo_config_.use_dds ? "dds" : "ano",
-          demo_config_.message_count,
-          demo_config_.discovery_wait_ms);
-    } else {
-      HOLOSCAN_LOG_INFO(
-          "Connext receiver configured. transport={}, iterations=continuous, discovery_wait_ms={}",
-          demo_config_.use_dds ? "dds" : "ano",
-          demo_config_.discovery_wait_ms);
-    }
+  if (demo_config_.discovery_wait_ms > 0) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(demo_config_.discovery_wait_ms));
+  }
+
+  add_flow(source, tx, {{"output", "input"}});
+
+  if (demo_config_.message_count > 0) {
+    HOLOSCAN_LOG_INFO(
+        "Connext sender configured. transport={}, payload='{}', iterations={}, period_ms={}, discovery_wait_ms={}",
+        demo_config_.use_dds ? "dds" : "ano",
+        demo_config_.payload,
+        demo_config_.message_count,
+        demo_config_.message_period_ms,
+        demo_config_.discovery_wait_ms);
+  } else {
+    HOLOSCAN_LOG_INFO(
+        "Connext sender configured. transport={}, payload='{}', iterations=continuous, period_ms={}, discovery_wait_ms={}",
+        demo_config_.use_dds ? "dds" : "ano",
+        demo_config_.payload,
+        demo_config_.message_period_ms,
+        demo_config_.discovery_wait_ms);
+  }
+}
+
+void ConnextDemoApp::configure_rx_operators() {
+  using namespace holoscan;
+
+  std::shared_ptr<Condition> rx_condition;
+  if (demo_config_.message_count > 0) {
+    rx_condition = make_condition<CountCondition>(demo_config_.message_count);
+  } else {
+    rx_condition = make_condition<PeriodicCondition>(
+        "rx_poll_period", std::chrono::milliseconds(demo_config_.message_period_ms));
+  }
+
+  auto rx = make_operator<holoscan::ops::ConnextRxOp>(
+      "connext_rx", from_config("connext_rx"), rx_condition);
+
+  if (demo_config_.discovery_wait_ms > 0) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(demo_config_.discovery_wait_ms));
+  }
+
+  std::shared_ptr<PayloadSinkOp> sink;
+  if (demo_config_.message_count > 0) {
+    sink = make_operator<PayloadSinkOp>(
+        "payload_sink", make_condition<CountCondition>(demo_config_.message_count));
+  } else {
+    sink = make_operator<PayloadSinkOp>("payload_sink");
+  }
+  sink->set_storage(received_payloads_);
+
+  add_flow(rx, sink, {{"output", "input"}});
+
+  if (demo_config_.message_count > 0) {
+    HOLOSCAN_LOG_INFO(
+        "Connext receiver configured. transport={}, iterations={}, discovery_wait_ms={}",
+        demo_config_.use_dds ? "dds" : "ano",
+        demo_config_.message_count,
+        demo_config_.discovery_wait_ms);
+  } else {
+    HOLOSCAN_LOG_INFO(
+        "Connext receiver configured. transport={}, iterations=continuous, discovery_wait_ms={}",
+        demo_config_.use_dds ? "dds" : "ano",
+        demo_config_.discovery_wait_ms);
   }
 }
 

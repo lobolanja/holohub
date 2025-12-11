@@ -6,6 +6,7 @@ demo:
   mode: tx
   message_count: 0
   message_period_ms: 1000
+  discovery_wait_ms: 3000
 
 payload_source:
   base_payload: hello_holoscan
