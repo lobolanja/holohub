@@ -27,7 +27,3 @@ find_package(RTIConnextDDS COMPONENTS test test_helpers REQUIRED)
 add_subdirectory(connext_lib)
 
 add_holohub_operator(connext_ops)
-
-if(HOLOHUB_BUILD_PYTHON)
-  add_subdirectory(connext_ano)
-endif()
