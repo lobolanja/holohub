@@ -3,7 +3,7 @@
 This application is used for Integration porpuses with RTI Connext DDS and ANO transport using C++ Holoscan operators. But it does not implement the ANO transport, it simulates it using DDS transport.
 
 ## Dependencies
-:warning: All those dependencies are already installed if you user the devcontainer provided with this application. if that is the case you can jump directly to the C++ Holoscan Application section.
+:warning: All those dependencies are already installed if you use the devcontainer provided with this application (Look in metadata.json). if that is the case you can jump directly to the C++ Holoscan Application section.
 
 This application requires the RTI Connext DDS package and a valid RTI license file.
 
@@ -45,7 +45,6 @@ environment variable as follows:
 ```sh
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 ```
-Either path works—pick one and keep it consistent to avoid accidentally mixing CUDA versions.
 
 ### License reminder
 
@@ -61,10 +60,14 @@ If this variable is not set or points to an invalid file, the application will n
 
 ## C++ Holoscan Application
 
+Before running the application, ensure that you have the rti_license.dat file in the holohub root folder or change the path in the run commands below.
+
 ### Build Using Holohub 
 
 Please Notice that this instruction are for building inside the dockerfile under applications/connext/connext_app_cpp/Dockerfile
-Build the C++ sample from the Holohub root. 
+
+Build the C++ example from the Holohub root.
+
 ```sh
 ./holohub build connext_app_cpp --build-type debug 
 ```
@@ -75,33 +78,13 @@ you can use the --local flag to keep all build artifacts under the host machine 
 
 ## Run
 Start the transmitter first, then the receiver. Both processes must agree on the
-transport and channel identifiers. The build drops two configuration files next
-to the executable inside `build/applications/connext_app_cpp` these files are `applications/connext/connext_app_cpp/connext_receiver.yaml` and `/home/juanca/holo/holohub/applications/connext/connext_app_cpp/connext_sender.yaml`.
+transport and channel identifiers. 
+
+The build drops two configuration files inside `build/connext_app_cpp/applications/connext/connext_app_cpp/` these files are `connext_receiver.yaml` and `connext_sender.yaml`.
 
 
 - `connext_receiver.yaml` configures the application in RX mode.
 - `connext_sender.yaml` configures the application in TX mode.
-
-Launch each process by passing the desired YAML file as the sole argument. The
-command below assumes the default Holohub run directory (`holohub_bin`) where
-the binary and configuration files are staged.
-
-Terminal 1 (transmitter):
-```sh
-./holohub run connext_app_cpp --language cpp   --run-args="/workspace/holohub/build/connext_app_cpp/applications/connext/connext_app_cpp/connext_sender.yaml" --docker-opts="-v ./rti_license.dat:/opt/rti.com/rti_connext_dds-7.3.0/rti_license.dat"
-```
-
-Terminal 2 (receiver):
-```sh
-./holohub run connext_app_cpp --language cpp   --run-args="/workspace/holohub/build/connext_app_cpp/applications/connext/connext_app_cpp/connext_receiver.yaml" --docker-opts="-v ./rti_license.dat:/opt/rti.com/rti_connext_dds-7.3.0/rti_license.dat"
-```
-
-If you are using the --local flag for building you have to add it to the command for running it also:
-
-```sh
-./holohub run connext_app_cpp --language cpp   --run-args="/workspace/holohub/build/connext_app_cpp/applications/connext/connext_app_cpp/connext_sender.yaml" --docker-opts="-v ./rti_license.dat:/opt/rti.com/rti_connext_dds-7.3.0/rti_license.dat" --local
-```
-
 
 Each file contains these sections:
 
@@ -115,41 +98,24 @@ Each file contains these sections:
 Keep the sender and receiver YAML files in sync for the selected transport—DDS domain
 ID and topic name must match, as do ANO channel and buffer identifiers.
 
-
-
-
-
-
-
-## Container Support
-
-<!--TODO-JUANCA: update this docker file with the changes in the main one -->
-
-A reference Dockerfile is provided to simplify deployment. Build and run the application inside the container with:
-
+Terminal 1 (transmitter):
 ```sh
-./holohub run-container connext \
-  --docker-opts "-e RTI_LICENSE_FILE=/workspace/licenses/rti_license.dat \
-                 -v $HOME/rti_license.dat:/workspace/licenses/rti_license.dat"
+./holohub run connext_app_cpp --run-args="/workspace/holohub/build/connext_app_cpp/applications/connext/connext_app_cpp/connext_sender.yaml" --docker-opts="-v ./rti_license.dat:/opt/rti.com/rti_connext_dds-7.3.0/rti_license.dat"
 ```
 
-The Docker image installs the CUDA runtime libraries and the `rti.connext==7.3.0` Python bindings. Mount your RTI
-license file into the container (as shown above) or override `RTI_LICENSE_FILE` to point at another location.
-
-
-## Building and Running Using Raw CMake
-
-Run the application after ensuring:
-- the `RTI_LICENSE_FILE` environment variable points to a valid license
-- CUDA runtime libraries are available by exporting
-  `LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH`
-
-
+Terminal 2 (receiver):
 ```sh
-export RTI_LICENSE_FILE=</path/to/rti_license.dat>
-export NDDSHOME=/opt/rti.com/rti_connext_dds-7.3.0
-source $NDDSHOME/resource/scripts/rtisetenv_x64Linux4gcc7.3.0.bash
-export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
-cmake -B build -DBUILD_TESTING=ON
-cmake --build build --target connext_app_cpp
+./holohub run connext_app_cpp --run-args="/workspace/holohub/build/connext_app_cpp/applications/connext/connext_app_cpp/connext_receiver.yaml" --docker-opts="-v ./rti_license.dat:/opt/rti.com/rti_connext_dds-7.3.0/rti_license.dat"
+```
+
+If you are using the `--local` flag for building you have to add it to the command for running it also:
+
+Transmitter:
+```sh
+./holohub run connext_app_cpp --run-args="applications/connext/connext_app_cpp/connext_sender.yaml" --local
+```
+
+Receiver:
+```sh
+./holohub run connext_app_cpp --run-args="applications/connext/connext_app_cpp/connext_receiver.yaml" --local
 ```
