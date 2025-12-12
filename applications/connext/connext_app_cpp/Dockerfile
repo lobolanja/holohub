@@ -77,7 +77,7 @@ COPY benchmarks/holoscan_flow_benchmarking/requirements.txt /tmp/benchmarking_re
 RUN pip install -r /tmp/benchmarking_requirements.txt
 
 
-# Install connext 7.5.0 from .deb package
+# Install connext 7.3.0 from .deb package
 # Download the public key for the RTI APT repository
 RUN curl -sSL -o /usr/share/keyrings/rti-official-archive.gpg \
 https://packages.rti.com/deb/official/repo.key
