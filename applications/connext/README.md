@@ -8,20 +8,9 @@ Connext ANO transmitter and back into the process via the Connext ANO receiver. 
 
 ## Dependencies
 This application requires the RTI Connext DDS (C++ and Python) package and a valid RTI license file. You can install the package
-using pip:
-```sh
-pip install rti.connext==7.3.0
-```
+
 Make sure to set the `RTI_LICENSE_FILE` environment variable to point to your RTI license file before running the
 application.
-
-CuPy is also required to provide access to the CUDA runtime libraries. You can install CuPy via pip:
-```sh
-pip install cupy
-```
-Select the wheel that matches your CUDA toolkit (for example `cupy-cuda12x` for CUDA 12). Refer to the
-[CuPy installation matrix](https://docs.cupy.dev/en/stable/install.html) if the default wheel does not match the
-toolkit bundled with your system or container image.
 
 Alternatively, ensure that the CUDA toolkit libraries are available in your `LD_LIBRARY_PATH`. You can set this
 environment variable as follows:
@@ -48,27 +37,75 @@ Developers frequently work inside a virtual environment. If you do, remember to 
 below so both the Holoscan dependencies and Connext bindings resolve correctly.
 
 ```sh
-export RTI_LICENSE_FILE=/path/to/rti_license.dat
+export RTI_LICENSE_FILE=</path/to/rti_license.dat>
+export NDDSHOME=/opt/rti.com/rti_connext_dds-7.3.0
+source $NDDSHOME/resource/scripts/rtisetenv_x64Linux4gcc7.3.0.bash
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
-cmake -B build -DHOLOHUB_BUILD_PYTHON=ON -DBUILD_TESTING=ON
-cmake --build build --target connext_lib_python connext_ano_python
-python3 applications/connext/python/src/run_demo.py --transport ano
+cmake -B build -DBUILD_TESTING=ON
+cmake --build build --target connext_app_cpp
 ```
-
-Pass `--transport dds` to exercise DDS-based delivery. Building the Holohub application target automatically stages the
-`connext_ano` and `connext_lib` Python packages before copying the demo sources into the build tree.
-
-To launch through the Holohub helper script instead of invoking Python directly, run:
-
-```sh
-./holohub run connext --language python --run-args="--transport ano"
-```
-
-Use `--run-args="--transport dds"` to switch to DDS networking mode.
 
 ### C++ Holoscan Application
 
-Please refer to the C++ specific instructions in `applications/connext/cpp/README.md`.
+## Build
+Build the C++ sample from the Holohub root. The `--local` flag keeps all build
+artifacts under the workspace:
+```sh
+./holohub build connext_app_cpp --build-type debug 
+```
+
+## Run
+Start the transmitter first, then the receiver. Both processes must agree on the
+transport and channel identifiers. The build drops two configuration files next
+to the executable inside `holohub_bin/examples/connext/` (or the relative path you chose with
+`--local`):
+
+- `connext_receiver.yaml` configures the application in RX mode.
+- `connext_sender.yaml` configures the application in TX mode.
+
+Launch each process by passing the desired YAML file as the sole argument. The
+command below assumes the default Holohub run directory (`holohub_bin`) where
+the binary and configuration files are staged.
+
+<!-- TODO: Set to the correct connext_transmitter.yaml path -->
+Terminal 1 (transmitter):
+```sh
+./holohub run connext --language cpp \
+  --run-args="connext/applications/connext/cpp/connext_sender.yaml"
+```
+<!-- TODO: Set to the correct connext_receiver.yaml path -->
+Terminal 2 (receiver):
+```sh
+./holohub run connext --language cpp \
+  --run-args="connext/applications/connext/cpp/connext_receiver.yaml"
+```
+
+If you run the binary directly from the build tree, point it at the staged YAML file explicitly:
+```sh
+./build/applications/connext/cpp/connext_sender_receiver \
+  holohub_bin/examples/connext/connext_receiver.yaml
+```
+
+You can keep the YAML files under version control or customize copies on disk—just ensure
+both peers load configurations with consistent transport and channel values.
+
+Each file contains these sections:
+
+- `demo`: Shared runtime controls. Adjust `message_count`, `message_period_ms`, and
+  `discovery_wait_ms` (receiver only). The `mode` field is pre-populated.
+- `payload_source`: Sets the base payload string appended by the TX path.
+- `connext_tx` / `connext_rx`: Transport-specific parameters used by the Holoscan
+  Connext operators. Update `enable_dds`/`enable_ano`, `domain_id`, `topic_name`,
+  `ano_channel`, and related entries so both peers agree on the same transport configuration.
+
+Keep the sender and receiver YAML files in sync for the selected transport—DDS domain
+ID and topic name must match, as do ANO channel and buffer identifiers.
+
+
+
+
+
+
 
 ## Container Support
 
@@ -84,14 +121,3 @@ A reference Dockerfile is provided to simplify deployment. Build and run the app
 
 The Docker image installs the CUDA runtime libraries and the `rti.connext==7.3.0` Python bindings. Mount your RTI
 license file into the container (as shown above) or override `RTI_LICENSE_FILE` to point at another location.
-
-## Developing
-If you are actively developing this application or the connext operators you can run directly pytests against the source
-files without needing to build the container image. From the holohub root directory run:
-
-```sh
-export RTI_LICENSE_FILE=/path/to/rti_license.dat
-export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
-pytest applications/connext/python/tests
-```
-Make sure you have installed the required dependencies in your Python environment before running the tests.

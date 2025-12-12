@@ -14,10 +14,6 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.20)
-project(connext_ops LANGUAGES NONE)
+project(connext_ops LANGUAGES CXX)
 
-option(CONNEXT_OPS_BUILD_CPP "Build the Connext Holoscan operators" ON)
-
-if(CONNEXT_OPS_BUILD_CPP)
-  add_subdirectory(cpp)
-endif()
+add_subdirectory(cpp)

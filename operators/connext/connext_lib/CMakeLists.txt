@@ -14,18 +14,10 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.20)
-project(connext_lib LANGUAGES NONE)
+project(connext_lib LANGUAGES CXX)
 
-option(CONNEXT_LIB_BUILD_CPP "Build the native Connext helper library" ON)
-
-if(CONNEXT_LIB_BUILD_CPP)
-# list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../cmake/modules")
-  add_subdirectory(cpp)
-endif()
+add_subdirectory(cpp)
 
 install(FILES metadata.json
         DESTINATION ${CMAKE_INSTALL_DATADIR}/holohub/operators/connext)
 
-if(HOLOHUB_BUILD_PYTHON)
-  add_subdirectory(python)
-endif()

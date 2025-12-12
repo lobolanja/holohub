@@ -2,13 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 cmake_minimum_required(VERSION 3.20)
-#project(connext_app LANGUAGES NONE)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/modules")
 
 add_holohub_application(connext_app_cpp DEPENDS
                         OPERATORS connext_ops)
 
-if(HOLOHUB_BUILD_PYTHON)
-  #add_subdirectory(python)
-endif()

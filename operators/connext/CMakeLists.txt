@@ -21,6 +21,8 @@ set(CMAKE_VERBOSE_MAKEFILE ON CACHE BOOL "Enable verbose build output" FORCE)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/modules")
 
 include(CTest)
+include(RTIConnextDDS)
+find_package(RTIConnextDDS COMPONENTS test test_helpers REQUIRED)
 
 add_subdirectory(connext_lib)
 

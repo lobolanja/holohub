@@ -1,0 +1,36 @@
+{
+  "operator": {
+    "name": "Connext Rx/Tx (C++)",
+    "description": "Native Holoscan operators that wrap the Connext helper library",
+    "authors": [
+      {
+        "name": "Holoscan Team",
+        "affiliation": "NVIDIA"
+      }
+    ],
+    "version": "0.1.0",
+    "changelog": {
+      "0.1.0": "Initial scaffold for the native Connext operators"
+    },
+    "language": [
+      "C++"
+    ],
+    "platforms": [
+      "x86_64"
+    ],
+    "tags": [
+      "DDS",
+      "RTI Connext",
+      "Networking"
+    ],
+    "holoscan_sdk": {
+      "minimum_required_version": "2.6.0",
+      "tested_versions": [
+        "2.6.0"
+      ]
+    },
+    "requirements": {
+      "RTI Connext DDS": "Mount an RTI Connext DDS 7.3.0 installation (or install locally), export NDDSHOME/RTI_CONNEXT_DDS_DIR, and source resources/scripts/bootstrap.sh before building."
+    }
+  }
+}

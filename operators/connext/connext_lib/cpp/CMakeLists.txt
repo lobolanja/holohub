@@ -5,8 +5,6 @@ enable_language(CXX)
 include(GNUInstallDirs)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../../cmake/modules")
 
-include(RTIConnextDDS)
-
 set(CONNEXT_LIB_CPP_SOURCES
     src/config/config.cpp
     src/comm/connext_comm.cpp

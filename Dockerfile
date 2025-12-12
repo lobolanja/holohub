@@ -99,13 +99,5 @@ COPY benchmarks/holoscan_flow_benchmarking/requirements.txt /tmp/benchmarking_re
 RUN pip install -r /tmp/benchmarking_requirements.txt
 ENV PYTHONPATH=/workspace/holohub/benchmarks/holoscan_flow_benchmarking
 
-# For RTI Connext DDS
-RUN apt update \
-    && apt install --no-install-recommends -y \
-        openjdk-21-jre
-RUN echo 'export JREHOME=$(readlink /etc/alternatives/java | sed -e "s/\/bin\/java//")' >> /etc/bash.bashrc
-RUN pip install rti.connext==7.3.0
-RUN pip install pytest
-
 # Set default Holohub data directory
 ENV HOLOSCAN_INPUT_PATH=/workspace/holohub/data
