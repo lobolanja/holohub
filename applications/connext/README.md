@@ -103,6 +103,8 @@ Terminal 1 (transmitter):
 ./holohub run connext_app_cpp --run-args="/workspace/holohub/build/connext_app_cpp/applications/connext/connext_app_cpp/connext_sender.yaml" --docker-opts="-v ./rti_license.dat:/opt/rti.com/rti_connext_dds-7.3.0/rti_license.dat"
 ```
 
+for running those commands in the IGX, you have to add the architecture by adding the --configure-args="-DCONNEXTDDS_ARCH=armv8Linux4gcc7.3.0" to the holohub run command.
+
 Terminal 2 (receiver):
 ```sh
 ./holohub run connext_app_cpp --run-args="/workspace/holohub/build/connext_app_cpp/applications/connext/connext_app_cpp/connext_receiver.yaml" --docker-opts="-v ./rti_license.dat:/opt/rti.com/rti_connext_dds-7.3.0/rti_license.dat"

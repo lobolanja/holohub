@@ -44,7 +44,8 @@ advanced_network:
 
     interfaces:
     - name: "rx_port"
-      address: <0000:00:00.0>       # The BUS address of the interface doing Rx
+      #address: <0000:00:00.0>       # The BUS address of the interface doing Rx
+      address: 0005:03:00.1       # The BUS address of the interface doing Rx
       rx:
         flow_isolation: true
         queues:

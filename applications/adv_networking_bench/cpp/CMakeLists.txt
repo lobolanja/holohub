@@ -35,6 +35,11 @@ add_executable(adv_networking_bench
   kernels.cu
   main.cpp
 )
+target_compile_definitions(adv_networking_bench
+  PRIVATE
+  ALLOW_EXPERIMENTAL_API
+  DOCA_ALLOW_EXPERIMENTAL_API
+)
 target_link_libraries(adv_networking_bench
   PRIVATE
   holoscan::core

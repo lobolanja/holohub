@@ -1,0 +1,60 @@
+%YAML 1.2
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+---
+scheduler:
+  check_recession_period_ms: 0
+  worker_thread_number: 3
+  stop_on_deadlock: true
+  stop_on_deadlock_timeout: 500
+
+# Advanced Network Configuration for TX
+advanced_network:
+  cfg:
+    version: 1
+    manager: "dpdk"
+    master_core: 3
+    debug: false
+    log_level: "info"
+    loopback: ""
+
+    memory_regions:
+    - name: "Data_TX_GPU"
+      kind: "device"
+      affinity: 0
+      num_bufs: 51200
+      buf_size: 1064
+
+    interfaces:
+    - name: "tx_port"
+      address: 0005:03:00.0
+      tx:
+        queues:
+        - name: "tx_q_0"
+          id: 0
+          batch_size: 10240
+          cpu_core: 11
+          timeout_us: 1000
+          memory_regions:
+            - "Data_TX_GPU"
+          offloads:
+            - "tx_eth_src"
+
+# Tensor Generator Configuration
+tensor_generator:
+  base_message: "hello world"
+  tensor_size: 1000
+  gpu_device: 0
+
+# Tensor Network TX Operator Configuration
+tensor_network_tx:
+  interface_name: "tx_port"
+  ip_src_addr: 192.168.10.10
+  ip_dst_addr: 192.168.10.11
+  eth_dst_addr: 3c:6d:66:11:91:56
+  udp_src_port: 4096
+  udp_dst_port: 4096
+  header_size: 64
+  max_packet_size: 1064
+  batch_size: 10240
+  split_boundary: 0

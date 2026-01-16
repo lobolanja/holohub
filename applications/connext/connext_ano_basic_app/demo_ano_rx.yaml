@@ -1,0 +1,50 @@
+%YAML 1.2
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+---
+scheduler:
+  check_recession_period_ms: 0
+  worker_thread_number: 3
+  stop_on_deadlock: true
+  stop_on_deadlock_timeout: 500
+
+# Advanced Network Configuration for RX
+advanced_network:
+  cfg:
+    version: 1
+    manager: "dpdk"
+    master_core: 3
+    debug: false
+    log_level: "info"
+    loopback: ""
+
+    memory_regions:
+    - name: "Data_RX_GPU"
+      kind: "device"
+      affinity: 0
+      num_bufs: 51200
+      buf_size: 1064
+
+    interfaces:
+    - name: "rx_port"
+      address: 0005:03:00.1
+      rx:
+        queues:
+        - name: "rx_q_0"
+          id: 0
+          cpu_core: 9
+          timeout_us: 1000
+          batch_size: 10240
+          memory_regions:
+            - "Data_RX_GPU"
+
+# Tensor Network RX Operator Configuration
+tensor_network_rx:
+  interface_name: "rx_port"
+  split_boundary: 0
+  batch_size: 10240
+  max_packet_size: 1064
+  header_size: 64
+  gpu_device: 0
+
+tensor_printer: {}

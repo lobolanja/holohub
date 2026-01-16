@@ -169,7 +169,8 @@ advanced_network:
       buf_size: 8000
     interfaces:
     - name: tx_port
-      address: <0000:00:00.0>       # The BUS address of the interface doing Tx
+      #address: <0000:00:00.0>       # The BUS address of the interface doing Tx
+      address: 0005:03:00.0       # The BUS address of the interface doing Tx
       tx:
         queues:
         - name: tx_q_0
@@ -181,7 +182,8 @@ advanced_network:
           offloads:
           - tx_eth_src
     - name: rx_port
-      address: <0000:00:00.0>       # The BUS address of the interface doing Rx
+      #address: <0000:00:00.0>       # The BUS address of the interface doing Rx
+      address: 0005:03:00.1       # The BUS address of the interface doing Rx
       rx:
         flow_isolation: true
         queues:
@@ -344,8 +346,11 @@ bench_tx:
   batch_size: 10240
   payload_size: 1000
   header_size: 64
-  eth_dst_addr: <00:00:00:00:00:00>
-  ip_src_addr: <1.2.3.4>
-  ip_dst_addr: <5.6.7.8>
+  #eth_dst_addr: <00:00:00:00:00:00>
+  eth_dst_addr: 3c:6d:66:11:91:56
+  #ip_src_addr: <1.2.3.4>
+  ip_src_addr: 192.168.10.10    # Source IP address - required on layer 3 network
+  #ip_dst_addr: <5.6.7.8>
+  ip_dst_addr: 192.168.10.11    # Destination IP address - required on layer 3 network
   udp_src_port: 4089-4097
   udp_dst_port: 4089-4097

@@ -1,0 +1,32 @@
+{
+  "name": "Connext ANO Basic App - DPDK",
+  "dockerFile": "../Dockerfile",
+  "context": "..",
+  
+  "runArgs": [
+    "--cap-add=SYS_NICE",
+    "--cap-add=SYS_ADMIN",
+    "--cap-add=IPC_LOCK",
+    "--cap-add=NET_ADMIN",
+    "--device=/dev/hugepages:/dev/hugepages",
+    "--ulimit", "memlock=-1:-1",
+    "--privileged"
+  ],
+
+  "mounts": [
+    "source=/dev/hugepages,target=/dev/hugepages,type=bind"
+  ],
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools"
+      ]
+    }
+  },
+
+  "postCreateCommand": "echo 'Container ready for DPDK with required capabilities'",
+  
+  "remoteUser": "root"
+}

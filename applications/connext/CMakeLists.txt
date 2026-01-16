@@ -8,3 +8,6 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/modules")
 add_holohub_application(connext_app_cpp DEPENDS
                         OPERATORS connext_ops)
 
+add_holohub_application(connext_ano_basic_app DEPENDS
+                        OPERATORS advanced_network)
+

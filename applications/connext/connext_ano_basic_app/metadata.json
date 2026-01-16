@@ -1,0 +1,38 @@
+{
+  "application": {
+    "name": "Connext Advanced Network Basic Demo",
+    "authors": [
+      {
+        "name": "NVIDIA Holoscan Team",
+        "affiliation": "NVIDIA"
+      }
+    ],
+    "language": "C++",
+    "version": "1.0.0",
+    "changelog": {
+      "1.0.0": "Initial release - GPU-to-GPU tensor transfer demo"
+    },
+    "dockerfile": "applications/connext/connext_ano_basic_app/Dockerfile",
+    "holoscan_sdk": {
+      "minimum_required_version": "2.0.0",
+      "tested_versions": [
+        "2.0.0",
+        "2.1.0",
+        "2.2.0"
+      ]
+    },
+    "platforms": ["x86_64", "aarch64"],
+    "tags": ["Advanced Network", "DPDK", "GPUDirect", "Tensor Transfer"],
+    "ranking": 0,
+    "requirements": {
+      "dpdk": ">=21.11",
+      "cuda": ">=11.6",
+      "gpu_direct": "required"
+    },
+    "run": {
+      "command": "<holohub_app_bin>/connext_ano_basic_app",
+      "workdir": "holohub_bin",
+      "arguments": "<config_file> <tx|rx>"
+    }
+  }
+}
