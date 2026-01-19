@@ -40,6 +40,7 @@ class TensorNetworkRxOp : public Operator {
   Parameter<uint16_t> max_packet_size_;
   Parameter<uint16_t> header_size_;
   Parameter<int> gpu_device_;
+  Parameter<uint64_t> max_count_;  // 0 = unlimited, N = stop after N packets
 
   // Network state
   int port_id_ = -1;

@@ -12,26 +12,29 @@ find_package(CUDAToolkit REQUIRED)
 
 # Create executables
 add_executable(connext_ano_basic_app
-  main.cpp
-  tensor_generator_op.cpp
-  tensor_printer_op.cpp
-  tensor_network_tx_op.cpp
-  tensor_network_rx_op.cpp
-  demo_ano_tx_app.cpp
-  demo_ano_rx_app.cpp
+  cpp/main.cpp
+  cpp/tensor_generator_op.cpp
+  cpp/tensor_printer_op.cpp
+  cpp/tensor_network_tx_op.cpp
+  cpp/tensor_network_rx_op.cpp
+  cpp/demo_ano_tx_app.cpp
+  cpp/demo_ano_rx_app.cpp
 )
 
 # Combined TX+RX in single DPDK process
 add_executable(demo_ano_tx_rx
-  demo_ano_tx_rx.cpp
-  tensor_generator_op.cpp
-  tensor_network_tx_op.cpp
-  tensor_network_rx_op.cpp
-  tensor_printer_op.cpp
+  cpp/demo_ano_tx_rx.cpp
+  cpp/tensor_generator_op.cpp
+  cpp/tensor_network_tx_op.cpp
+  cpp/tensor_network_rx_op.cpp
+  cpp/tensor_printer_op.cpp
 )
 
 target_compile_features(connext_ano_basic_app PRIVATE cxx_std_17)
 target_compile_features(demo_ano_tx_rx PRIVATE cxx_std_17)
+
+target_include_directories(connext_ano_basic_app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(demo_ano_tx_rx PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_link_libraries(connext_ano_basic_app
   PRIVATE
@@ -63,14 +66,17 @@ add_custom_target(connext_ano_basic_app_yaml
   COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/demo_ano_tx.yaml" ${CMAKE_CURRENT_BINARY_DIR}
   COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/demo_ano_rx.yaml" ${CMAKE_CURRENT_BINARY_DIR}
   COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/demo_ano_tx_rx.yaml" ${CMAKE_CURRENT_BINARY_DIR}
+  COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/demo_ano_tx_rx_loopback.yaml" ${CMAKE_CURRENT_BINARY_DIR}
   DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/demo_ano_tx.yaml"
     "${CMAKE_CURRENT_SOURCE_DIR}/demo_ano_rx.yaml"
     "${CMAKE_CURRENT_SOURCE_DIR}/demo_ano_tx_rx.yaml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/demo_ano_tx_rx_loopback.yaml"
   BYPRODUCTS
     "${CMAKE_CURRENT_BINARY_DIR}/demo_ano_tx.yaml"
     "${CMAKE_CURRENT_BINARY_DIR}/demo_ano_rx.yaml"
     "${CMAKE_CURRENT_BINARY_DIR}/demo_ano_tx_rx.yaml"
+    "${CMAKE_CURRENT_BINARY_DIR}/demo_ano_tx_rx_loopback.yaml"
 )
 
 add_dependencies(connext_ano_basic_app connext_ano_basic_app_yaml)
@@ -106,17 +112,6 @@ install(
 
 install(
   FILES
-     main.cpp
-    tensor_generator_op.cpp
-    tensor_generator_op.h
-    tensor_printer_op.cpp
-    tensor_printer_op.h
-    tensor_network_tx_op.cpp
-    tensor_network_tx_op.h
-    tensor_network_rx_op.cpp
-    tensor_network_rx_op.h
-    demo_ano_tx_app.cpp
-    demo_ano_rx_app.cpp
     demo_ano_tx.yaml
     demo_ano_rx.yaml
   DESTINATION examples/connext
@@ -125,3 +120,40 @@ install(
               GROUP_READ GROUP_WRITE
               WORLD_READ WORLD_WRITE
 )
+
+install(
+  DIRECTORY cpp/
+  DESTINATION examples/connext/cpp
+  COMPONENT connext-ano-basicsrc
+  FILES_MATCHING PATTERN "*.cpp"
+  PERMISSIONS OWNER_READ OWNER_WRITE
+              GROUP_READ GROUP_WRITE
+              WORLD_READ WORLD_WRITE
+)
+
+install(
+  DIRECTORY include/
+  DESTINATION examples/connext/include
+  COMPONENT connext-ano-basicsrc
+  FILES_MATCHING PATTERN "*.h"
+  PERMISSIONS OWNER_READ OWNER_WRITE
+              GROUP_READ GROUP_WRITE
+              WORLD_READ WORLD_WRITE
+)
+
+# Add testing
+if(BUILD_TESTING)
+  # Copy the test files to the build directory
+  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/tests/conftest.py" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/tests")
+  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/tests/process_utils.py" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/tests")
+  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_demo_ano.py" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/tests")
+  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/tests/demo_ano_tx_rx_loopback_test.yaml" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/tests")
+
+  # Register individual pytest tests with CTest
+  include(add_python_tests)
+  add_python_tests(
+    INPUT "tests"
+    PYTEST_ARGS "-v" "-s" "--log-cli-level=DEBUG" "--show-capture=no"
+  )
+
+endif()

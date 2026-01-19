@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "tensor_network_rx_op.h"
+#include "../include/tensor_network_rx_op.h"
 
 namespace holoscan::ops {
 
@@ -39,6 +39,9 @@ void TensorNetworkRxOp::setup(OperatorSpec& spec) {
              "Header size on each packet from L4 and below", 42);
   spec.param<int>(gpu_device_, "gpu_device", "GPU Device",
              "GPU device ID", 0);
+  spec.param<uint64_t>(max_count_, "max_count", "Maximum Count",
+             "Maximum number of packets to receive (0=unlimited)",
+             static_cast<uint64_t>(0));
 }
 
 void TensorNetworkRxOp::initialize() {

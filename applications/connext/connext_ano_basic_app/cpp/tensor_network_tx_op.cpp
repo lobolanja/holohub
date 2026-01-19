@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "tensor_network_tx_op.h"
+#include "../include/tensor_network_tx_op.h"
 #include <arpa/inet.h>
 #include <cstring>
 
@@ -161,9 +161,9 @@ void TensorNetworkTxOp::compute(InputContext& op_input, OutputContext& op_output
   void* tensor_data = in_tensor->data();
   size_t tensor_bytes = in_tensor->nbytes();
   
-  // Debug: Verify received data
+  // Debug: Verify received data (the data is copied to the GPU only for debug purposes)
   std::vector<uint8_t> debug_data(std::min(32UL, tensor_bytes));
-  cudaMemcpy(debug_data.data(), tensor_data, debug_data.size(), cudaMemcpyDeviceToHost);
+  cudaMemcpy(debug_data.data(), in_tensor->data(), debug_data.size(), cudaMemcpyDeviceToHost);
   HOLOSCAN_LOG_INFO("Received data (first {} bytes): {}", debug_data.size(),
                     fmt::join(debug_data, " "));
   

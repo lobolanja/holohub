@@ -4,8 +4,8 @@
  */
 
 #include <holoscan/holoscan.hpp>
-#include "tensor_network_rx_op.h"
-#include "tensor_printer_op.h"
+#include "../include/tensor_network_rx_op.h"
+#include "../include/tensor_printer_op.h"
 
 namespace holoscan::apps {
 
@@ -39,9 +39,27 @@ class DemoANORxApp : public holoscan::Application {
     if (mgr_type == advanced_network::ManagerType::DPDK) {
 #if ANO_MGR_DPDK
     // Network receive operator
+    // Read max_count from config (0 = unlimited)
+    uint64_t max_count = 0;
+    try {
+      max_count = from_config("tensor_network_rx.max_count").as<uint64_t>();
+    } catch (...) {
+      // If not specified, default to 0 (unlimited)
+      max_count = 0;
+    }
+
     auto rx = make_operator<ops::TensorNetworkRxOp>(
         "tensor_network_rx",
         from_config("tensor_network_rx"));
+
+    // Add CountCondition if max_count is specified and > 0
+    if (max_count > 0) {
+      rx->add_arg(make_condition<CountCondition>("count", max_count));
+      HOLOSCAN_LOG_INFO("Network RX will stop after {} packets", max_count);
+    } else {
+      HOLOSCAN_LOG_INFO("Network RX will run indefinitely");
+    }
+    
     // Printer operator (prints received tensor contents)
     auto printer = make_operator<ops::TensorPrinterOp>(
         "tensor_printer",

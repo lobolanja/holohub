@@ -20,9 +20,9 @@ echo "===================================================="
 echo ""
 echo "DPDK and GPUDirect environment ready."
 echo ""
-echo "Build with: ./holohub build connext_ano_basic_app --build-type debug [--local]"
-echo "Run TX:     ./holohub run connext_ano_basic_app --run-args='<config> tx' --docker-opts='-u root --privileged --network=host'"
-echo "Run RX:     ./holohub run connext_ano_basic_app --run-args='<config> rx' --docker-opts='-u root --privileged --network=host'"
+echo "Build with: ./holohub build connext_ano_basic_app --build-type debug --local --configure-args=\"-DCONNEXTDDS_ARCH=armv8Linux4gcc7.3.0\""
+echo "Run TX:     ./holohub run connext_ano_basic_app --run-args='tx applications/connext/connext_ano_basic_app/demo_ano_tx.yaml' --local"
+echo "Run RX:     ./holohub run connext_ano_basic_app --run-args='rx applications/connext/connext_ano_basic_app/demo_ano_rx.yaml' --local"
 echo ""
 
 exec /bin/bash

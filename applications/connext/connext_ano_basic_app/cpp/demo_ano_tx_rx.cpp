@@ -4,10 +4,10 @@
  */
 
 #include <holoscan/holoscan.hpp>
-#include "tensor_generator_op.h"
-#include "tensor_network_tx_op.h"
-#include "tensor_network_rx_op.h"
-#include "tensor_printer_op.h"
+#include "../include/tensor_generator_op.h"
+#include "../include/tensor_network_tx_op.h"
+#include "../include/tensor_network_rx_op.h"
+#include "../include/tensor_printer_op.h"
 #include "advanced_network/kernels.h"
 
 class DemoAnoTxRxApp : public holoscan::Application {
@@ -24,6 +24,7 @@ class DemoAnoTxRxApp : public holoscan::Application {
     HOLOSCAN_LOG_INFO("Configured the Advanced Network manager with both TX and RX");
 
     // TX pipeline: Generator -> Network TX
+    // Generator runs indefinitely, test terminates via timeout
     auto generator = make_operator<ops::TensorGeneratorOp>(
         "tensor_generator",
         from_config("tensor_generator"),
@@ -32,11 +33,14 @@ class DemoAnoTxRxApp : public holoscan::Application {
         Arg("tensor_size") = static_cast<size_t>(1000),
         Arg("gpu_device") = 0);
 
+    HOLOSCAN_LOG_INFO("Generator will run indefinitely (test terminates via timeout)");
+
     auto tx_op = make_operator<ops::TensorNetworkTxOp>(
         "tensor_network_tx",
         from_config("tensor_network_tx"));
 
     // RX pipeline: Network RX -> Printer
+    // Application runs indefinitely, terminated by test timeout
     auto rx_op = make_operator<ops::TensorNetworkRxOp>(
         "tensor_network_rx",
         from_config("tensor_network_rx"));

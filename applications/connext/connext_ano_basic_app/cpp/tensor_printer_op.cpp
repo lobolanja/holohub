@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "tensor_printer_op.h"
+#include "../include/tensor_printer_op.h"
 #include <cstring>
 
 namespace holoscan::ops {

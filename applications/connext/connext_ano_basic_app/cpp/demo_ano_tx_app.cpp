@@ -5,8 +5,8 @@
 
 #include <holoscan/holoscan.hpp>
 #include <holoscan/core/conditions/gxf/periodic.hpp>
-#include "tensor_generator_op.h"
-#include "tensor_network_tx_op.h"
+#include "../include/tensor_generator_op.h"
+#include "../include/tensor_network_tx_op.h"
 
 namespace holoscan::apps {
 
@@ -39,12 +39,29 @@ class DemoANOTxApp : public holoscan::Application {
     if (mgr_type == advanced_network::ManagerType::DPDK) {
 #if ANO_MGR_DPDK
     /// Generator operator (generates tensors with "hello world #N")
+    // Read max_count from config (0 = unlimited)
+    uint64_t max_count = 0;
+    try {
+      max_count = from_config("tensor_generator.max_count").as<uint64_t>();
+    } catch (...) {
+      // If not specified, default to 0 (unlimited)
+      max_count = 0;
+    }
+
     auto generator = make_operator<ops::TensorGeneratorOp>(
         "tensor_generator",
         make_condition<PeriodicCondition>("periodic", Arg("recess_period") = std::string("100ms")),
         Arg("base_message") = std::string("hello world"),
         Arg("tensor_size") = static_cast<size_t>(1000),
         Arg("gpu_device") = 0);
+
+    // Add CountCondition if max_count is specified and > 0
+    if (max_count > 0) {
+      generator->add_arg(make_condition<CountCondition>("count", max_count));
+      HOLOSCAN_LOG_INFO("Generator will stop after {} tensors", max_count);
+    } else {
+      HOLOSCAN_LOG_INFO("Generator will run indefinitely");
+    }
 
     // Network transmit operator
     auto tx = make_operator<ops::TensorNetworkTxOp>(

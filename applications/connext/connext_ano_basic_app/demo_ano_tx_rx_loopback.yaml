@@ -82,6 +82,7 @@ tensor_network_rx:
   max_packet_size: 1064
   header_size: 64
   gpu_device: 0
+  max_count: 0  # 0 = unlimited, N = stop after N packets received
 
 # Tensor Printer Configuration
 tensor_printer: {}
