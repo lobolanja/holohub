@@ -11,11 +11,7 @@ TensorNetworkRxOp::~TensorNetworkRxOp() {
   HOLOSCAN_LOG_INFO("TensorNetworkRxOp shutting down. Received {}/{} packets/bytes",
                     packets_received_, bytes_received_);
   
-  // Cleanup CUDA resources
-  for (int i = 0; i < num_concurrent; i++) {
-    if (streams_[i]) cudaStreamDestroy(streams_[i]);
-    if (events_[i]) cudaEventDestroy(events_[i]);
-  }
+  // CUDA resources automatically cleaned up by RAII wrappers
   
   // Free any pending batches
   while (!batch_q_.empty()) {
@@ -57,12 +53,6 @@ void TensorNetworkRxOp::initialize() {
 
   // Set GPU device
   cudaSetDevice(gpu_device_.get());
-
-  // Create CUDA streams and events
-  for (int i = 0; i < num_concurrent; i++) {
-    cudaStreamCreate(&streams_[i]);
-    cudaEventCreate(&events_[i]);
-  }
 
   HOLOSCAN_LOG_INFO("TensorNetworkRxOp initialized: port_id={}, GPU-only mode={}",
                     port_id_, !hds_.get());
@@ -162,14 +152,16 @@ void TensorNetworkRxOp::compute(InputContext& op_input, OutputContext& op_output
   
   // Copy payload (skip header) from packet buffer to tensor buffer
   void* payload_ptr = static_cast<uint8_t*>(gpu_pkt_ptr) + header_size_.get();
+  cudaStream_t stream = cuda_manager_.get_stream();
   cudaMemcpyAsync(tensor_gpu_data, payload_ptr, payload_size,
-                  cudaMemcpyDeviceToDevice, streams_[cur_batch_idx_]);
+                  cudaMemcpyDeviceToDevice, stream);
   
-  // Record event
-  cudaEventRecord(events_[cur_batch_idx_], streams_[cur_batch_idx_]);
+  // Record event and advance to next slot
+  cudaEvent_t event = cuda_manager_.get_event();
+  cuda_manager_.record_and_advance();
   
   // Queue burst for later freeing (after CUDA completes)
-  batch_q_.push(RxBatch{burst, events_[cur_batch_idx_]});
+  batch_q_.push(RxBatch{burst, event});
   
   // Create shared_ptr with custom deleter for GPU memory management
   std::shared_ptr<void*> gpu_data_ptr(new void*(tensor_gpu_data), [](void** ptr) {
@@ -207,9 +199,6 @@ void TensorNetworkRxOp::compute(InputContext& op_input, OutputContext& op_output
   
   // Emit tensor
   op_output.emit(output_tensor, "tensor_out");
-  
-  // Move to next concurrent slot
-  cur_batch_idx_ = (cur_batch_idx_ + 1) % num_concurrent;
   
   // Found packets in this queue, exit loop
   break;

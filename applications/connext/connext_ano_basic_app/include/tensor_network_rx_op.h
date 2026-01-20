@@ -9,6 +9,7 @@
 #include <advanced_network/common.h>
 #include <cuda_runtime.h>
 #include <queue>
+#include <cuda_resource_manager.h>
 
 using namespace holoscan::advanced_network;
 
@@ -45,11 +46,8 @@ class TensorNetworkRxOp : public Operator {
   // Network state
   int port_id_ = -1;
 
-  // CUDA streams for async operations
-  static constexpr int num_concurrent = 4;
-  std::array<cudaStream_t, num_concurrent> streams_;
-  std::array<cudaEvent_t, num_concurrent> events_;
-  int cur_batch_idx_ = 0;
+  // CUDA resource management
+  CudaResourceManager cuda_manager_;
 
   // Statistics
   uint64_t packets_received_ = 0;

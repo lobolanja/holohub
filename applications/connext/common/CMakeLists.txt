@@ -7,21 +7,24 @@ cmake_minimum_required(VERSION 3.20)
 add_library(connext_common STATIC
   cpp/cuda_resource_manager.cpp
   cpp/network_utils.cpp
+  cpp/packet_builder.cpp
+  cpp/packet_burst_manager.cpp
 )
 
 # Set include directories (PUBLIC so consumers get them too)
 target_include_directories(connext_common
   PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/operators/advanced_network/advanced_network/..
 )
 
 # Find and link CUDA runtime
 find_package(CUDAToolkit REQUIRED)
-#find_package(holoscan REQUIRED CONFIG)
+find_package(holoscan REQUIRED CONFIG)
 target_link_libraries(connext_common
   PUBLIC
     CUDA::cudart
- #   holoscan::core  # Provides fmt library
+    holoscan::core  # Provides fmt library and logging
 )
 
 # Set C++ standard

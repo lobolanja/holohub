@@ -28,6 +28,39 @@ struct NetworkConfig {
 };
 
 /**
+ * @brief Packet structure for UDP/IPv4 packet construction
+ * 
+ * Packed structure representing a complete UDP/IPv4/Ethernet packet header.
+ * Used for manual packet header construction in network transmission.
+ */
+struct __attribute__((packed)) UDPIPV4Pkt {
+  struct {
+    uint8_t h_dest[6];
+    uint8_t h_source[6];
+    uint16_t h_proto;
+  } eth;
+  struct {
+    uint8_t ihl : 4;
+    uint8_t version : 4;
+    uint8_t tos;
+    uint16_t tot_len;
+    uint16_t id;
+    uint16_t frag_off;
+    uint8_t ttl;
+    uint8_t protocol;
+    uint16_t check;
+    uint32_t saddr;
+    uint32_t daddr;
+  } ip;
+  struct {
+    uint16_t source;
+    uint16_t dest;
+    uint16_t len;
+    uint16_t check;
+  } udp;
+} __attribute__((packed));
+
+/**
  * @brief Network utility functions for address parsing
  * 
  * All functions throw std::runtime_error on invalid input.
