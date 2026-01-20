@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+cmake_minimum_required(VERSION 3.20)
+
+# Define the connext_common static library
+add_library(connext_common STATIC
+  cpp/cuda_resource_manager.cpp
+  cpp/network_utils.cpp
+)
+
+# Set include directories (PUBLIC so consumers get them too)
+target_include_directories(connext_common
+  PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+# Find and link CUDA runtime
+find_package(CUDAToolkit REQUIRED)
+#find_package(holoscan REQUIRED CONFIG)
+target_link_libraries(connext_common
+  PUBLIC
+    CUDA::cudart
+ #   holoscan::core  # Provides fmt library
+)
+
+# Set C++ standard
+target_compile_features(connext_common PUBLIC cxx_std_17)

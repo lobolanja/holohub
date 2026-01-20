@@ -9,6 +9,8 @@
 #include <advanced_network/common.h>
 #include <cuda_runtime.h>
 #include <queue>
+#include <cuda_resource_manager.h>
+#include <network_utils.h>
 
 using namespace holoscan::advanced_network;
 
@@ -46,6 +48,9 @@ class TensorNetworkTxOp : public Operator {
   Parameter<uint32_t> batch_size_;
   Parameter<int> hds_;  // Header-data split (0 = GPU-only mode)
 
+  // Parsed network configuration
+  NetworkConfig config_;
+
   // Network state
   int port_id_ = -1;
   uint16_t queue_id_ = 0;
@@ -53,11 +58,8 @@ class TensorNetworkTxOp : public Operator {
   uint32_t ip_dst_;
   char eth_dst_[6];
 
-  // CUDA streams for async operations
-  static constexpr int num_concurrent = 4;
-  std::array<cudaStream_t, num_concurrent> streams_;
-  std::array<cudaEvent_t, num_concurrent> events_;
-  int cur_idx_ = 0;
+  // CUDA resource management
+  CudaResourceManager cuda_manager_;
 
   // GPU header buffer for GPU-only mode
   void* gds_header_ = nullptr;
@@ -95,13 +97,23 @@ class TensorNetworkTxOp : public Operator {
   // Queue to track in-flight transmissions
   struct TxMsg {
     BurstParams* msg;
-    cudaEvent_t evt;
+    cudaEvent_t evt;  // Store event for later query
   };
   std::queue<TxMsg> out_q_;
 
   // Helper functions for GPU-only mode
-  void format_eth_addr(char* dst, const std::string& addr_str);
-  void populate_packet_headers();
+  void populate_packet_headers(const NetworkConfig& config);
+  void parse_network_config();
+  
+  // Refactored compute() helper methods
+  bool is_ready_for_transmission();
+  std::optional<std::shared_ptr<holoscan::Tensor>> receive_and_validate_tensor(InputContext& op_input);
+  void log_tensor_debug_info(const std::shared_ptr<holoscan::Tensor>& tensor);
+  size_t validate_and_adjust_tensor_size(size_t tensor_bytes);
+  bool prepare_tx_burst(BurstParams*& burst, int num_packets);
+  bool populate_packet_data(BurstParams* burst, void* tensor_data, size_t tensor_bytes, int num_packets);
+  void enqueue_transmission(BurstParams* burst);
+  void process_pending_transmissions(size_t last_tensor_bytes);
 };
 
 }  // namespace holoscan::ops

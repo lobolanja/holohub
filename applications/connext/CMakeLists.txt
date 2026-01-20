@@ -5,6 +5,9 @@ cmake_minimum_required(VERSION 3.20)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/modules")
 
+# Build common library first
+add_subdirectory(common)
+
 add_holohub_application(connext_app_cpp DEPENDS
                         OPERATORS connext_ops)
 
