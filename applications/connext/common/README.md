@@ -6,6 +6,69 @@ Shared utilities for Holoscan connext applications with GPU Direct networking.
 
 This library provides a high-level facade for GPU Direct network transmission using DPDK and CUDA, abstracting away low-level packet construction and hardware details.
 
+## Architecture
+
+This section provides a compact visual overview of how the Connext common library components fit together and the transmit/receive data flows. The diagrams use Mermaid syntax and can be rendered on GitHub or in most Markdown renderers that support Mermaid.
+
+### High-level Architecture
+
+```mermaid
+flowchart LR
+  App[Holoscan App] -->|uses| Sender[IGpuDirectNetworkSender]
+  App -->|uses| Receiver[IGpuDirectNetworkReceiver]
+  Sender -->|subsystems| CudaMgr[CudaResourceManager]
+  Receiver -->|subsystems| CudaMgr
+  Sender -->|DPDK/ANO| AN[Advanced Network (DPDK) / NIC]
+  Receiver -->|DPDK/ANO| AN
+  CudaMgr -->|manages| GPU[GPU (device memory, streams, events)]
+  AN -->|GPUDirect| GPU
+```
+
+*Figure: High-level architecture — application, facades, CUDA manager, and Advanced Network (DPDK)/NIC with GPUDirect path.*
+
+### TX (Transmit) Sequence
+
+```mermaid
+sequenceDiagram
+  participant App
+  participant Sender
+  participant CudaMgr
+  participant AN
+  participant NIC
+
+  App->>Sender: send(gpu_ptr, size)
+  Sender->>CudaMgr: get_stream()
+  Sender->>AN: prepare burst (get_tx_segment_ptr)
+  Sender->>CudaMgr: async_copy_device_to_device(header+payload)
+  CudaMgr->>CudaMgr: record_and_advance() (record event)
+  Sender->>AN: enqueue burst for TX
+  AN->>NIC: NIC transmits (GPUDirect from GPU)
+```
+
+*Figure: TX flow — application → sender facade → CUDA manager/Advanced Network → NIC (GPUDirect).* 
+
+### RX (Receive) Sequence
+
+```mermaid
+sequenceDiagram
+  participant NIC
+  participant AN
+  participant Receiver
+  participant CudaMgr
+  participant App
+
+  NIC->>AN: packet arrives (GPUDirect to GPU)
+  AN->>Receiver: provide burst on GPU
+  Receiver->>CudaMgr: get_stream()
+  Receiver->>CudaMgr: async_copy_device_to_device(payload)
+  CudaMgr->>CudaMgr: record_and_advance() (record event)
+  Receiver->>App: return ReceivedData(gpu_payload)
+  App->>Receiver: free_received_data(ptr)
+  Receiver->>CudaMgr: free_buffer(ptr)
+```
+
+*Figure: RX flow — NIC → Advanced Network → receiver facade → CUDA manager → application (caller frees buffer).* 
+
 ## Public API
 
 ### GPU Direct Network Sender
