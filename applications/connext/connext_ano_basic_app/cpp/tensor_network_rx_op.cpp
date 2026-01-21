@@ -28,9 +28,6 @@ void TensorNetworkRxOp::setup(OperatorSpec& spec) {
              "Header size on each packet from L4 and below", 42);
   spec.param<int>(gpu_device_, "gpu_device", "GPU Device",
              "GPU device ID", 0);
-  spec.param<uint64_t>(max_count_, "max_count", "Maximum Count",
-             "Maximum number of packets to receive (0=unlimited)",
-             static_cast<uint64_t>(0));
 }
 
 void TensorNetworkRxOp::initialize() {
@@ -80,13 +77,6 @@ void TensorNetworkRxOp::compute(InputContext& op_input, OutputContext& op_output
   
   packets_received_++;
   
-  // Check max_count limit
-  if (max_count_.get() > 0 && packets_received_ >= max_count_.get()) {
-    HOLOSCAN_LOG_INFO("Reached max_count={}, stopping reception", max_count_.get());
-    receiver_->free_received_data(gpu_payload);
-    return;
-  }
-  
   // Create shared_ptr with custom deleter that frees via facade
   auto receiver_ptr = receiver_.get();
   std::shared_ptr<void*> gpu_data_ptr(new void*(gpu_payload), 
@@ -117,7 +107,7 @@ void TensorNetworkRxOp::compute(InputContext& op_input, OutputContext& op_output
   // Create Holoscan Tensor from DLManagedTensorContext
   auto output_tensor = std::make_shared<holoscan::Tensor>(dl_context);
   
-  HOLOSCAN_LOG_DEBUG("Received tensor: {} bytes (packet #{})",
+  HOLOSCAN_LOG_DEBUG("created tensor: {} bytes (packet #{})",
                      payload_size, packets_received_);
   
   // Emit tensor

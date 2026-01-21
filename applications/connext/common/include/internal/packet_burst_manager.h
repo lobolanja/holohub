@@ -190,6 +190,44 @@ class PacketBurstManager {
    * @return true on success, false on error
    */
   bool set_tx_packet_length(BurstParams* burst, int packet_idx, uint16_t length);
+  
+  /**
+   * @brief Copy header to packet buffer on GPU
+   * 
+   * Performs async GPU-to-GPU copy of pre-made header template.
+   * 
+   * @param gpu_pkt_ptr Destination packet buffer on GPU
+   * @param header_template Source header template on GPU
+   * @param stream CUDA stream for async operation
+   * @throws std::runtime_error on CUDA copy failure
+   */
+  void copy_packet_header(void* gpu_pkt_ptr, void* header_template, cudaStream_t stream);
+  
+  /**
+   * @brief Copy payload to packet buffer on GPU (after header)
+   * 
+   * Performs async GPU-to-GPU copy of payload data after header.
+   * 
+   * @param gpu_pkt_ptr Destination packet buffer on GPU
+   * @param payload_data Source payload data on GPU
+   * @param payload_bytes Size of payload in bytes
+   * @param stream CUDA stream for async operation
+   * @throws std::runtime_error on CUDA copy failure
+   */
+  void copy_packet_payload(void* gpu_pkt_ptr, void* payload_data, 
+                          size_t payload_bytes, cudaStream_t stream);
+  
+  /**
+   * @brief Configure packet metadata (length)
+   * 
+   * Sets total packet length in burst metadata.
+   * 
+   * @param burst Burst structure containing packets
+   * @param packet_idx Index of packet within burst
+   * @param payload_bytes Size of payload in bytes
+   * @throws std::runtime_error on metadata update failure
+   */
+  void configure_packet_metadata(BurstParams* burst, int packet_idx, size_t payload_bytes);
 };
 
 }  // namespace holoscan::ops

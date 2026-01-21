@@ -75,91 +75,40 @@ class GpuDirectNetworkReceiver : public IGpuDirectNetworkReceiver {
   
   std::optional<ReceivedData> receive() override {
     stats_.polls_attempted++;
-    
-    // Free bursts from previous receive() calls whose CUDA operations completed
     free_completed_bursts();
     
-    // Poll all RX queues for new data
-    for (int q = 0; q < num_rx_queues_; q++) {
-      BurstParams* burst = nullptr;
-      Status status = get_rx_burst(&burst, port_id_, q);
-      
-      if (status != Status::SUCCESS) {
-        continue;  // Try next queue
-      }
-      
-      if (burst == nullptr) {
-        continue;  // Try next queue
-      }
-      
-      auto burst_size = get_num_packets(burst);
-      if (burst_size == 0) {
-        free_all_packets_and_burst_rx(burst);
-        continue;  // Try next queue
-      }
-      
-      // Got packets! Process first packet
-      void* gpu_pkt_ptr = get_packet_ptr(burst, 0);
-      uint16_t pkt_len = get_packet_length(burst, 0);
-      
-      // Validate packet length
-      if (pkt_len <= header_size_) {
-        free_all_packets_and_burst_rx(burst);
-        continue;  // Try next queue
-      }
-      
-      size_t payload_size = pkt_len - header_size_;
-      
-      // Allocate new GPU buffer for payload
-      void* payload_buffer = nullptr;
-      cudaError_t err = cudaMalloc(&payload_buffer, payload_size);
-      if (err != cudaSuccess) {
-        throw CudaInitException(
-          std::string("Failed to allocate GPU memory for payload: ") +
-          cudaGetErrorString(err));
-      }
-      
-      // Copy payload (skip header) to new buffer
-      void* payload_src = static_cast<uint8_t*>(gpu_pkt_ptr) + header_size_;
-      cudaStream_t stream = cuda_manager_.get_stream();
-      err = cudaMemcpyAsync(payload_buffer, payload_src, payload_size,
-                            cudaMemcpyDeviceToDevice, stream);
-      if (err != cudaSuccess) {
-        cudaFree(payload_buffer);
-        throw CudaInitException(
-          std::string("Failed to copy payload: ") + cudaGetErrorString(err));
-      }
-      
-      // Record event and advance to next slot
-      cudaEvent_t event = cuda_manager_.get_event();
-      cuda_manager_.record_and_advance();
-      
-      // Queue burst for later freeing (after CUDA copy completes)
-      batch_queue_.push(RxBatch{burst, event});
-      
-      // Update statistics
-      stats_.packets_received++;
-      stats_.bytes_received += payload_size;
-      
-      // Return the new buffer to caller
-      return ReceivedData{payload_buffer, payload_size};
+    auto burst = poll_for_burst();
+    if (!burst.has_value()) {
+      stats_.empty_polls++;
+      return std::nullopt;
     }
     
-    // No data available from any queue
-    stats_.empty_polls++;
-    return std::nullopt;
+    auto packet_info = validate_packet(burst.value());
+    if (!packet_info.has_value()) {
+      free_all_packets_and_burst_rx(burst.value());
+      stats_.empty_polls++;
+      return std::nullopt;
+    }
+    
+    void* payload_buffer = cuda_manager_.allocate_buffer(packet_info->payload_size);
+    try {
+      void* payload_src = static_cast<uint8_t*>(packet_info->gpu_pkt_ptr) + header_size_;
+      cuda_manager_.async_copy_device_to_device(payload_buffer, payload_src, packet_info->payload_size);
+    } catch (...) {
+      cuda_manager_.free_buffer(payload_buffer);
+      throw;
+    }
+    
+    enqueue_burst_for_cleanup(burst.value());
+    
+    stats_.packets_received++;
+    stats_.bytes_received += packet_info->payload_size;
+    
+    return ReceivedData{payload_buffer, packet_info->payload_size};
   }
   
   void free_received_data(void* gpu_payload) override {
-    if (gpu_payload == nullptr) {
-      return;
-    }
-    
-    cudaError_t err = cudaFree(gpu_payload);
-    if (err != cudaSuccess) {
-      throw CudaInitException(
-        std::string("Failed to free GPU payload: ") + cudaGetErrorString(err));
-    }
+    cuda_manager_.free_buffer(gpu_payload);
   }
   
   size_t max_payload_size() const override {
@@ -175,6 +124,12 @@ class GpuDirectNetworkReceiver : public IGpuDirectNetworkReceiver {
   }
   
  private:
+  // Helper struct to return packet information from validation
+  struct PacketInfo {
+    void* gpu_pkt_ptr;
+    size_t payload_size;
+  };
+  
   // Configuration
   int port_id_;
   int num_rx_queues_;
@@ -194,6 +149,69 @@ class GpuDirectNetworkReceiver : public IGpuDirectNetworkReceiver {
   
   // Statistics
   ReceptionStats stats_;
+  
+  /**
+   * @brief Poll all RX queues for a valid burst
+   * 
+   * Iterates through all configured RX queues until a burst with packets
+   * is found. Automatically frees empty bursts.
+   * 
+   * @return BurstParams* if valid burst found, std::nullopt otherwise
+   */
+  std::optional<BurstParams*> poll_for_burst() {
+    for (int q = 0; q < num_rx_queues_; q++) {
+      BurstParams* burst = nullptr;
+      Status status = get_rx_burst(&burst, port_id_, q);
+      
+      if (status != Status::SUCCESS || burst == nullptr) {
+        continue;
+      }
+      
+      auto burst_size = get_num_packets(burst);
+      if (burst_size == 0) {
+        free_all_packets_and_burst_rx(burst);
+        continue;
+      }
+      
+      return burst;
+    }
+    
+    return std::nullopt;
+  }
+  
+  /**
+   * @brief Validate packet and extract payload information
+   * 
+   * Checks packet length is sufficient to contain headers and payload.
+   * 
+   * @param burst DPDK burst containing packet
+   * @return PacketInfo if valid, std::nullopt if packet too small
+   */
+  std::optional<PacketInfo> validate_packet(BurstParams* burst) {
+    void* gpu_pkt_ptr = get_packet_ptr(burst, 0);
+    uint16_t pkt_len = get_packet_length(burst, 0);
+    
+    if (pkt_len <= header_size_) {
+      return std::nullopt;
+    }
+    
+    size_t payload_size = pkt_len - header_size_;
+    return PacketInfo{gpu_pkt_ptr, payload_size};
+  }
+  
+  /**
+   * @brief Record CUDA event and enqueue burst for deferred cleanup
+   * 
+   * Associates burst with CUDA event for async tracking. Burst will be
+   * freed later by free_completed_bursts() once CUDA operations complete.
+   * 
+   * @param burst DPDK burst to enqueue
+   */
+  void enqueue_burst_for_cleanup(BurstParams* burst) {
+    cudaEvent_t event = cuda_manager_.get_event();
+    cuda_manager_.record_and_advance();
+    batch_queue_.push(RxBatch{burst, event});
+  }
   
   /**
    * @brief Free DPDK bursts whose CUDA copy operations have completed

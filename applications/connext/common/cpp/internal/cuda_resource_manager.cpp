@@ -36,6 +36,38 @@ void CudaResourceManager::record_and_advance() {
   cur_idx_ = (cur_idx_ + 1) % num_concurrent_;
 }
 
+void* CudaResourceManager::allocate_buffer(size_t size) {
+  void* ptr = nullptr;
+  cudaError_t err = cudaMalloc(&ptr, size);
+  if (err != cudaSuccess) {
+    throw CudaInitException(
+        "cudaMalloc failed for " + std::to_string(size) + " bytes: " +
+        cudaGetErrorString(err));
+  }
+  return ptr;
+}
+
+void CudaResourceManager::free_buffer(void* ptr) {
+  if (ptr == nullptr) {
+    return;
+  }
+  
+  cudaError_t err = cudaFree(ptr);
+  if (err != cudaSuccess) {
+    throw CudaInitException(
+        "cudaFree failed: " + std::string(cudaGetErrorString(err)));
+  }
+}
+
+void CudaResourceManager::async_copy_device_to_device(void* dst, void* src, size_t size) {
+  cudaError_t err = cudaMemcpyAsync(dst, src, size, 
+                                     cudaMemcpyDeviceToDevice, get_stream());
+  if (err != cudaSuccess) {
+    throw CudaInitException(
+        "cudaMemcpyAsync failed: " + std::string(cudaGetErrorString(err)));
+  }
+}
+
 //
 // CudaBuffer implementation
 //

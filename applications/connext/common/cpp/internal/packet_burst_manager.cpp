@@ -94,50 +94,56 @@ bool PacketBurstManager::populate_tx_packet_data(BurstParams* burst, void* heade
     return false;
   }
   
-  for (int pkt_idx = 0; pkt_idx < num_packets; pkt_idx++) {
-    // Get GPU packet buffer pointer
-    void* gpu_pkt_ptr = get_tx_segment_ptr(burst, 0, pkt_idx);
-    if (gpu_pkt_ptr == nullptr) {
-      HOLOSCAN_LOG_ERROR("Failed to populate packet {}: could not get packet pointer", pkt_idx);
-      free_all_packets_and_burst_tx(burst);
-      return false;
+  try {
+    for (int pkt_idx = 0; pkt_idx < num_packets; pkt_idx++) {
+      void* gpu_pkt_ptr = get_tx_segment_ptr(burst, 0, pkt_idx);
+      if (gpu_pkt_ptr == nullptr) {
+        HOLOSCAN_LOG_ERROR("Failed to get packet pointer for packet {}", pkt_idx);
+        throw std::runtime_error("Packet pointer retrieval failed");
+      }
+      
+      copy_packet_header(gpu_pkt_ptr, header_template, stream);
+      copy_packet_payload(gpu_pkt_ptr, payload_data, payload_bytes, stream);
+      configure_packet_metadata(burst, pkt_idx, payload_bytes);
     }
-    
-    // Copy pre-made header from GPU template
-    cudaError_t err = cudaMemcpyAsync(gpu_pkt_ptr, header_template, header_size_,
-                                       cudaMemcpyDeviceToDevice, stream);
-    if (err != cudaSuccess) {
-      HOLOSCAN_LOG_ERROR("Failed to copy header for packet {}: {}", 
-                         pkt_idx, cudaGetErrorString(err));
-      free_all_packets_and_burst_tx(burst);
-      return false;
-    }
-    
-    // Copy payload data after header
-    err = cudaMemcpyAsync(static_cast<uint8_t*>(gpu_pkt_ptr) + header_size_,
-                          payload_data,
-                          payload_bytes,
-                          cudaMemcpyDeviceToDevice,
-                          stream);
-    if (err != cudaSuccess) {
-      HOLOSCAN_LOG_ERROR("Failed to copy payload for packet {}: {}", 
-                         pkt_idx, cudaGetErrorString(err));
-      free_all_packets_and_burst_tx(burst);
-      return false;
-    }
-    
-    // Set total packet length in metadata
-    uint16_t total_len = header_size_ + payload_bytes;
-    if (!set_tx_packet_length(burst, pkt_idx, total_len)) {
-      HOLOSCAN_LOG_ERROR("Failed to set length for packet {}", pkt_idx);
-      free_all_packets_and_burst_tx(burst);
-      return false;
-    }
+  } catch (const std::exception& e) {
+    HOLOSCAN_LOG_ERROR("Failed to populate packets: {}", e.what());
+    free_all_packets_and_burst_tx(burst);
+    return false;
   }
   
   HOLOSCAN_LOG_DEBUG("Populated {} packets with header ({} bytes) + payload ({} bytes)",
                      num_packets, header_size_, payload_bytes);
   return true;
+}
+
+void PacketBurstManager::copy_packet_header(void* gpu_pkt_ptr, void* header_template, 
+                                            cudaStream_t stream) {
+  cudaError_t err = cudaMemcpyAsync(gpu_pkt_ptr, header_template, header_size_,
+                                     cudaMemcpyDeviceToDevice, stream);
+  if (err != cudaSuccess) {
+    throw std::runtime_error(std::string("Failed to copy header: ") + 
+                           cudaGetErrorString(err));
+  }
+}
+
+void PacketBurstManager::copy_packet_payload(void* gpu_pkt_ptr, void* payload_data,
+                                             size_t payload_bytes, cudaStream_t stream) {
+  void* payload_dst = static_cast<uint8_t*>(gpu_pkt_ptr) + header_size_;
+  cudaError_t err = cudaMemcpyAsync(payload_dst, payload_data, payload_bytes,
+                                     cudaMemcpyDeviceToDevice, stream);
+  if (err != cudaSuccess) {
+    throw std::runtime_error(std::string("Failed to copy payload: ") + 
+                           cudaGetErrorString(err));
+  }
+}
+
+void PacketBurstManager::configure_packet_metadata(BurstParams* burst, int packet_idx, 
+                                                   size_t payload_bytes) {
+  uint16_t total_len = header_size_ + payload_bytes;
+  if (!set_tx_packet_length(burst, packet_idx, total_len)) {
+    throw std::runtime_error("Failed to set packet length in metadata");
+  }
 }
 
 void PacketBurstManager::enqueue_tx_burst(BurstParams* burst, cudaEvent_t event) {
