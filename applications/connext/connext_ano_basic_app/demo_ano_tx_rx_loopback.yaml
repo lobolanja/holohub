@@ -76,8 +76,6 @@ tensor_network_tx:
 # Tensor Network RX Operator Configuration
 tensor_network_rx:
   interface_name: "loopback_ports"
-  split_boundary: 0
-  batch_size: 10240
   max_packet_size: 1064
   header_size: 64
   gpu_device: 0

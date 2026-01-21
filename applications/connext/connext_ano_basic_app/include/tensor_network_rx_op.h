@@ -6,20 +6,16 @@
 #pragma once
 
 #include <holoscan/holoscan.hpp>
-#include <advanced_network/common.h>
-#include <cuda_runtime.h>
-#include <queue>
-#include <internal/cuda_resource_manager.h>
-
-using namespace holoscan::advanced_network;
+#include <gpu_direct_network_receiver.h>
 
 namespace holoscan::ops {
 
 /**
  * @brief Operator to receive Holoscan Tensor data over network using GPUDirect
  * 
- * Receives packets from the network using Advanced Network library with DPDK backend
- * in GPU-only mode, and reconstructs them into Holoscan Tensors on GPU.
+ * Receives packets from the network using GPU Direct facade and reconstructs them 
+ * into Holoscan Tensors on GPU. All DPDK and CUDA complexity is encapsulated
+ * in the IGpuDirectNetworkReceiver facade.
  */
 class TensorNetworkRxOp : public Operator {
  public:
@@ -36,32 +32,16 @@ class TensorNetworkRxOp : public Operator {
  private:
   // Configuration parameters
   Parameter<std::string> interface_name_;
-  Parameter<int> hds_;
-  Parameter<uint32_t> batch_size_;
   Parameter<uint16_t> max_packet_size_;
   Parameter<uint16_t> header_size_;
   Parameter<int> gpu_device_;
   Parameter<uint64_t> max_count_;  // 0 = unlimited, N = stop after N packets
 
-  // Network state
-  int port_id_ = -1;
-
-  // CUDA resource management
-  CudaResourceManager cuda_manager_;
+  // GPU Direct network receiver facade
+  std::unique_ptr<IGpuDirectNetworkReceiver> receiver_;
 
   // Statistics
   uint64_t packets_received_ = 0;
-  uint64_t bytes_received_ = 0;
-
-  // Queue to track in-flight processing
-  struct RxBatch {
-    BurstParams* burst;
-    cudaEvent_t evt;
-  };
-  std::queue<RxBatch> batch_q_;
-
-  // Helper functions
-  void free_processed_packets();
 };
 
 }  // namespace holoscan::ops

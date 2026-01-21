@@ -6,6 +6,7 @@ cmake_minimum_required(VERSION 3.20)
 # Define the connext_common static library
 add_library(connext_common STATIC
   cpp/gpu_direct_network_sender.cpp
+  cpp/gpu_direct_network_receiver.cpp
   cpp/internal/cuda_resource_manager.cpp
   cpp/internal/network_utils.cpp
   cpp/internal/packet_builder.cpp

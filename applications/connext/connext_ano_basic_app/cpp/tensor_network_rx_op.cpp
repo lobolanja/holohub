@@ -4,19 +4,16 @@
  */
 
 #include "../include/tensor_network_rx_op.h"
+#include <gpu_direct_exceptions.h>
 
 namespace holoscan::ops {
 
 TensorNetworkRxOp::~TensorNetworkRxOp() {
-  HOLOSCAN_LOG_INFO("TensorNetworkRxOp shutting down. Received {}/{} packets/bytes",
-                    packets_received_, bytes_received_);
-  
-  // CUDA resources automatically cleaned up by RAII wrappers
-  
-  // Free any pending batches
-  while (!batch_q_.empty()) {
-    free_all_packets_and_burst_rx(batch_q_.front().burst);
-    batch_q_.pop();
+  if (receiver_) {
+    const auto stats = receiver_->get_stats();
+    HOLOSCAN_LOG_INFO("TensorNetworkRxOp shutting down. Received {} packets ({} bytes, {} polls, {} empty)",
+                      stats.packets_received, stats.bytes_received, 
+                      stats.polls_attempted, stats.empty_polls);
   }
 }
 
@@ -25,10 +22,6 @@ void TensorNetworkRxOp::setup(OperatorSpec& spec) {
   
   spec.param<std::string>(interface_name_, "interface_name", "Interface Name",
              "Name of NIC interface from advanced_network config");
-  spec.param<int>(hds_, "split_boundary", "Header-Data Split",
-             "Header-data split boundary (0 for GPU-only)", 0);
-  spec.param<uint32_t>(batch_size_, "batch_size", "Batch Size",
-             "Batch size in packets for each processing epoch", 64);
   spec.param<uint16_t>(max_packet_size_, "max_packet_size", "Max Packet Size",
              "Maximum packet size expected from sender", 9000);
   spec.param<uint16_t>(header_size_, "header_size", "Header Size",
@@ -44,136 +37,66 @@ void TensorNetworkRxOp::initialize() {
   HOLOSCAN_LOG_INFO("TensorNetworkRxOp::initialize()");
   holoscan::Operator::initialize();
 
-  // Get port ID from advanced_network
-  port_id_ = get_port_id(interface_name_.get());
-  if (port_id_ == -1) {
+  try {
+    // Build configuration
+    ReceiverConfig config{
+      .interface_name = interface_name_.get(),
+      .header_size = header_size_.get(),
+      .max_packet_size = max_packet_size_.get(),
+      .gpu_device = gpu_device_.get()
+    };
+    
+    // Create receiver facade
+    receiver_ = IGpuDirectNetworkReceiver::create(config);
+    
+    HOLOSCAN_LOG_INFO("TensorNetworkRxOp initialized: interface={}, GPU-only mode, max_payload={}",
+                      interface_name_.get(), receiver_->max_payload_size());
+    
+  } catch (const InvalidConfigException& e) {
     throw std::runtime_error(
-        fmt::format("Invalid interface '{}' specified", interface_name_.get()));
-  }
-
-  // Set GPU device
-  cudaSetDevice(gpu_device_.get());
-
-  HOLOSCAN_LOG_INFO("TensorNetworkRxOp initialized: port_id={}, GPU-only mode={}",
-                    port_id_, !hds_.get());
-}
-
-void TensorNetworkRxOp::free_processed_packets() {
-  // Free batches that have completed CUDA processing
-  while (!batch_q_.empty()) {
-    const auto& batch = batch_q_.front();
-    if (cudaEventQuery(batch.evt) == cudaSuccess) {
-      free_all_packets_and_burst_rx(batch.burst);
-      batch_q_.pop();
-    } else {
-      break;  // No need to check further if this one isn't done
-    }
+      fmt::format("Invalid TensorNetworkRxOp configuration: {}", e.what()));
+  } catch (const NetworkInitException& e) {
+    throw std::runtime_error(
+      fmt::format("Failed to initialize network receiver: {}", e.what()));
+  } catch (const CudaInitException& e) {
+    throw std::runtime_error(
+      fmt::format("Failed to initialize CUDA for receiver: {}", e.what()));
   }
 }
 
 void TensorNetworkRxOp::compute(InputContext& op_input, OutputContext& op_output,
                                 ExecutionContext& context) {
-  // Free any previously processed packets
-  free_processed_packets();
-
-  BurstParams* burst = nullptr;
+  // Receive packet (facade handles all DPDK/CUDA complexity)
+  auto received = receiver_->receive();
   
-  // Iterate over all RX queues like the benchmark does
-  const auto num_rx_queues = get_num_rx_queues(port_id_);
-  
-  static int log_counter = 0;
-  static bool logged_num_queues = false;
-  
-  if (!logged_num_queues) {
-    HOLOSCAN_LOG_INFO("Port {} has {} RX queues", port_id_, num_rx_queues);
-    logged_num_queues = true;
+  if (!received.has_value()) {
+    // No data available this cycle
+    return;
   }
   
-  log_counter++;
+  auto& data = received.value();
+  void* gpu_payload = data.gpu_payload;
+  size_t payload_size = data.payload_bytes;
   
-  for (int q = 0; q < num_rx_queues; q++) {
-    Status status = get_rx_burst(&burst, port_id_, q);
-    
-    if (log_counter % 10000 == 0) {
-      HOLOSCAN_LOG_INFO("Polling port {} queue {} (attempt {}, status={})", 
-                        port_id_, q, log_counter, (int)status);
-    }
-    
-    if (status != Status::SUCCESS) {
-      if (status != Status::NOT_READY && log_counter % 10000 == 0) {
-        HOLOSCAN_LOG_WARN("Queue {}: Unexpected status: {}", q, (int)status);
-      }
-      continue;  // Try next queue
-    }
+  packets_received_++;
   
-  if (burst == nullptr) {
-    if (log_counter % 10000 == 0) {
-      HOLOSCAN_LOG_WARN("Queue {}: Status SUCCESS but burst is nullptr!", q);
-    }
-    continue;  // Try next queue
-  }
-
-  auto burst_size = get_num_packets(burst);
-  if (burst_size == 0) {
-    free_all_packets_and_burst_rx(burst);
-    continue;  // Try next queue
+  // Check max_count limit
+  if (max_count_.get() > 0 && packets_received_ >= max_count_.get()) {
+    HOLOSCAN_LOG_INFO("Reached max_count={}, stopping reception", max_count_.get());
+    receiver_->free_received_data(gpu_payload);
+    return;
   }
   
-  // If we got here, we received packets!
-  HOLOSCAN_LOG_INFO("✓ Received {} packets from queue {}!", burst_size, q);
-
-  packets_received_ += burst_size;
-
-  // For simplicity, assume single packet contains one tensor
-  // In production, you'd reassemble from multiple packets
-  
-  // Get first packet
-  void* gpu_pkt_ptr = get_packet_ptr(burst, 0);
-  uint16_t pkt_len = get_packet_length(burst, 0);
-  
-  // Calculate payload size (skip headers)
-  if (pkt_len <= header_size_.get()) {
-    HOLOSCAN_LOG_WARN("Queue {}: Received packet too small: {} bytes", q, pkt_len);
-    free_all_packets_and_burst_rx(burst);
-    continue;  // Try next queue
-  }
-  
-  size_t payload_size = pkt_len - header_size_.get();
-  bytes_received_ += payload_size;
-  
-  // Allocate GPU memory for tensor (copying payload without headers)
-  void* tensor_gpu_data = nullptr;
-  cudaError_t cuda_result = cudaMalloc(&tensor_gpu_data, payload_size);
-  if (cuda_result != cudaSuccess) {
-    HOLOSCAN_LOG_ERROR("Failed to allocate GPU memory: {}", cudaGetErrorString(cuda_result));
-    free_all_packets_and_burst_rx(burst);
-    break;  // Critical error, exit loop completely
-  }
-  
-  // Copy payload (skip header) from packet buffer to tensor buffer
-  void* payload_ptr = static_cast<uint8_t*>(gpu_pkt_ptr) + header_size_.get();
-  cudaStream_t stream = cuda_manager_.get_stream();
-  cudaMemcpyAsync(tensor_gpu_data, payload_ptr, payload_size,
-                  cudaMemcpyDeviceToDevice, stream);
-  
-  // Record event and advance to next slot
-  cudaEvent_t event = cuda_manager_.get_event();
-  cuda_manager_.record_and_advance();
-  
-  // Queue burst for later freeing (after CUDA completes)
-  batch_q_.push(RxBatch{burst, event});
-  
-  // Create shared_ptr with custom deleter for GPU memory management
-  std::shared_ptr<void*> gpu_data_ptr(new void*(tensor_gpu_data), [](void** ptr) {
-    if (ptr != nullptr) {
-      if (*ptr != nullptr) {
-        cudaFree(*ptr);
+  // Create shared_ptr with custom deleter that frees via facade
+  auto receiver_ptr = receiver_.get();
+  std::shared_ptr<void*> gpu_data_ptr(new void*(gpu_payload), 
+    [receiver_ptr](void** ptr) {
+      if (ptr != nullptr && *ptr != nullptr) {
+        receiver_ptr->free_received_data(*ptr);
         *ptr = nullptr;
       }
       delete ptr;
-      ptr = nullptr;
-    }
-  });
+    });
   
   // Create DLPack tensor descriptor using DLManagedTensorContext
   auto dl_context = std::make_shared<DLManagedTensorContext>();
@@ -183,7 +106,7 @@ void TensorNetworkRxOp::compute(InputContext& op_input, OutputContext& op_output
   dl_context->dl_shape = {static_cast<int64_t>(payload_size)};
   
   // Setup DLTensor
-  dl_context->tensor.dl_tensor.data = tensor_gpu_data;
+  dl_context->tensor.dl_tensor.data = gpu_payload;
   dl_context->tensor.dl_tensor.device = DLDevice{kDLCUDA, gpu_device_.get()};
   dl_context->tensor.dl_tensor.ndim = 1;
   dl_context->tensor.dl_tensor.dtype = DLDataType{kDLUInt, 8, 1};  // uint8
@@ -194,16 +117,11 @@ void TensorNetworkRxOp::compute(InputContext& op_input, OutputContext& op_output
   // Create Holoscan Tensor from DLManagedTensorContext
   auto output_tensor = std::make_shared<holoscan::Tensor>(dl_context);
   
-  HOLOSCAN_LOG_DEBUG("Received tensor: {} bytes from {} packets",
-                     payload_size, burst_size);
+  HOLOSCAN_LOG_DEBUG("Received tensor: {} bytes (packet #{})",
+                     payload_size, packets_received_);
   
   // Emit tensor
   op_output.emit(output_tensor, "tensor_out");
-  
-  // Found packets in this queue, exit loop
-  break;
-  
-  }  // End of queue loop
 }
 
 }  // namespace holoscan::ops
