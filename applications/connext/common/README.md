@@ -18,10 +18,11 @@ flowchart LR
   App -->|uses| Receiver[IGpuDirectNetworkReceiver]
   Sender -->|subsystems| CudaMgr[CudaResourceManager]
   Receiver -->|subsystems| CudaMgr
-  Sender -->|DPDK/ANO| AN[Advanced Network (DPDK) / NIC]
+  Sender -->|DPDK/ANO| AN[Advanced Network -DPDK / NIC-]
   Receiver -->|DPDK/ANO| AN
-  CudaMgr -->|manages| GPU[GPU (device memory, streams, events)]
+  CudaMgr -->|manages| GPU[GPU -device memory, streams, events-]
   AN -->|GPUDirect| GPU
+
 ```
 
 *Figure: High-level architecture — application, facades, CUDA manager, and Advanced Network (DPDK)/NIC with GPUDirect path.*

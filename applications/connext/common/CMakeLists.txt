@@ -31,3 +31,8 @@ target_link_libraries(connext_common
 
 # Set C++ standard
 target_compile_features(connext_common PUBLIC cxx_std_17)
+
+# Add tests subdirectory if testing is enabled
+if(BUILD_TESTING)
+  add_subdirectory(tests)
+endif()
