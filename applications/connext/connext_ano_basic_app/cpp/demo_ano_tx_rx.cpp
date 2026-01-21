@@ -4,6 +4,7 @@
  */
 
 #include <holoscan/holoscan.hpp>
+#include "advanced_network/common.h"
 #include "../include/tensor_generator_op.h"
 #include "../include/tensor_network_tx_op.h"
 #include "../include/tensor_network_rx_op.h"
@@ -16,7 +17,7 @@ class DemoAnoTxRxApp : public holoscan::Application {
     using namespace holoscan;
 
     // Initialize Advanced Network manager (single DPDK instance)
-    auto adv_net_config = from_config("advanced_network").as<NetworkConfig>();
+    auto adv_net_config = from_config("advanced_network").as<advanced_network::NetworkConfig>();
     if (advanced_network::adv_net_init(adv_net_config) != advanced_network::Status::SUCCESS) {
       HOLOSCAN_LOG_ERROR("Failed to configure the Advanced Network manager");
       exit(1);

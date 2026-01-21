@@ -7,7 +7,7 @@
 
 #include <array>
 #include <cstdint>
-#include <network_utils.h>
+#include "network_utils.h"
 
 namespace holoscan::ops {
 

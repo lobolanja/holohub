@@ -9,7 +9,7 @@
 #include <advanced_network/common.h>
 #include <cuda_runtime.h>
 #include <queue>
-#include <cuda_resource_manager.h>
+#include <internal/cuda_resource_manager.h>
 
 using namespace holoscan::advanced_network;
 

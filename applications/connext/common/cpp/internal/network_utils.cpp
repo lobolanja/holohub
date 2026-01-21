@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "../include/network_utils.h"
+#include "../../include/internal/network_utils.h"
 #include <arpa/inet.h>
 #include <stdexcept>
 

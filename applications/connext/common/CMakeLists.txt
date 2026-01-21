@@ -5,10 +5,11 @@ cmake_minimum_required(VERSION 3.20)
 
 # Define the connext_common static library
 add_library(connext_common STATIC
-  cpp/cuda_resource_manager.cpp
-  cpp/network_utils.cpp
-  cpp/packet_builder.cpp
-  cpp/packet_burst_manager.cpp
+  cpp/gpu_direct_network_sender.cpp
+  cpp/internal/cuda_resource_manager.cpp
+  cpp/internal/network_utils.cpp
+  cpp/internal/packet_builder.cpp
+  cpp/internal/packet_burst_manager.cpp
 )
 
 # Set include directories (PUBLIC so consumers get them too)

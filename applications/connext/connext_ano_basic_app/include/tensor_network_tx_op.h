@@ -6,15 +6,8 @@
 #pragma once
 
 #include <holoscan/holoscan.hpp>
-#include <advanced_network/common.h>
-#include <cuda_runtime.h>
-#include <queue>
-#include <cuda_resource_manager.h>
-#include <network_utils.h>
-#include <packet_builder.h>
-#include <packet_burst_manager.h>
-
-using namespace holoscan::advanced_network;
+#include <gpu_direct_network_sender.h>
+#include <optional>
 
 namespace holoscan::ops {
 
@@ -26,38 +19,34 @@ namespace holoscan::ops {
  */
 struct TensorNetworkTxParams {
   Parameter<std::string> interface_name_;     ///< NIC interface name from advanced_network config
+  Parameter<uint16_t> queue_id_;              ///< TX queue ID (must match advanced_network config)
   Parameter<std::string> ip_src_addr_;        ///< Source IP address (e.g., "192.168.10.10")
   Parameter<std::string> ip_dst_addr_;        ///< Destination IP address (e.g., "192.168.10.11")
   Parameter<std::string> eth_dst_addr_;       ///< Destination MAC address (e.g., "3C:6D:66:11:91:56")
   Parameter<uint16_t> udp_src_port_;          ///< Source UDP port number
   Parameter<uint16_t> udp_dst_port_;          ///< Destination UDP port number
-  Parameter<uint16_t> header_size_;           ///< Size of packet headers (Eth+IP+UDP), typically 42 bytes
+  Parameter<uint16_t> header_size_;           ///< Size of packet headers (minimum 42 for Eth+IP+UDP)
   Parameter<uint16_t> max_packet_size_;       ///< Maximum packet size including headers
-  Parameter<uint32_t> batch_size_;            ///< Number of packets per batch (unused in current impl)
-  Parameter<int> hds_;                        ///< Header-data split size (0 = GPU-only mode)
 };
 
 /**
  * @brief Operator to transmit Holoscan Tensor data over network using GPUDirect
  * 
  * This operator receives Holoscan Tensors containing GPU data and transmits them
- * to a remote host using the Advanced Network library with DPDK backend and GPU-only mode.
- * The tensor data is sent directly from GPU memory to NIC via GPUDirect, eliminating
- * CPU copies for maximum performance.
+ * to a remote host using GPUDirect and DPDK. The tensor data is sent directly from
+ * GPU memory to NIC via GPUDirect, eliminating CPU copies for maximum performance.
  * 
  * Key Features:
  * - Zero-copy GPU-to-NIC transmission via GPUDirect
- * - Asynchronous CUDA operations with event-based flow control
- * - Pre-built packet headers stored on GPU for efficiency
- * - UDP/IPv4/Ethernet packet construction
+ * - Simplified interface via GpuDirectNetworkSender facade
+ * - Automatic size validation and truncation
+ * - GPU-only mode (no header-data split)
  * 
  * Data Flow:
  * 1. Receive tensor from upstream operator (GPU memory)
- * 2. Check if previous transmission completed (CUDA event query)
- * 3. Prepare packet burst from DPDK pool
- * 4. Copy pre-made header + tensor payload to packet buffer (GPU-to-GPU)
- * 5. Record CUDA event and enqueue for transmission
- * 6. Process completed transmissions and send packets to NIC
+ * 2. Check if sender is ready for transmission
+ * 3. Validate tensor size and truncate if needed
+ * 4. Send GPU pointer to network sender
  * 
  * Thread-safety: Not thread-safe. Designed for single-threaded operator execution.
  */
@@ -66,7 +55,7 @@ class TensorNetworkTxOp : public Operator {
   HOLOSCAN_OPERATOR_FORWARD_ARGS(TensorNetworkTxOp)
 
   TensorNetworkTxOp() = default;
-  ~TensorNetworkTxOp() override;
+  ~TensorNetworkTxOp() override = default;
 
   /**
    * @brief Define operator specification and parameters
@@ -79,12 +68,12 @@ class TensorNetworkTxOp : public Operator {
   /**
    * @brief Initialize operator state and allocate resources
    * 
-   * Called once after setup(). Performs:
-   * - Port ID lookup from advanced_network interface name
-   * - Address parsing (MAC, IPv4) using NetworkUtils
-   * - GPU header buffer allocation and initialization
-   * - Pre-built packet header creation using PacketBuilder
-   * - CUDA resource manager initialization (streams/events)
+   * Called once after setup(). Creates the GPU Direct network sender
+   * with configuration from YAML parameters.
+   * 
+   * @throws InvalidConfigException if configuration invalid
+   * @throws NetworkInitException if network initialization fails
+   * @throws CudaInitException if CUDA initialization fails
    */
   void initialize() override;
 
@@ -92,13 +81,11 @@ class TensorNetworkTxOp : public Operator {
    * @brief Process one input tensor and transmit over network
    * 
    * Called repeatedly by scheduler. Main transmission pipeline:
-   * 1. Check CUDA readiness (previous batch completed?)
+   * 1. Check sender readiness (previous batch completed?)
    * 2. Receive and validate input tensor (must be GPU memory)
-   * 3. Validate tensor size against max payload
-   * 4. Prepare TX burst from DPDK pool
-   * 5. Populate packet data (header + payload) on GPU
-   * 6. Enqueue transmission with CUDA event
-   * 7. Process any completed transmissions and send to NIC
+   * 3. Validate tensor size and log truncation warning if needed
+   * 4. Send GPU pointer to network sender
+   * 5. Handle NotReadyException if sender unexpectedly not ready
    */
   void compute(InputContext& op_input, OutputContext& op_output,
                ExecutionContext& context) override;
@@ -111,52 +98,15 @@ class TensorNetworkTxOp : public Operator {
   /// Configuration parameters bound to Holoscan framework
   TensorNetworkTxParams params_;
 
-  /// Runtime values extracted from config (cached for performance)
-  uint16_t max_packet_size_ = 0;  ///< Maximum packet size including headers
-  uint16_t header_size_ = 0;      ///< Size of Eth+IP+UDP headers (typically 42 bytes)
+  /// GPU Direct network sender (encapsulates all low-level details)
+  std::unique_ptr<IGpuDirectNetworkSender> sender_;
 
-  /// Network state set during initialization
-  int port_id_ = -1;       ///< DPDK port ID for the network interface
-  uint16_t queue_id_ = 0;  ///< TX queue ID (currently fixed to 0)
-
-  /// CUDA resource management (streams and events for async operations)
-  CudaResourceManager cuda_manager_;
-
-  /// Pre-built packet header stored on GPU (copied to each packet)
-  /// Contains Ethernet, IP, and UDP headers ready for transmission
-  void* gds_header_ = nullptr;
-
-  /// Burst manager for TX packet lifecycle (allocation, queueing, transmission)
-  std::unique_ptr<PacketBurstManager> burst_manager_;
+  /// Maximum payload size for validation (cached from sender)
+  size_t max_payload_size_ = 0;
 
   //
   // Helper Methods
   //
-
-  /**
-   * @brief Parse configuration parameters into NetworkConfig struct
-   * 
-   * Extracts values from params_ (which are bound to Holoscan Parameter<T>)
-   * and returns a plain NetworkConfig struct for internal use.
-   * 
-   * @return NetworkConfig containing all network configuration values
-   */
-  NetworkConfig parse_network_config();
-  
-  //
-  // Compute Pipeline Helper Methods
-  // (These break down the compute() method into focused, testable steps)
-  //
-
-  /**
-   * @brief Check if ready to start new transmission
-   * 
-   * Queries the current CUDA event to see if previous batch completed.
-   * If not ready, logs warning and returns false.
-   * 
-   * @return true if ready for new transmission, false if previous still in-flight
-   */
-  bool is_ready_for_transmission();
 
   /**
    * @brief Receive and validate input tensor from upstream operator
@@ -169,7 +119,8 @@ class TensorNetworkTxOp : public Operator {
    * @return Optional tensor (has value if valid, nullopt if not received)
    * @throws std::runtime_error if tensor is not on CUDA device
    */
-  std::optional<std::shared_ptr<holoscan::Tensor>> receive_and_validate_tensor(InputContext& op_input);
+  std::optional<std::shared_ptr<holoscan::Tensor>> receive_and_validate_tensor(
+      InputContext& op_input);
 
   /**
    * @brief Log tensor debug information
@@ -184,7 +135,7 @@ class TensorNetworkTxOp : public Operator {
   /**
    * @brief Validate and adjust tensor size to fit in one packet
    * 
-   * Checks if tensor fits within max payload size (max_packet_size - header_size).
+   * Checks if tensor fits within max payload size.
    * If too large, truncates and logs warning.
    * 
    * @param tensor_bytes Original tensor size in bytes

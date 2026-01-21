@@ -122,4 +122,52 @@ class CudaResourceManager {
   int cur_idx_ = 0;
 };
 
+/**
+ * @brief RAII wrapper for CUDA device memory buffer
+ * 
+ * Automatically manages GPU memory allocation and deallocation.
+ * Useful for persistent GPU buffers (e.g., packet headers).
+ * 
+ * Thread-safety: Not thread-safe. Each instance should be used by a single thread only.
+ */
+class CudaBuffer {
+ public:
+  /**
+   * @brief Allocate GPU memory buffer
+   * 
+   * @param size Size in bytes to allocate
+   * @throws CudaInitException if cudaMalloc fails
+   */
+  explicit CudaBuffer(size_t size);
+  
+  /**
+   * @brief Free GPU memory
+   */
+  ~CudaBuffer();
+  
+  // Delete copy constructor and assignment
+  CudaBuffer(const CudaBuffer&) = delete;
+  CudaBuffer& operator=(const CudaBuffer&) = delete;
+  
+  // Allow move
+  CudaBuffer(CudaBuffer&& other) noexcept;
+  CudaBuffer& operator=(CudaBuffer&& other) noexcept;
+  
+  /**
+   * @brief Get raw GPU pointer
+   * @return Pointer to GPU memory
+   */
+  void* data() const { return ptr_; }
+  
+  /**
+   * @brief Get buffer size
+   * @return Size in bytes
+   */
+  size_t size() const { return size_; }
+  
+ private:
+  void* ptr_ = nullptr;
+  size_t size_ = 0;
+};
+
 }  // namespace holoscan::ops

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <packet_burst_manager.h>
+#include "../../include/internal/packet_burst_manager.h"
 #include <holoscan/holoscan.hpp>
 
 namespace holoscan::ops {

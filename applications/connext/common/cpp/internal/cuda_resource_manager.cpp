@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "../include/cuda_resource_manager.h"
+#include "../../include/internal/cuda_resource_manager.h"
+#include "../../include/gpu_direct_exceptions.h"
 
 namespace holoscan::ops {
 
@@ -33,6 +34,42 @@ cudaEvent_t CudaResourceManager::get_event() const {
 void CudaResourceManager::record_and_advance() {
   events_[cur_idx_].record(streams_[cur_idx_].get());
   cur_idx_ = (cur_idx_ + 1) % num_concurrent_;
+}
+
+//
+// CudaBuffer implementation
+//
+
+CudaBuffer::CudaBuffer(size_t size) : size_(size) {
+  cudaError_t err = cudaMalloc(&ptr_, size);
+  if (err != cudaSuccess) {
+    throw CudaInitException(
+        "cudaMalloc failed for " + std::to_string(size) + " bytes: " +
+        cudaGetErrorString(err));
+  }
+}
+
+CudaBuffer::~CudaBuffer() {
+  if (ptr_) {
+    cudaFree(ptr_);
+  }
+}
+
+CudaBuffer::CudaBuffer(CudaBuffer&& other) noexcept
+    : ptr_(other.ptr_), size_(other.size_) {
+  other.ptr_ = nullptr;
+  other.size_ = 0;
+}
+
+CudaBuffer& CudaBuffer::operator=(CudaBuffer&& other) noexcept {
+  if (this != &other) {
+    if (ptr_) cudaFree(ptr_);
+    ptr_ = other.ptr_;
+    size_ = other.size_;
+    other.ptr_ = nullptr;
+    other.size_ = 0;
+  }
+  return *this;
 }
 
 }  // namespace holoscan::ops

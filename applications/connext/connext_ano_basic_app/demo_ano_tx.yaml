@@ -48,14 +48,13 @@ tensor_generator:
   max_count: 0  # 0 = unlimited, N = stop after N tensors
 
 # Tensor Network TX Operator Configuration
+# GPU-only transmission mode via GPUDirect - no header-data split
 tensor_network_tx:
-  interface_name: "tx_port"
+  interface_name: "tx_port"     # Must match advanced_network interface name
+  queue_id: 0                    # TX queue ID (must match advanced_network queue id)
   ip_src_addr: 192.168.10.10
   ip_dst_addr: 192.168.10.11
   eth_dst_addr: 3c:6d:66:11:91:56
   udp_src_port: 4096
   udp_dst_port: 4096
-  header_size: 64
-  max_packet_size: 1064
-  batch_size: 10240
-  split_boundary: 0
+
