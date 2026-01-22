@@ -29,10 +29,36 @@
       "cuda": ">=11.6",
       "gpu_direct": "required"
     },
-    "run": {
-      "command": "<holohub_app_bin>/connext_ano_basic_app",
-      "workdir": "holohub_bin",
-      "arguments": "<config_file> <tx|rx>"
-    }
+    "modes": {
+      "tx_rx": {
+        "description": "Combined TX+RX in single DPDK process",
+        "run": {
+          "command": "<holohub_app_bin>/demo_ano_tx_rx <holohub_app_bin>/demo_ano_tx_rx.yaml",
+          "workdir": "holohub_bin"
+        }
+      },
+      "tx_rx_loopback": {
+        "description": "Combined TX+RX in loopback mode (single DPDK process)",
+        "run": {
+          "command": "<holohub_app_bin>/demo_ano_tx_rx <holohub_app_bin>/demo_ano_tx_rx_loopback.yaml",
+          "workdir": "holohub_bin"
+        }
+      },
+      "tx": {
+        "description": "TX only (separate process)",
+        "run": {
+          "command": "<holohub_app_bin>/connext_ano_basic_app tx <holohub_app_bin>/demo_ano_tx.yaml",
+          "workdir": "holohub_bin"
+        }
+      },
+      "rx": {
+        "description": "RX only (separate process)",
+        "run": {
+          "command": "<holohub_app_bin>/connext_ano_basic_app rx <holohub_app_bin>/demo_ano_rx.yaml",
+          "workdir": "holohub_bin"
+        }
+      }
+    },
+    "default_mode": "tx_rx"
   }
 }

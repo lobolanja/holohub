@@ -83,7 +83,7 @@ class GpuDirectNetworkReceiver : public IGpuDirectNetworkReceiver {
       return std::nullopt;
     }
     
-    auto packet_info = validate_packet(burst.value());
+    auto packet_info = extract_payload_from_packet(burst.value());
     if (!packet_info.has_value()) {
       free_all_packets_and_burst_rx(burst.value());
       stats_.empty_polls++;
@@ -187,7 +187,7 @@ class GpuDirectNetworkReceiver : public IGpuDirectNetworkReceiver {
    * @param burst DPDK burst containing packet
    * @return PacketInfo if valid, std::nullopt if packet too small
    */
-  std::optional<PacketInfo> validate_packet(BurstParams* burst) {
+  std::optional<PacketInfo> extract_payload_from_packet(BurstParams* burst) {
     void* gpu_pkt_ptr = get_packet_ptr(burst, 0);
     uint16_t pkt_len = get_packet_length(burst, 0);
     

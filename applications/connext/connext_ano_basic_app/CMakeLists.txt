@@ -58,7 +58,7 @@ set(ANO_MGR "dpdk" CACHE STRING "Manager type(s) list")
 separate_arguments(ANO_MGR_LIST UNIX_COMMAND ${ANO_MGR})
 foreach(MGR IN LISTS ANO_MGR_LIST)
     message(STATUS "Adding manager ${MGR} to the configuration")
-    target_compile_definitions(${PROJECT_NAME} PUBLIC "ANO_MGR_${MGR}=1")
+    target_compile_definitions(connext_ano_basic_app PUBLIC "ANO_MGR_${MGR}=1")
     target_compile_definitions(demo_ano_tx_rx PUBLIC "ANO_MGR_${MGR}=1")
 endforeach()
 
@@ -92,11 +92,28 @@ install(
 )
 
 install(
+  TARGETS demo_ano_tx_rx
+  DESTINATION examples/connext
+  COMPONENT demo-ano-tx-rx
+)
+
+install(
   FILES
     demo_ano_tx.yaml
     demo_ano_rx.yaml
   DESTINATION examples/connext
   COMPONENT connext-ano-basic
+  PERMISSIONS OWNER_READ OWNER_WRITE
+              GROUP_READ GROUP_WRITE
+              WORLD_READ WORLD_WRITE
+)
+
+install(
+  FILES
+    demo_ano_tx_rx.yaml
+    demo_ano_tx_rx_loopback.yaml
+  DESTINATION examples/connext
+  COMPONENT demo-ano-tx-rx
   PERMISSIONS OWNER_READ OWNER_WRITE
               GROUP_READ GROUP_WRITE
               WORLD_READ WORLD_WRITE

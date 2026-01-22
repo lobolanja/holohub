@@ -22,11 +22,15 @@ target_include_directories(connext_common
 
 # Find and link CUDA runtime
 find_package(CUDAToolkit REQUIRED)
-find_package(holoscan REQUIRED CONFIG)
+
+# Find holoscan for advanced_network
+find_package(holoscan 3.0 REQUIRED CONFIG
+             PATHS "/opt/nvidia/holoscan" "/workspace/holoscan-sdk/install")
+
 target_link_libraries(connext_common
   PUBLIC
     CUDA::cudart
-    holoscan::core  # Provides fmt library and logging
+    holoscan::core
 )
 
 # Set C++ standard
