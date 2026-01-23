@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "../../include/internal/packet_burst_manager.h"
+#include <connext_ano_lib/internal/packet_burst_manager.h>
 #include <holoscan/holoscan.hpp>
 
 namespace holoscan::ops {
@@ -83,7 +83,7 @@ bool PacketBurstManager::set_tx_packet_length(BurstParams* burst, int packet_idx
 
 bool PacketBurstManager::populate_tx_packet_data(BurstParams* burst, void* header_template,
                                                  void* payload_data, size_t payload_bytes,
-                                                 int num_packets, cudaStream_t stream) {
+                                                 int num_packets,  CudaResourceManager& cuda_manager) {
   if (burst == nullptr) {
     HOLOSCAN_LOG_ERROR("Cannot populate packet data: burst is null");
     return false;
@@ -102,8 +102,8 @@ bool PacketBurstManager::populate_tx_packet_data(BurstParams* burst, void* heade
         throw std::runtime_error("Packet pointer retrieval failed");
       }
       
-      copy_packet_header(gpu_pkt_ptr, header_template, stream);
-      copy_packet_payload(gpu_pkt_ptr, payload_data, payload_bytes, stream);
+      copy_packet_header(gpu_pkt_ptr, header_template, cuda_manager);
+      copy_packet_payload(gpu_pkt_ptr, payload_data, payload_bytes, cuda_manager);
       configure_packet_metadata(burst, pkt_idx, payload_bytes);
     }
   } catch (const std::exception& e) {
@@ -118,24 +118,15 @@ bool PacketBurstManager::populate_tx_packet_data(BurstParams* burst, void* heade
 }
 
 void PacketBurstManager::copy_packet_header(void* gpu_pkt_ptr, void* header_template, 
-                                            cudaStream_t stream) {
-  cudaError_t err = cudaMemcpyAsync(gpu_pkt_ptr, header_template, header_size_,
-                                     cudaMemcpyDeviceToDevice, stream);
-  if (err != cudaSuccess) {
-    throw std::runtime_error(std::string("Failed to copy header: ") + 
-                           cudaGetErrorString(err));
-  }
+                                            CudaResourceManager& cuda_manager) {
+                                              
+  cuda_manager.async_copy_device_to_device(gpu_pkt_ptr, header_template, header_size_);
 }
 
 void PacketBurstManager::copy_packet_payload(void* gpu_pkt_ptr, void* payload_data,
-                                             size_t payload_bytes, cudaStream_t stream) {
+                                             size_t payload_bytes, CudaResourceManager& cuda_manager) {
   void* payload_dst = static_cast<uint8_t*>(gpu_pkt_ptr) + header_size_;
-  cudaError_t err = cudaMemcpyAsync(payload_dst, payload_data, payload_bytes,
-                                     cudaMemcpyDeviceToDevice, stream);
-  if (err != cudaSuccess) {
-    throw std::runtime_error(std::string("Failed to copy payload: ") + 
-                           cudaGetErrorString(err));
-  }
+  cuda_manager.async_copy_device_to_device(payload_dst, payload_data, payload_bytes);
 }
 
 void PacketBurstManager::configure_packet_metadata(BurstParams* burst, int packet_idx, 

@@ -10,7 +10,7 @@ This application demonstrates GPU-to-GPU communication with three executables:
 2. **connext_ano_basic_app (tx mode)**: Generates tensors with "hello world #N" on GPU and transmits via network
 3. **connext_ano_basic_app (rx mode)**: Receives tensors from network on GPU and prints contents
 
-All modes use **GPU-only mode** (no header-data split) for maximum throughput with GPUDirect RDMA.
+All modes use **GPU-only mode** (no header-data split) for maximum throughput with GPUDirect.
 
 ## Architecture
 
@@ -33,9 +33,9 @@ Network (DPDK + GPUDirect) -> TensorNetworkRxOp -> TensorPrinterOp
 ## Prerequisites
 
 1. **DPDK-compatible NIC** (e.g., Mellanox ConnectX-5/6/7)
-2. **GPUDirect RDMA** enabled
+2. **GPUDirect** enabled
 3. **System configuration** from [High Performance Networking tutorial](/tutorials/high_performance_networking/README.md)
-4. **Single machine** (for loopback/combined mode) or **two machines** (for separate TX/RX)
+4. **Single machine** (for loopback/combined mode) or **two machines (or docker instances)** (for separate TX/RX)
 
 ## Configuration Files
 
@@ -107,7 +107,7 @@ The application supports four modes via the HoloHub CLI. Configuration files are
 
 > **Important**: 
 > - **Combined modes** (`tx_rx`, `tx_rx_loopback`): Can use `--local` flag (single DPDK process)
-> - **Separate modes** (`tx`, `rx`): Must run in Docker containers (no `--local` flag) because DPDK can only be initialized once per process
+> - **Separate modes** (`tx`, `rx`): Must run in Docker containers (no `--local` flag) because DPDK can only be initialized once when running in the same host.
 
 ### View Available Modes
 
@@ -131,7 +131,7 @@ Run both TX and RX in a single process - ideal for testing on one machine:
 
 For distributed setups across two machines or when running in separate containers:
 
-> **Note**: When running TX and RX separately, you **cannot use `--local`** because DPDK can only be initialized once per process. Each must run in its own Docker container with special DPDK-required privileges.
+> **Note**: When running TX and RX separately, you **cannot use `--local`** because DPDK can only be initialized once per container/host. Each must run in its own Docker container with special DPDK-required privileges.
 
 **Required Docker Options for DPDK:**
 ```bash
@@ -201,7 +201,7 @@ ctest -R test_demo_ano_tx_rx_app -V
 
 Current tests include:
 
-- **`test_demo_ano_tx_rx_app`**: Tests the combined TX+RX application (`demo_ano_tx_rx`) in loopback mode
+- **`test_demo_ano_tx_rx_app`**: Tests the combined TX+RX application (`demo_ano_tx_rx`) in loopback and NIC mode
   - Verifies the application starts successfully
   - Confirms packets are transmitted and received
   - Validates output contains expected "Received packet" messages
@@ -290,7 +290,7 @@ ethtool <interface_name>
 
 # Verify MAC address
 ip link show <interface_name>
-
+ 
 # Check DPDK-compatible NICs
 lspci | grep -i mellanox
 ```

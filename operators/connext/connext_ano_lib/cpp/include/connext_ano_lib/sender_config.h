@@ -7,7 +7,7 @@
 
 #include <cstdint>
 #include <string>
-#include "gpu_direct_exceptions.h"
+#include <connext_ano_lib/gpu_direct_exceptions.h>
 
 namespace holoscan::ops {
 

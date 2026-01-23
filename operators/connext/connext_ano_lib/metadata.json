@@ -1,0 +1,14 @@
+{
+  "operator": {
+    "name": "ConnExt Advanced Network GPU Direct Library",
+    "version": "1.0.0",
+    "language": "C++",
+    "type": "library",
+    "tags": ["Advanced Network", "DPDK", "GPUDirect", "Network", "CUDA"],
+    "description": "GPU Direct networking facade library providing high-level abstractions for zero-copy network transmission and reception using DPDK and CUDA.",
+    "dependencies": {
+      "operators": ["advanced_network"],
+      "system": ["CUDA Toolkit 11.0+", "Holoscan SDK 3.0+", "DPDK with GPUDirect support"]
+    }
+  }
+}

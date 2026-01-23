@@ -4,7 +4,7 @@
  */
 
 #include "../include/tensor_network_rx_op.h"
-#include <gpu_direct_exceptions.h>
+#include <connext_ano_lib/gpu_direct_exceptions.h>
 
 namespace holoscan::ops {
 

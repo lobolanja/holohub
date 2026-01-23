@@ -42,7 +42,7 @@ target_link_libraries(connext_ano_basic_app
     holoscan::advanced_network
     CUDA::cudart
     CUDA::cuda_driver
-    connext_common
+    connext_ano_lib
 )
 
 target_link_libraries(demo_ano_tx_rx
@@ -51,7 +51,7 @@ target_link_libraries(demo_ano_tx_rx
     holoscan::advanced_network
     CUDA::cudart
     CUDA::cuda_driver
-    connext_common
+    connext_ano_lib
 )
 
 set(ANO_MGR "dpdk" CACHE STRING "Manager type(s) list")

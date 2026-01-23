@@ -6,7 +6,7 @@
 #pragma once
 
 #include <holoscan/holoscan.hpp>
-#include <gpu_direct_network_sender.h>
+#include <connext_ano_lib/gpu_direct_network_sender.h>
 #include <optional>
 
 namespace holoscan::ops {

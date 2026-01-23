@@ -4,8 +4,8 @@
  */
 
 #include "../include/tensor_network_tx_op.h"
-#include <sender_config.h>
-#include <gpu_direct_exceptions.h>
+#include <connext_ano_lib/sender_config.h>
+#include <connext_ano_lib/gpu_direct_exceptions.h>
 #include <cuda_runtime.h>
 #include <algorithm>
 #include <vector>

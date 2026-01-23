@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include "sender_config.h"
+#include <connext_ano_lib/sender_config.h>
 
 namespace holoscan::ops {
 

@@ -6,6 +6,7 @@
 #pragma once
 
 #include <advanced_network/common.h>
+#include <connext_ano_lib/internal/cuda_resource_manager.h>
 #include <cuda_runtime.h>
 #include <queue>
 
@@ -82,12 +83,12 @@ class PacketBurstManager {
    * @param payload_data GPU pointer to payload data
    * @param payload_bytes Size of payload in bytes
    * @param num_packets Number of packets to populate
-   * @param stream CUDA stream for async operations
+   * @param cuda_manager CUDA resource manager for async operations
    * @return true if all packets populated successfully, false on error
    */
   bool populate_tx_packet_data(BurstParams* burst, void* header_template,
                                void* payload_data, size_t payload_bytes,
-                               int num_packets, cudaStream_t stream);
+                               int num_packets, CudaResourceManager&  cuda_manager);
   
   /**
    * @brief Enqueue burst for asynchronous transmission
@@ -198,10 +199,10 @@ class PacketBurstManager {
    * 
    * @param gpu_pkt_ptr Destination packet buffer on GPU
    * @param header_template Source header template on GPU
-   * @param stream CUDA stream for async operation
+   * @param cuda_manager CUDA resource manager for async operation
    * @throws std::runtime_error on CUDA copy failure
    */
-  void copy_packet_header(void* gpu_pkt_ptr, void* header_template, cudaStream_t stream);
+  void copy_packet_header(void* gpu_pkt_ptr, void* header_template,  CudaResourceManager& cuda_manager);
   
   /**
    * @brief Copy payload to packet buffer on GPU (after header)
@@ -211,11 +212,11 @@ class PacketBurstManager {
    * @param gpu_pkt_ptr Destination packet buffer on GPU
    * @param payload_data Source payload data on GPU
    * @param payload_bytes Size of payload in bytes
-   * @param stream CUDA stream for async operation
+   * @param cuda_manager CUDA resource manager for async operation
    * @throws std::runtime_error on CUDA copy failure
    */
   void copy_packet_payload(void* gpu_pkt_ptr, void* payload_data, 
-                          size_t payload_bytes, cudaStream_t stream);
+                          size_t payload_bytes,  CudaResourceManager& cuda_manager);
   
   /**
    * @brief Configure packet metadata (length)

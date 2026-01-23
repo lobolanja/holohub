@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
-#include "receiver_config.h"
+#include <connext_ano_lib/receiver_config.h>
 
 namespace holoscan::ops {
 

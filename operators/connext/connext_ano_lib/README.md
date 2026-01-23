@@ -1,6 +1,6 @@
-# Connext Common Library
+# Connext ANO Library
 
-Shared utilities for Holoscan connext applications with GPU Direct networking.
+Shared GPU Direct networking library for Holoscan connext applications with Advanced Network operations.
 
 ## Overview
 
@@ -88,9 +88,9 @@ The main public interface is `IGpuDirectNetworkSender`, a facade that encapsulat
 #### Basic Usage
 
 ```cpp
-#include <gpu_direct_network_sender.h>
-#include <sender_config.h>
-#include <gpu_direct_exceptions.h>
+#include <connext_ano_lib/gpu_direct_network_sender.h>
+#include <connext_ano_lib/sender_config.h>
+#include <connext_ano_lib/gpu_direct_exceptions.h>
 
 // 1. Configure the sender
 SenderConfig config;
@@ -240,9 +240,9 @@ The companion interface is `IGpuDirectNetworkReceiver`, which provides a symmetr
 #### Basic Usage
 
 ```cpp
-#include <gpu_direct_network_receiver.h>
-#include <receiver_config.h>
-#include <gpu_direct_exceptions.h>
+#include <connext_ano_lib/gpu_direct_network_receiver.h>
+#include <connext_ano_lib/receiver_config.h>
+#include <connext_ano_lib/gpu_direct_exceptions.h>
 
 // 1. Configure the receiver
 ReceiverConfig config;
@@ -524,11 +524,11 @@ class TensorNetworkRxOp : public Operator {
 Add to your application's `CMakeLists.txt`:
 
 ```cmake
-target_link_libraries(your_application PRIVATE connext_common)
+target_link_libraries(your_application PRIVATE connext_ano_lib)
 ```
 
 The library automatically provides:
-- Public headers: `gpu_direct_network_sender.h`, `gpu_direct_network_receiver.h`, `sender_config.h`, `receiver_config.h`, `gpu_direct_exceptions.h`
+- Public headers: `connext_ano_lib/gpu_direct_network_sender.h`, `connext_ano_lib/gpu_direct_network_receiver.h`, etc.
 - Dependencies: CUDA runtime, Holoscan core, Advanced Network
 
 ## Examples

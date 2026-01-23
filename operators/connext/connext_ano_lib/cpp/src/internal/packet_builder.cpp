@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "../../include/internal/packet_builder.h"
+#include <connext_ano_lib/internal/network_utils.h>
 #include <arpa/inet.h>
 #include <cstring>
 

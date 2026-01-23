@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "../../include/internal/cuda_resource_manager.h"
-#include "../../include/gpu_direct_exceptions.h"
+#include <connext_ano_lib/internal/cuda_resource_manager.h>
+#include <connext_ano_lib/gpu_direct_exceptions.h>
 
 namespace holoscan::ops {
 

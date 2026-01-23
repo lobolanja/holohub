@@ -3,11 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "../include/gpu_direct_network_sender.h"
-#include "../include/internal/cuda_resource_manager.h"
-#include "../include/internal/packet_burst_manager.h"
-#include "../include/internal/packet_builder.h"
-#include "../include/internal/network_utils.h"
+#include <connext_ano_lib/gpu_direct_network_sender.h>
+#include <connext_ano_lib/internal/cuda_resource_manager.h>
+#include <connext_ano_lib/internal/packet_burst_manager.h>
+#include <connext_ano_lib/internal/network_utils.h>
 #include <advanced_network/common.h>
 #include <cuda_runtime.h>
 #include <algorithm>
@@ -137,12 +136,9 @@ void GpuDirectNetworkSender::send(void* gpu_data, size_t size) {
     throw NetworkInitException("Failed to prepare TX burst (DPDK pool exhausted)");
   }
   
-  // Get CUDA resources
-  cudaStream_t stream = cuda_manager_.get_stream();
-  
   // Populate packet data on GPU
   bool success = burst_manager_->populate_tx_packet_data(
-      burst, gpu_header_.data(), gpu_data, actual_size, NUM_PACKETS, stream);
+      burst, gpu_header_.data(), gpu_data, actual_size, NUM_PACKETS, cuda_manager_);
   
   if (!success) {
     stats_.frames_dropped++;

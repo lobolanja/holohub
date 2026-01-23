@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "../include/gpu_direct_network_receiver.h"
-#include "../include/internal/cuda_resource_manager.h"
+#include <connext_ano_lib/gpu_direct_network_receiver.h>
+#include <connext_ano_lib/internal/cuda_resource_manager.h>
 #include <advanced_network/common.h>
 #include <cuda_runtime.h>
 #include <queue>

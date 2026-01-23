@@ -39,11 +39,11 @@
  */
 
 #include <gtest/gtest.h>
-#include <gpu_direct_network_sender.h>
-#include <gpu_direct_network_receiver.h>
-#include <sender_config.h>
-#include <receiver_config.h>
-#include <gpu_direct_exceptions.h>
+#include <connext_ano_lib/gpu_direct_network_sender.h>
+#include <connext_ano_lib/gpu_direct_network_receiver.h>
+#include <connext_ano_lib/sender_config.h>
+#include <connext_ano_lib/receiver_config.h>
+#include <connext_ano_lib/gpu_direct_exceptions.h>
 #include <advanced_network/common.h>
 #include <advanced_network/manager.h>
 #include <cuda_runtime.h>
@@ -525,7 +525,7 @@ class PhysicalNicRoundtripTest : public RoundtripTestBase {
     // Check for required environment variables
     const char* tx_pcie = std::getenv("TEST_TX_NIC_PCIE");
     const char* rx_pcie = std::getenv("TEST_RX_NIC_PCIE");
-    const char* rx_mac = std::getenv("TEST_RX_MAC");
+    const char* rx_mac = std::getenv("TEST_ETH_DST_MAC");
     
     ASSERT_TRUE(tx_pcie != nullptr) 
       << "TEST_TX_NIC_PCIE environment variable not set. "
@@ -534,7 +534,7 @@ class PhysicalNicRoundtripTest : public RoundtripTestBase {
       << "TEST_RX_NIC_PCIE environment variable not set. "
       << "Example: export TEST_RX_NIC_PCIE=\"0005:03:00.1\"";
     ASSERT_TRUE(rx_mac != nullptr) 
-      << "TEST_RX_MAC environment variable not set. "
+      << "TEST_ETH_DST_MAC environment variable not set. "
       << "Example: export TEST_RX_MAC=\"3c:6d:66:11:91:56\"";
     
     tx_pcie_ = tx_pcie;
