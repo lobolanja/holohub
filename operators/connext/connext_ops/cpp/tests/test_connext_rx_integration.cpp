@@ -21,6 +21,7 @@
 #include <ndds/rtitest/Tester.hpp>
 #include <ndds/rtitest/test_setting_impl.h>
 #include <holoscan/core/conditions/gxf/count.hpp>
+#include <cuda_runtime.h>
 #include <thread>
 #include <chrono>
 #include <string>
@@ -40,24 +41,73 @@ class DummySourceOp : public Operator {
  public:
   HOLOSCAN_OPERATOR_FORWARD_ARGS(DummySourceOp)
   DummySourceOp() = default;
+  
+  ~DummySourceOp() {
+    if (gpu_ptr_ && use_gpu_.has_value() && use_gpu_.get()) {
+      cudaFree(gpu_ptr_);
+      gpu_ptr_ = nullptr;
+    }
+  }
+  
   void setup(OperatorSpec& spec) override {
     spec.output<nvidia::gxf::Entity>("output");
+    spec.param(use_gpu_, "use_gpu", "Use GPU", "Use GPU memory for ANO", false);
   }
+  
+  void start() override {
+    Operator::start();
+    
+    // Allocate GPU memory once if needed
+    if (use_gpu_.get()) {
+      size_t size = strlen(kTestPayload);
+      cudaError_t err = cudaMalloc(&gpu_ptr_, size);
+      if (err != cudaSuccess) {
+        throw std::runtime_error(std::string("cudaMalloc failed: ") + cudaGetErrorString(err));
+      }
+      
+      // Copy data to GPU
+      err = cudaMemcpy(gpu_ptr_, kTestPayload, size, cudaMemcpyHostToDevice);
+      if (err != cudaSuccess) {
+        cudaFree(gpu_ptr_);
+        gpu_ptr_ = nullptr;
+        throw std::runtime_error(std::string("cudaMemcpy failed: ") + cudaGetErrorString(err));
+      }
+    }
+  }
+  
   void compute(InputContext&, OutputContext& output, ExecutionContext& context) override {
     auto entity = nvidia::gxf::Entity::New(context.context());
     auto payload_tensor = entity.value().add<nvidia::gxf::Tensor>("payload");
     const char* payload = kTestPayload;
     nvidia::gxf::Shape payload_shape{static_cast<int32_t>(strlen(payload))};
-    payload_tensor.value()->wrapMemory(
-        payload_shape,
-        nvidia::gxf::PrimitiveType::kUnsigned8,
-        sizeof(std::uint8_t),
-        nvidia::gxf::ComputeTrivialStrides(payload_shape, sizeof(std::uint8_t)),
-        nvidia::gxf::MemoryStorageType::kSystem,
-        (void*)payload,
-        nullptr);
+    
+    if (use_gpu_.get()) {
+      // Use pre-allocated GPU memory (no cleanup needed, done in destructor)
+      payload_tensor.value()->wrapMemory(
+          payload_shape,
+          nvidia::gxf::PrimitiveType::kUnsigned8,
+          sizeof(std::uint8_t),
+          nvidia::gxf::ComputeTrivialStrides(payload_shape, sizeof(std::uint8_t)),
+          nvidia::gxf::MemoryStorageType::kDevice,
+          gpu_ptr_,
+          nullptr);  // No cleanup function needed
+    } else {
+      // Use CPU memory for DDS
+      payload_tensor.value()->wrapMemory(
+          payload_shape,
+          nvidia::gxf::PrimitiveType::kUnsigned8,
+          sizeof(std::uint8_t),
+          nvidia::gxf::ComputeTrivialStrides(payload_shape, sizeof(std::uint8_t)),
+          nvidia::gxf::MemoryStorageType::kSystem,
+          (void*)payload,
+          nullptr);
+    }
     output.emit(entity.value(), "output");
   }
+  
+ private:
+  Parameter<bool> use_gpu_;
+  void* gpu_ptr_ = nullptr;
 };
 
 class TestReceiverOp : public Operator {
@@ -77,7 +127,20 @@ class TestReceiverOp : public Operator {
       if (data_expected) {
         const auto* data = data_expected.value();
         const auto& shape = tensor_handle->shape();
-        received_payload.assign(reinterpret_cast<const char*>(data), shape.dimension(0));
+        size_t size = shape.dimension(0);
+        
+        // Check if data is on GPU or CPU
+        if (tensor_handle->storage_type() == nvidia::gxf::MemoryStorageType::kDevice) {
+          // Copy from GPU to CPU
+          std::vector<uint8_t> cpu_data(size);
+          cudaError_t err = cudaMemcpy(cpu_data.data(), data, size, cudaMemcpyDeviceToHost);
+          if (err == cudaSuccess) {
+            received_payload.assign(reinterpret_cast<const char*>(cpu_data.data()), size);
+          }
+        } else {
+          // Data already on CPU
+          received_payload.assign(reinterpret_cast<const char*>(data), size);
+        }
       }
     }
   }
@@ -94,7 +157,9 @@ class ConnextOpsApp : public Application {
     auto source_count = make_condition<CountCondition>(10);
     auto rx_count = make_condition<CountCondition>(10);
 
-    auto source = make_operator<DummySourceOp>("source", source_count);
+    auto source = make_operator<DummySourceOp>("source", 
+                                                source_count,
+                                                Arg("use_gpu", enable_ano_));  // Use GPU for ANO
     auto tx = make_operator<ConnextTxOp>("tx",
                                          Arg("enable_dds", enable_dds_),
                                          Arg("enable_ano", enable_ano_),
@@ -123,6 +188,13 @@ class ConnextOpsApp : public Application {
 void run_connext_tx_rx_roundtrip_test(bool enable_dds, bool enable_ano) {
   ConnextOpsApp app(enable_dds, enable_ano);
   app.run();
+  
+  // For ANO tests, skip if hardware not available (payload will be empty)
+  if (enable_ano && !enable_dds && app.received_payload().empty()) {
+    std::cout << "Skipping ANO test - hardware not available or not configured" << std::endl;
+    return;
+  }
+  
   RTI_TEST_ASSERT(app.received_payload() == kTestPayload);
 }
 

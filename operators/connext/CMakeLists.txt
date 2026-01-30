@@ -27,4 +27,5 @@ find_package(RTIConnextDDS COMPONENTS test test_helpers REQUIRED)
 add_subdirectory(connext_lib)
 add_subdirectory(connext_ano_lib)
 
-add_holohub_operator(connext_ops)
+add_holohub_operator(connext_ops
+                        OPERATORS advanced_network connext_ano_lib connext_lib)

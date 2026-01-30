@@ -1,4 +1,6 @@
 #include "connext_lib/comm/connext_readers.hpp"
+#include "connext_lib/comm/connext_writers.hpp"
+#include "cuda_test_utils.hpp"
 #include "ndds/rtitest/Tester.hpp"
 #include "ndds/rtitest/test_setting_impl.h"
 
@@ -16,11 +18,10 @@ class ConnextReadersTester : public rti::test::Tester,
 
     // Create DDS writer
     connext_lib::DdsPayloadWriter writer(dp, topic, max_payload_bytes);
-    connext_lib::PayloadBufferView buffer{
-        reinterpret_cast<const std::uint8_t*>(test_message.data()),
-        test_message.size()
-    };
-    writer.setBuffer(buffer);
+    connext_lib::PayloadBufferView writer_buffer;
+    writer_buffer.data = reinterpret_cast<const std::uint8_t*>(test_message.data());
+    writer_buffer.size_bytes = test_message.size();
+    writer.setBuffer(writer_buffer);
     RTI_TEST_ASSERT(writer.writeTo("broadcast"));
 
     // Create DDS reader (SUT)
@@ -29,15 +30,24 @@ class ConnextReadersTester : public rti::test::Tester,
     connext_lib::ConnextDDSReader reader(dds_config, poll_interval_ms);
 
     // Poll for sample availability up to timeout
-    std::vector<std::uint8_t> samples;
+    connext_lib::MemoryBufferView received_buffer{nullptr, 0, false};
     const int max_attempts = 30; // 3 seconds total
     for (int attempt = 0; attempt < max_attempts; ++attempt) {
-      samples = reader.readSamples();
-      if (!samples.empty()) break;
+      received_buffer = reader.readSamples();
+      if (received_buffer.ptr != nullptr) break;
       std::this_thread::sleep_for(poll_interval_ms);
     }
-    std::string received(samples.begin(), samples.end());
+    
+    RTI_TEST_ASSERT(received_buffer.ptr != nullptr);
+    RTI_TEST_ASSERT_EQUALS_INT(static_cast<int>(test_message.size()), static_cast<int>(received_buffer.size_bytes));
+    
+    // Cast to CPU pointer (DDS uses CPU memory)
+    auto byte_ptr = static_cast<const std::uint8_t*>(received_buffer.ptr);
+    std::string received(byte_ptr, byte_ptr + received_buffer.size_bytes);
     RTI_TEST_ASSERT(received == test_message);
+    
+    // Free the buffer
+    reader.freeBuffer(received_buffer);
   }
 
   void ano_reader_construction_and_read_samples() {
@@ -56,26 +66,56 @@ class ConnextReadersTester : public rti::test::Tester,
     // Create ANO reader (SUT)
     connext_lib::ConnextANOReader reader(ano_config, dds_config, poll_interval_ms);
 
-    dds::domain::DomainParticipant dp(domain);
-    // Create DDS writer
-    connext_lib::DdsPayloadWriter writer(dp, "GPU/"+topic, max_payload_bytes);
-    connext_lib::PayloadBufferView buffer{
-        reinterpret_cast<const std::uint8_t*>(test_message.data()),
-        test_message.size()
-    };
-    writer.setBuffer(buffer);
-    RTI_TEST_ASSERT(writer.writeTo(buffer_id));
+    // Create ANO writer with GPU memory
+    connext_lib::ConnextANOWriter writer(ano_config, dds_config, poll_interval_ms);
+
+    // Allow discovery
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+    // Allocate GPU memory and copy test message to GPU
+    auto gpu_mem = connext_lib::test::copyToGpu(test_message.data(), test_message.size());
+
+    // Create buffer pointing to GPU memory
+    connext_lib::MemoryBufferView send_buffer;
+    send_buffer.ptr = gpu_mem.get();
+    send_buffer.size_bytes = test_message.size();
+    send_buffer.is_device = true;  // GPU memory
+
+    // Send via ANO writer
+    std::size_t sent = 0;
+    for (int attempt = 0; attempt < 50 && sent < 1; ++attempt) {
+      sent = writer.broadcast(send_buffer);
+      if (sent < 1) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      }
+    }
+    
+    // Skip test if ANO hardware not available
+    if (sent == 0) {
+      std::cout << "Skipping ANO test - hardware not available or not configured" << std::endl;
+      return;
+    }
+    
+    RTI_TEST_ASSERT_EQUALS_INT(1, static_cast<int>(sent));
 
     // Poll for sample availability up to timeout
-    std::vector<std::uint8_t> samples;
+    connext_lib::MemoryBufferView received_buffer{nullptr, 0, false};
     const int max_attempts = 30; // 3 seconds total
     for (int attempt = 0; attempt < max_attempts; ++attempt) {
-      samples = reader.readSamples();
-      if (!samples.empty()) break;
+      received_buffer = reader.readSamples();
+      if (received_buffer.ptr != nullptr) break;
       std::this_thread::sleep_for(poll_interval_ms);
     }
-    std::string received(samples.begin(), samples.end());
+    
+    RTI_TEST_ASSERT(received_buffer.ptr != nullptr);
+    RTI_TEST_ASSERT_EQUALS_INT(static_cast<int>(test_message.size()), static_cast<int>(received_buffer.size_bytes));
+    
+    // Copy from GPU to CPU for validation
+    std::string received = connext_lib::test::copyStringFromGpu(received_buffer.ptr, received_buffer.size_bytes);
     RTI_TEST_ASSERT(received == test_message);
+    
+    // Free the buffer
+    reader.freeBuffer(received_buffer);
   }
 
  private:

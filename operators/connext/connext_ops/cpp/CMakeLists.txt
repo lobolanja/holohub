@@ -56,6 +56,7 @@ install(DIRECTORY include/
 
 if(BUILD_TESTING)
   enable_testing()
+  find_package(CUDAToolkit REQUIRED)
   add_executable(test_connext_rx_integration tests/test_connext_rx_integration.cpp)
   target_link_libraries(test_connext_rx_integration
     PRIVATE
@@ -63,6 +64,7 @@ if(BUILD_TESTING)
       holoscan::core
       holoscan::ops::connext_lib
       RTIConnextDDS::test
+      CUDA::cudart
   )
   add_test(NAME test_connext_rx_integration COMMAND test_connext_rx_integration)
 

@@ -38,6 +38,12 @@ target_link_libraries(connext_ano_lib
     holoscan::core
 )
 
+if(NOT TARGET holoscan::advanced_network)
+  message(FATAL_ERROR "holoscan::advanced_network target not found; advanced_network is required for connext_ano_lib. Please build or install the operators/advanced_network target and reconfigure CMake.")
+endif()
+
+target_link_libraries(connext_ano_lib PUBLIC holoscan::advanced_network)
+
 # Set C++ standard
 target_compile_features(connext_ano_lib PUBLIC cxx_std_17)
 

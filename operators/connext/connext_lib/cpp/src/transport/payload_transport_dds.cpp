@@ -1,10 +1,12 @@
 #include "connext_lib/transport/payload_transport_dds.hpp"
 #include "connext_lib/transport/payload_transport.hpp"
+#include <cstring>
 #include <memory>
 #include <vector>
 #include <stdexcept>
 #include <chrono>
 #include <thread>
+#include <memory>
 
 #include "dds/core/QosProvider.hpp"
 
@@ -65,6 +67,7 @@ bool DdsPayloadWriter::writeTo(const std::string& destination_reference) {
     // Apply the new QoS to the publisher
     publisher_.qos(pub_qos);
 
+    //TODO: use the dds::core::BytesTopicType sample directly when calling setBuffer
     // Write the sample
     dds::core::BytesTopicType sample(payload_);
     writer_.write(sample);
@@ -86,12 +89,12 @@ DdsPayloadReader::DdsPayloadReader(dds::domain::DomainParticipant& participant, 
               dds::core::QosProvider::Default().datareader_qos(
                   "BuiltinQosLib::Pattern.Status")) {}
 
-bool DdsPayloadReader::readNext(std::vector<std::uint8_t>& destination,
+bool DdsPayloadReader::readNext(void*& data_ptr, std::size_t& size,
                                 std::chrono::milliseconds timeout) {
 
-  // TODO: this method will take(consume) the data, so we will lost samples if
-  // they are not read in time. Consider using read() with sample state
-  // filtering and a DataReaderListener to cache samples for later retrieval.
+  // This method will consume DDS samples. On success we allocate a host
+  // buffer (uint8_t[]) and copy sample bytes into it. Caller must call
+  // freeData() to release the returned buffer.
   const auto deadline = std::chrono::steady_clock::now() + timeout;
   while (std::chrono::steady_clock::now() < deadline) {
     try {
@@ -99,7 +102,15 @@ bool DdsPayloadReader::readNext(std::vector<std::uint8_t>& destination,
       for (const auto& sample : samples) {
         if (sample.info().valid()) {
           const std::vector<uint8_t> data = sample.data().data();
-          destination = data;
+          if (data.empty()) {
+            data_ptr = nullptr;
+            size = 0;
+            return true;
+          }
+          uint8_t* buf = new uint8_t[data.size()];
+          std::memcpy(buf, data.data(), data.size());
+          data_ptr = static_cast<void*>(buf);
+          size = data.size();
           return true;
         }
       }
@@ -109,6 +120,12 @@ bool DdsPayloadReader::readNext(std::vector<std::uint8_t>& destination,
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
   return false;
+}
+
+void DdsPayloadReader::freeData(void* data_ptr) {
+  if (!data_ptr) return;
+  auto buf = static_cast<uint8_t*>(data_ptr);
+  delete[] buf;
 }
 
 

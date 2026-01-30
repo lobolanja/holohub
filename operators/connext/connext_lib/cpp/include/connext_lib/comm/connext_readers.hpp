@@ -22,10 +22,18 @@ class ConnextDDSReader {
 public:
     ConnextDDSReader(const DdsConfig& dds_config, std::chrono::milliseconds poll_interval_ms = std::chrono::milliseconds(100));
     /**
-     * Polls for new samples from DDS. Returns a vector of bytes if available.
+     * Polls for new samples from DDS. Returns MemoryBufferView with pointer and size if available.
+     * Returns {nullptr, 0, false} if no data available or timeout.
+     * Caller must call freeBuffer() to release the returned buffer.
      * Used in tests to verify roundtrip message delivery.
      */
-    [[nodiscard]] std::vector<std::uint8_t> readSamples() const;
+    [[nodiscard]] MemoryBufferView readSamples() const;
+    
+    /**
+     * Frees a buffer previously returned by readSamples().
+     * Must be called to release memory allocated by the payload reader.
+     */
+    void freeBuffer(const MemoryBufferView& buffer) const;
 private:
     std::unique_ptr<PayloadReaderInterface> payload_reader_;
     std::chrono::milliseconds poll_interval_ms_;
@@ -40,10 +48,18 @@ class ConnextANOReader {
 public:
     ConnextANOReader(const AnoConfig& ano_config, const DdsConfig& dds_config, std::chrono::milliseconds poll_interval_ms);
     /**
-     * Polls for new samples from ANO. Returns a vector of bytes if available.
+     * Polls for new samples from ANO. Returns MemoryBufferView with pointer and size if available.
+     * Returns {nullptr, 0, false} if no data available or timeout.
+     * Caller must call freeBuffer() to release the returned buffer.
      * Used in tests to verify ANO message delivery.
      */
-    [[nodiscard]] std::vector<std::uint8_t> readSamples() const;
+    [[nodiscard]] MemoryBufferView readSamples() const;
+    
+    /**
+     * Frees a buffer previously returned by readSamples().
+     * Must be called to release memory allocated by the receiver.
+     */
+    void freeBuffer(const MemoryBufferView& buffer) const;
 private:
     std::unique_ptr<ConnextRx> rx_;
     std::chrono::milliseconds poll_interval_ms_;

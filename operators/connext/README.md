@@ -3,7 +3,8 @@
 The `operators/connext` directory hosts two complementary components that enable RTI Connext DDS integrations on the
 Holoscan platform:
 
-- **`connext_lib`** – A reusable C++ support library that bundles DDS resource management, and ANO in the future.
+- **`connext_lib`** – A reusable C++ support library that bundles DDS and ANO resource management..
+- **`connext_ano_lib`** – A reusable C++ support library that bundles ANO and exposes only what is needed.
 - **`connext_ops`** – C++ Python transmit/receive operators (`ConnextTxOp` and `ConnextRxOp`) 
 
 ## Prerequisites
@@ -12,6 +13,8 @@ Before building any Connext component, make sure the following prerequisites are
 - RTI Connext DDS 7.3.0 SDK installed and `NDDSHOME` pointing at the SDK root (for example `/opt/rti/rti_connext_dds-7.3.0`).
 - Valid RTI license file with `RTI_LICENSE_FILE` exporting the absolute path.
 - CUDA runtime libraries by exporting `LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH`.
+- Holoscan Advanced Network Op have to be built. i.e: 
+`./holohub build advanced_network --build-type debug --local --configure-args="-DCONNEXTDDS_ARCH=armv8Linux4gcc7.3.0"`
 
 ## Building
 
@@ -39,14 +42,18 @@ administrator for the license file. Otherwise, visit the RTI Customer Portal to 
 ### C++ helper library and operators
 
 ```sh
-cmake -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
-cmake --build build --target connext_lib connext_lib_cpp_tests connext_ops connext_ops_cpp_tests
+./holohub build connext_ano_lib connext_lib --build-type debug --local --configure-args="-DCONNEXTDDS_ARCH=armv8Linux4gcc7.3.0" --configure-args="-DOP_advanced_network=ON"
+
+or 
+
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DOP_advanced_network=ON -DCONNEXTDDS_ARCH=armv8Linux4gcc7.3.0
+cmake --build build --target connext_ano_lib connext_lib connext_lib_cpp_tests connext_ops connext_ops_cpp_tests
 ctest --test-dir build -R connext -V
 ```
 
-- `connext_lib` emits a static archive plus headers/metadata so future native operators can link against a stable
+- `connext_lib` and `connext_ano_lib` emits a static archive plus headers/metadata so future native operators can link against a stable
   interface.
 - `connext_lib_cpp_tests` is a convenience target that builds every C++ unit-test binary
-  (`connext_lib_dds_tests`, `connext_lib_config_tests`, and `connext_lib_payload_transport_tests`) so they can be run
+  (`connext_lib_dds_tests`, `connext_lib_config_tests`, and other payload transport tests) so they can be run
   together or individually via `ctest`.
 - Running `ctest` exercises the placeholder test and integrates it with the broader Holohub test suite.

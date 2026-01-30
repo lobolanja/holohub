@@ -26,8 +26,9 @@ class ConnextCommTester : public rti::test::Tester,
     const std::string channel =
         "comm_channel_" + std::to_string(++channel_counter_);
     dds::domain::DomainParticipant dp_read(domain_id());
+    connext_lib::AnoConfig ano_rx(channel, "rx_buffer", 1024, true);
     auto receiver = std::make_unique<connext_lib::DdsReceiverResourcesManager>(
-        dp_read, "rx_buffer", channel);
+      dp_read, ano_rx);
     auto reader = std::make_unique<connext_lib::DdsPayloadReader>(
         dp_read, "GPU/"+channel, "rx_buffer");
     // Use DDSCTestContext_waitForReaders for discovery instead of sleep
@@ -35,26 +36,33 @@ class ConnextCommTester : public rti::test::Tester,
     auto writer = std::make_unique<connext_lib::DdsPayloadWriter>(dp_write, "GPU/"+channel, 16);
     DDSCTestContext_waitForReaders(1, writer->get_dds_writer()->native_writer(), 5); // 5 seconds timeout
     const std::array<std::uint8_t, 3> payload{1, 2, 3};
-    connext_lib::PayloadBufferView view{payload.data(), payload.size()};
+    connext_lib::PayloadBufferView view;
+    view.data = payload.data();
+    view.size_bytes = payload.size();
     writer->setBuffer(view);
     RTI_TEST_ASSERT(writer->writeTo("rx_buffer"));
     connext_lib::ConnextRx rx(std::move(receiver), std::move(reader));
-    std::vector<std::uint8_t> buffer;
-    RTI_TEST_ASSERT(rx.receive(buffer, 2s));
-    RTI_TEST_ASSERT_EQUALS_INT(static_cast<int>(3), static_cast<int>(buffer.size()));
-    RTI_TEST_ASSERT_EQUALS_INT(1, buffer[0]);
-    RTI_TEST_ASSERT_EQUALS_INT(2, buffer[1]);
-    RTI_TEST_ASSERT_EQUALS_INT(3, buffer[2]);
+    connext_lib::MemoryBufferView buffer = rx.receive(2s);
+    RTI_TEST_ASSERT(buffer.ptr != nullptr);
+    RTI_TEST_ASSERT_EQUALS_INT(static_cast<int>(3), static_cast<int>(buffer.size_bytes));
+    auto byte_ptr = static_cast<const std::uint8_t*>(buffer.ptr);
+    RTI_TEST_ASSERT_EQUALS_INT(1, byte_ptr[0]);
+    RTI_TEST_ASSERT_EQUALS_INT(2, byte_ptr[1]);
+    RTI_TEST_ASSERT_EQUALS_INT(3, byte_ptr[2]);
+    rx.freeBuffer(buffer);
   }
 
   void tx_broadcasts_to_destinations() {
     const std::string channel =
         "comm_channel_" + std::to_string(++channel_counter_);
     dds::domain::DomainParticipant dp_reader1(domain_id());
-    auto receiver_mgr_a = std::make_unique<connext_lib::DdsReceiverResourcesManager>(dp_reader1, "buffer_a", channel);
+    connext_lib::AnoNetworkConfig ano_network_config_a(false, "eth0", 0);
+    connext_lib::AnoConfig ano_a(channel, "buffer_a", 1024, true, ano_network_config_a);
+    auto receiver_mgr_a = std::make_unique<connext_lib::DdsReceiverResourcesManager>(dp_reader1, ano_a);
     auto reader_a = std::make_unique<connext_lib::DdsPayloadReader>(dp_reader1, "GPU/"+channel, "buffer_a");
     dds::domain::DomainParticipant dp_reader2(domain_id());
-    auto receiver_mgr_b = std::make_unique<connext_lib::DdsReceiverResourcesManager>(dp_reader2, "buffer_b", channel);
+    connext_lib::AnoConfig ano_b(channel, "buffer_b", 1024, true);
+    auto receiver_mgr_b = std::make_unique<connext_lib::DdsReceiverResourcesManager>(dp_reader2, ano_b);
     auto reader_b = std::make_unique<connext_lib::DdsPayloadReader>(dp_reader2, "GPU/"+channel, "buffer_b");
     dds::domain::DomainParticipant sender_participant(domain_id());
     auto sender = std::make_unique<connext_lib::DdsSenderResourcesManager>(sender_participant, channel);
@@ -73,7 +81,9 @@ class ConnextCommTester : public rti::test::Tester,
     };
     // Broadcast all payloads first
     for (const auto& [payload_data, payload_size] : payloads) {
-      connext_lib::PayloadBufferView view{payload_data, payload_size};
+      connext_lib::PayloadBufferView view;
+      view.data = payload_data;
+      view.size_bytes = payload_size;
       tx.setBuffer(view);
       std::size_t sent = 0;
       for (int attempt = 0; attempt < 80 && sent < 2; ++attempt) {
@@ -83,18 +93,22 @@ class ConnextCommTester : public rti::test::Tester,
         }
       }
       RTI_TEST_ASSERT_EQUALS_INT(2, static_cast<int>(sent));
-      std::vector<std::uint8_t> buf_a;
-      std::vector<std::uint8_t> buf_b;
-      RTI_TEST_ASSERT(rx_a.receive(buf_a, 5s));
-      RTI_TEST_ASSERT(rx_b.receive(buf_b, 5s));
+      connext_lib::MemoryBufferView buf_a = rx_a.receive(5s);
+      connext_lib::MemoryBufferView buf_b = rx_b.receive(5s);
+      RTI_TEST_ASSERT(buf_a.ptr != nullptr);
+      RTI_TEST_ASSERT(buf_b.ptr != nullptr);
       RTI_TEST_ASSERT_EQUALS_INT(static_cast<int>(payload_size),
-                                 static_cast<int>(buf_a.size()));
+                                 static_cast<int>(buf_a.size_bytes));
       RTI_TEST_ASSERT_EQUALS_INT(static_cast<int>(payload_size),
-                                 static_cast<int>(buf_b.size()));
+                                 static_cast<int>(buf_b.size_bytes));
+      auto a_bytes = static_cast<const std::uint8_t*>(buf_a.ptr);
+      auto b_bytes = static_cast<const std::uint8_t*>(buf_b.ptr);
       for (std::size_t i = 0; i < payload_size; ++i) {
-        RTI_TEST_ASSERT_EQUALS_INT(payload_data[i], buf_a[i]);
-        RTI_TEST_ASSERT_EQUALS_INT(payload_data[i], buf_b[i]);
+        RTI_TEST_ASSERT_EQUALS_INT(payload_data[i], a_bytes[i]);
+        RTI_TEST_ASSERT_EQUALS_INT(payload_data[i], b_bytes[i]);
       }
+      rx_a.freeBuffer(buf_a);
+      rx_b.freeBuffer(buf_b);
     }
   }
 

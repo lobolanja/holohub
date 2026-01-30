@@ -20,7 +20,7 @@ class FakePayloadWriter : public connext_lib::PayloadWriterInterface {
 
   bool writeTo(const std::string& destination_reference) override {
     lastDestination_ = destination_reference;
-    return lastBuffer_.data != nullptr && lastBuffer_.size_bytes > 0;
+    return lastBuffer_.device_ptr != nullptr && lastBuffer_.size_bytes > 0;
   }
 
   const connext_lib::PayloadBufferView& lastBuffer() const {
@@ -39,11 +39,25 @@ class FakePayloadReader : public connext_lib::PayloadReaderInterface {
   explicit FakePayloadReader(std::vector<std::uint8_t> canned_payload)
       : cannedPayload_(std::move(canned_payload)) {}
 
-  bool readNext(std::vector<std::uint8_t>& destination,
+  bool readNext(void*& data_ptr, std::size_t& size,
                 std::chrono::milliseconds timeout) override {
     (void)timeout;
-    destination = cannedPayload_;
-    return !destination.empty();
+    if (cannedPayload_.empty()) {
+      data_ptr = nullptr;
+      size = 0;
+      return false;
+    }
+    uint8_t* buf = new uint8_t[cannedPayload_.size()];
+    std::memcpy(buf, cannedPayload_.data(), cannedPayload_.size());
+    data_ptr = static_cast<void*>(buf);
+    size = cannedPayload_.size();
+    return true;
+  }
+
+  void freeData(void* data_ptr) override {
+    if (!data_ptr) return;
+    auto buf = static_cast<uint8_t*>(data_ptr);
+    delete[] buf;
   }
 
  private:
@@ -83,10 +97,14 @@ class PayloadTransportTester : public rti::test::Tester,
   /// Ensure the light-weight view simply aliases caller-owned memory.
   void payloadBufferViewRetainsPointer() {
     std::array<std::uint8_t, 4> buffer{{0x01, 0x02, 0x03, 0x04}};
-    connext_lib::PayloadBufferView view{buffer.data(), buffer.size()};
-    RTI_TEST_ASSERT(view.data == buffer.data());
+    void* raw_ptr = static_cast<void*>(buffer.data());
+    connext_lib::PayloadBufferView view;
+    view.device_ptr = nullptr;
+    view.size_bytes = buffer.size();
+    view.data = static_cast<const std::uint8_t*>(raw_ptr);
+    RTI_TEST_ASSERT(view.data == raw_ptr);
     RTI_TEST_ASSERT_EQUALS_INT(static_cast<int>(buffer.size()),
-                               static_cast<int>(view.size_bytes));
+                   static_cast<int>(view.size_bytes));
   }
 
   /// Validate struct defaults and setters before transports consume them.
@@ -117,12 +135,15 @@ class PayloadTransportTester : public rti::test::Tester,
   void payloadWriterInterfaceStagesAndSends() {
     FakePayloadWriter writer;
     std::array<std::uint8_t, 2> data{{0xAA, 0x55}};
-    const connext_lib::PayloadBufferView view{data.data(), data.size()};
+    connext_lib::PayloadBufferView view;
+    view.data = data.data();
+    view.size_bytes = data.size();
+    view.device_ptr = const_cast<void*>(static_cast<const void*>(data.data()));
     writer.setBuffer(view);
     RTI_TEST_ASSERT(writer.lastBuffer().data == data.data());
     RTI_TEST_ASSERT_EQUALS_INT(
-        static_cast<int>(data.size()),
-        static_cast<int>(writer.lastBuffer().size_bytes));
+      static_cast<int>(data.size()),
+      static_cast<int>(writer.lastBuffer().size_bytes));
     RTI_TEST_ASSERT(writer.writeTo("receiver"));
     RTI_TEST_ASSERT(writer.lastDestination() == "receiver");
   }
@@ -131,11 +152,15 @@ class PayloadTransportTester : public rti::test::Tester,
   void payloadReaderInterfaceDeliversPayload() {
     std::vector<std::uint8_t> canned{0x0A, 0x0B};
     FakePayloadReader reader(canned);
-    std::vector<std::uint8_t> destination;
-    RTI_TEST_ASSERT(reader.readNext(destination, 10ms));
+    void* data_ptr = nullptr;
+    std::size_t size = 0;
+    RTI_TEST_ASSERT(reader.readNext(data_ptr, size, 10ms));
     RTI_TEST_ASSERT_EQUALS_INT(static_cast<int>(canned.size()),
-                               static_cast<int>(destination.size()));
-    RTI_TEST_ASSERT(destination == canned);
+                               static_cast<int>(size));
+    auto buf = static_cast<uint8_t*>(data_ptr);
+    RTI_TEST_ASSERT(buf[0] == canned[0]);
+    RTI_TEST_ASSERT(buf[1] == canned[1]);
+    reader.freeData(data_ptr);
   }
 
   /// Factories should keep a copy of option structs for diagnostics.

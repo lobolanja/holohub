@@ -519,6 +519,7 @@ class PhysicalNicRoundtripTest : public RoundtripTestBase {
  protected:
   std::string tx_pcie_;
   std::string rx_pcie_;
+  //TODO: mac is not needed here after config changes. Review later.
   std::string rx_mac_;
   
   void SetUp() override {

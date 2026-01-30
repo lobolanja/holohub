@@ -6,6 +6,7 @@
 
 #include <string>
 #include "connext_lib/resource/resource_managers.hpp"
+#include "connext_lib/config/config.hpp"
 #include "dds/dds.hpp"
 #include "dds/topic/BuiltinTopic.hpp"
 
@@ -19,8 +20,7 @@ namespace connext_lib {
 class DdsReceiverResourcesManager : public ReceiverResourcesManagerInterface {
  public:
   DdsReceiverResourcesManager(dds::domain::DomainParticipant participant,
-                              std::string buffer_id,
-                              std::string channel);
+                              const connext_lib::AnoConfig& config);
   /**
    * Announces receiver presence and buffer ID on the specified DDS channel.
    * Returns true if announcement was successful.
@@ -45,6 +45,7 @@ class DdsReceiverResourcesManager : public ReceiverResourcesManagerInterface {
   dds::sub::DataReader<dds::core::BytesTopicType> reader_;
   std::string buffer_id_;
   std::string channel_;
+  connext_lib::AnoConfig ano_config_;
 };
 
 /**

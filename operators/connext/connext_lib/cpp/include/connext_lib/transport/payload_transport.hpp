@@ -14,13 +14,31 @@
 namespace connext_lib {
 
 /**
+ * View into a memory buffer (CPU or GPU).
+ * Used by readers to return received payloads and by writers to reference data to send.
+ * Does not own memory; caller is responsible for buffer lifetime and must call freeBuffer().
+ */
+struct MemoryBufferView {
+  void* ptr{nullptr};          // Pointer to buffer (CPU or GPU memory)
+  std::uint64_t size_bytes{0}; // Size of buffer in bytes
+  bool is_device{false};       // True if ptr points to GPU memory, false for CPU
+};
+
+/**
  * Immutable view into a contiguous payload buffer.
  * Used by writers to stage data and by readers to access received payloads.
  * Does not own memory; caller is responsible for buffer lifetime.
  */
 struct PayloadBufferView {
+  //TODO: delete this data pointer
   const std::uint8_t* data{nullptr};
-  std::size_t size_bytes{0};
+  std::size_t size_bytes=0;
+ 
+  // If sending from device memory (GPU), set `is_device` to true and
+  // provide a CUDA device pointer in `device_ptr` (caller-owned).
+  void* device_ptr{nullptr};
+  
+  
 };
 
 /**
@@ -72,11 +90,22 @@ class PayloadReaderInterface {
  public:
   virtual ~PayloadReaderInterface() = default;
   /**
-   * Blocks until data arrives or timeout expires, writing bytes into output.
-   * Returns true if data was received.
+   * Blocks until data arrives or timeout expires.
+   * On success returns true and sets `data_ptr` to an allocated buffer
+   * (host or device pointer) and `size` to the payload length. The caller
+   * MUST call `freeData(data_ptr)` to release the returned buffer. On
+   * failure or timeout, returns false and `data_ptr` is unspecified.
    */
-  virtual bool readNext(std::vector<std::uint8_t>& destination,
+  virtual bool readNext(void*& data_ptr, std::size_t& size,
                         std::chrono::milliseconds timeout) = 0;
+
+  /**
+   * Free a pointer previously returned by `readNext`.
+   * Implementations must release memory appropriately (e.g. `delete[]`
+   * for DDS host buffers or call `IGpuDirectNetworkReceiver::free_received_data`
+   * for ANO GPU buffers).
+   */
+  virtual void freeData(void* data_ptr) = 0;
 };
 
 /**

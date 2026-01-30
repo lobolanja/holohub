@@ -32,10 +32,10 @@ void AbstractSenderResourcesManager::stopProcessing() {
 }
 
 void AbstractSenderResourcesManager::registerReceiver(std::string destination,
-                                                      std::string buffer_id) {
+                                                      std::string destination_info) {
   std::lock_guard<std::mutex> lock(resources_mutex_);
-  // Overwrite existing entries so reconnects simply refresh the buffer id.
-  resources_[std::move(destination)] = std::move(buffer_id);
+  // Overwrite existing entries so reconnects simply refresh the resource info.
+  resources_[std::move(destination)] = std::move(destination_info);
 }
 
 void AbstractSenderResourcesManager::unregisterReceiver(

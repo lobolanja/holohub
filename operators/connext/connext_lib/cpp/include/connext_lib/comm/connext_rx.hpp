@@ -30,11 +30,18 @@ class ConnextRx {
 
   /**
    * Blocks until a payload arrives or the timeout expires.
-   * Returns true if a payload was received and written to destination.
+   * Returns MemoryBufferView with ptr and size on success.
+   * Returns {nullptr, 0, false} on timeout or failure.
+   * Caller must call freeBuffer() to release the returned buffer.
    * Used in tests to verify correct reception and timeout handling.
    */
-  bool receive(std::vector<std::uint8_t>& destination,
-               std::chrono::milliseconds timeout);
+  MemoryBufferView receive(std::chrono::milliseconds timeout);
+
+  /**
+   * Frees a buffer previously returned by receive().
+   * Must be called to release memory allocated by the payload reader.
+   */
+  void freeBuffer(const MemoryBufferView& buffer);
 
  private:
   std::unique_ptr<ReceiverResourcesManagerInterface> receiver_manager_;

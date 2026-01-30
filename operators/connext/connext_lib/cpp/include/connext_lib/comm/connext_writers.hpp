@@ -23,10 +23,10 @@ class ConnextANOWriter {
  public:
   ConnextANOWriter(const AnoConfig& ano_config, const DdsConfig& dds_config, std::chrono::milliseconds poll_interval_ms);
   /**
-   * Broadcasts the staged payload to all known destinations.
+   * Broadcasts the buffer to all known destinations.
    * Returns the number of successful sends.
    */
-  std::size_t broadcast(const PayloadBufferView& buffer);
+  std::size_t broadcast(const MemoryBufferView& buffer);
  private:
   std::unique_ptr<ConnextTx> tx_;
   std::chrono::milliseconds poll_interval_ms_;
@@ -44,10 +44,10 @@ class ConnextDDSWriter {
   ConnextDDSWriter& operator=(const ConnextDDSWriter&) = delete;
   ~ConnextDDSWriter();
   /**
-   * Broadcasts the staged payload to all known destinations.
+   * Broadcasts the buffer to all known destinations.
    * Returns the number of successful sends.
    */
-  std::size_t broadcast(const PayloadBufferView& buffer);
+  std::size_t broadcast(const MemoryBufferView& buffer);
  private:
   std::unique_ptr<PayloadWriterInterface> payload_writer_;
 };

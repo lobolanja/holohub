@@ -46,11 +46,12 @@ class DdsPayloadWriter : public PayloadWriterInterface {
  */
 class DdsPayloadReader : public PayloadReaderInterface {
  public:
-  DdsPayloadReader(dds::domain::DomainParticipant& participant,
-                   const std::string& topic_name,
-                   const std::string& destination_reference);
-  bool readNext(std::vector<std::uint8_t>& destination,
-                std::chrono::milliseconds timeout) override;
+    DdsPayloadReader(dds::domain::DomainParticipant& participant,
+                                     const std::string& topic_name,
+                                     const std::string& destination_reference);
+    bool readNext(void*& data_ptr, std::size_t& size,
+                                std::chrono::milliseconds timeout) override;
+    void freeData(void* data_ptr) override;
   /**
    * Returns the underlying DDS DataReader for test discovery helpers.
    */

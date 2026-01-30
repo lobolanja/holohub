@@ -1,4 +1,5 @@
 #include "connext_lib/resource/resource_managers_dds.hpp"
+#include "connext_lib/transport/sender_info.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -14,10 +15,10 @@ using namespace std::chrono_literals;
 
 // Helper to setup sender/receiver and synchronize DDS discovery
 void setup_sender_receiver_and_wait(
-    const std::string& channel,
-    const std::string& buffer_id,
-    connext_lib::DdsReceiverResourcesManager& receiver,
-    connext_lib::DdsSenderResourcesManager& sender) {
+  const std::string& channel,
+  const std::string& expected_destination,
+  connext_lib::DdsReceiverResourcesManager& receiver,
+  connext_lib::DdsSenderResourcesManager& sender) {
   sender.startProcessing(10ms);
   receiver.announce();
   // If DDSCTestContext_waitForReaders is available, use it here for robust discovery
@@ -26,7 +27,7 @@ void setup_sender_receiver_and_wait(
   for (int attempt = 0; attempt < 50 && !discovered; ++attempt) {
     const auto& destinations = sender.destinations();
     for (const auto& entry : destinations) {
-      if (entry.second == buffer_id) {
+      if (entry.second == expected_destination) {
         discovered = true;
         break;
       }
@@ -50,11 +51,21 @@ class DdsResourceManagersTester
     const std::string buffer_id = "buffer_dds";
     dds::domain::DomainParticipant receiver_participant(domain_id());
     dds::domain::DomainParticipant sender_participant(domain_id());
+    // Enable GPUDirect properties on the announced receiver so the sender
+    // registers a canonical serialized DestinationInfo.
+    connext_lib::AnoNetworkConfig gpu_cfg(true, "eth0", 0);
+    connext_lib::AnoConfig ano_cfg(channel, buffer_id, 1024, true, gpu_cfg);
     connext_lib::DdsReceiverResourcesManager receiver(
-        receiver_participant, buffer_id, channel);
+      receiver_participant, ano_cfg);
     connext_lib::DdsSenderResourcesManager sender(
         sender_participant, channel);
-    setup_sender_receiver_and_wait(channel, buffer_id, receiver, sender);
+    // Build expected destination string from the GPU config (ip:port:mac)
+    const std::string expected = connext_lib::DestinationInfo{
+        gpu_cfg.fast_ip(),
+        gpu_cfg.fast_mac_address(),
+        static_cast<uint16_t>(gpu_cfg.fast_port())
+    }.toString();
+    setup_sender_receiver_and_wait(channel, expected, receiver, sender);
   }
 
   void sender_filters_by_channel() {
@@ -63,8 +74,10 @@ class DdsResourceManagersTester
         "rm_channel_" + std::to_string(++channel_counter_);
     dds::domain::DomainParticipant receiver_participant(domain_id());
     dds::domain::DomainParticipant sender_participant(domain_id());
+    connext_lib::AnoNetworkConfig gpu_cfg(true, "eth0", 0);
+    connext_lib::AnoConfig ano_filtered(channel, "buffer_filtered", 1024, true, gpu_cfg);
     connext_lib::DdsReceiverResourcesManager receiver(
-        receiver_participant, "buffer_filtered", channel);
+      receiver_participant, ano_filtered);
     connext_lib::DdsSenderResourcesManager sender(
         sender_participant, channel + "_other");
     sender.startProcessing(10ms);
@@ -81,8 +94,10 @@ class DdsResourceManagersTester
     const std::string buffer_id = "buffer_unannounced";
     dds::domain::DomainParticipant receiver_participant(domain_id());
     dds::domain::DomainParticipant sender_participant(domain_id());
+    connext_lib::AnoNetworkConfig gpu_cfg_un(true, "eth0", 0);
+    connext_lib::AnoConfig ano_unannounced(channel, buffer_id, 1024, true, gpu_cfg_un);
     connext_lib::DdsReceiverResourcesManager receiver(
-        receiver_participant, buffer_id, channel);
+      receiver_participant, ano_unannounced);
     connext_lib::DdsSenderResourcesManager sender(
         sender_participant, channel);
     sender.startProcessing(10ms);

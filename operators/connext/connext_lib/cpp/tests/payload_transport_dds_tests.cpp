@@ -97,14 +97,18 @@ class PayloadTransportDdsTester
     DdsTransportTestContext ctx;
     ctx.wait_for_discovery();
     const std::string message = "dds_payload_roundtrip";
-    connext_lib::PayloadBufferView buffer{
-        reinterpret_cast<const std::uint8_t*>(message.data()),
-        message.size()};
+    connext_lib::PayloadBufferView buffer;
+    buffer.data = reinterpret_cast<const std::uint8_t*>(message.data());
+    buffer.size_bytes = message.size();
     ctx.writer->setBuffer(buffer);
     RTI_TEST_ASSERT(ctx.writer->writeTo("*"));
-    std::vector<std::uint8_t> destination;
-    RTI_TEST_ASSERT(ctx.reader->readNext(destination, 2s));
-    const std::string received(destination.begin(), destination.end());
+    void* data_ptr = nullptr;
+    std::size_t size = 0;
+    RTI_TEST_ASSERT(ctx.reader->readNext(data_ptr, size, 2s));
+    const std::string received = data_ptr && size > 0
+      ? std::string(reinterpret_cast<const char*>(data_ptr), size)
+      : std::string();
+    ctx.reader->freeData(data_ptr);
     RTI_TEST_ASSERT_EQUALS_INT(static_cast<int>(message.size()), static_cast<int>(received.size()));
     RTI_TEST_ASSERT(received == message);
   }
@@ -113,9 +117,10 @@ class PayloadTransportDdsTester
     // Negative test: reader should time out if no payload is sent
     DdsTransportTestContext ctx;
     ctx.wait_for_discovery();
-    std::vector<std::uint8_t> destination;
-    RTI_TEST_ASSERT(!ctx.reader->readNext(destination, 500ms));
-    RTI_TEST_ASSERT(destination.empty());
+    void* data_ptr = nullptr;
+    std::size_t size = 0;
+    RTI_TEST_ASSERT(!ctx.reader->readNext(data_ptr, size, 500ms));
+    RTI_TEST_ASSERT(size == 0);
   }
 
  private:

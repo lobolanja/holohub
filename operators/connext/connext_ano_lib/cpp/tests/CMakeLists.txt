@@ -79,72 +79,78 @@ set_tests_properties(connext_ano_component_tests PROPERTIES
 # Integration Tests (require CUDA + DPDK + Advanced Network)
 # ============================================================================
 
-# Test 1: Loopback test (software loopback, no hardware required)
-add_executable(test_tx_rx_loopback
-  integration/test_tx_rx_roundtrip.cpp
-)
+if(TARGET holoscan::advanced_network)
 
-target_link_libraries(test_tx_rx_loopback
-  PRIVATE
-    connext_ano_lib
-    holoscan::advanced_network
-    GTest::gtest_main
-    GTest::gmock
-    CUDA::cudart
-    CUDA::cuda_driver
-)
+  # Test 1: Loopback test (software loopback, no hardware required)
+  add_executable(test_tx_rx_loopback
+    integration/test_tx_rx_roundtrip.cpp
+  )
 
-target_include_directories(test_tx_rx_loopback
-  PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include
-    ${CMAKE_CURRENT_SOURCE_DIR}/common
-)
+  target_link_libraries(test_tx_rx_loopback
+    PRIVATE
+      connext_ano_lib
+      holoscan::advanced_network
+      GTest::gtest_main
+      GTest::gmock
+      CUDA::cudart
+      CUDA::cuda_driver
+  )
 
-target_compile_definitions(test_tx_rx_loopback
-  PRIVATE
-    TEST_LOOPBACK_ONLY
-)
+  target_include_directories(test_tx_rx_loopback
+    PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/../include
+      ${CMAKE_CURRENT_SOURCE_DIR}/common
+  )
 
-add_test(NAME test_tx_rx_loopback 
-         COMMAND test_tx_rx_loopback
-         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+  target_compile_definitions(test_tx_rx_loopback
+    PRIVATE
+      TEST_LOOPBACK_ONLY
+  )
 
-set_tests_properties(test_tx_rx_loopback PROPERTIES
-  LABELS "integration;loopback"
-  TIMEOUT 30
-)
+  add_test(NAME test_tx_rx_loopback 
+           COMMAND test_tx_rx_loopback
+           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
-# Test 2: Physical NIC test (requires two physical NICs connected via cable)
-add_executable(test_tx_rx_physical
-  integration/test_tx_rx_roundtrip.cpp
-)
+  set_tests_properties(test_tx_rx_loopback PROPERTIES
+    LABELS "integration;loopback"
+    TIMEOUT 30
+  )
 
-target_link_libraries(test_tx_rx_physical
-  PRIVATE
-    connext_ano_lib
-    holoscan::advanced_network
-    GTest::gtest_main
-    GTest::gmock
-    CUDA::cudart
-    CUDA::cuda_driver
-)
+  # Test 2: Physical NIC test (requires two physical NICs connected via cable)
+  add_executable(test_tx_rx_physical
+    integration/test_tx_rx_roundtrip.cpp
+  )
 
-target_include_directories(test_tx_rx_physical
-  PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include
-    ${CMAKE_CURRENT_SOURCE_DIR}/common
-)
+  target_link_libraries(test_tx_rx_physical
+    PRIVATE
+      connext_ano_lib
+      holoscan::advanced_network
+      GTest::gtest_main
+      GTest::gmock
+      CUDA::cudart
+      CUDA::cuda_driver
+  )
 
-target_compile_definitions(test_tx_rx_physical
-  PRIVATE
-    TEST_PHYSICAL_ONLY
-)
+  target_include_directories(test_tx_rx_physical
+    PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/../include
+      ${CMAKE_CURRENT_SOURCE_DIR}/common
+  )
 
-add_test(NAME test_tx_rx_physical 
-         COMMAND test_tx_rx_physical
-         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+  target_compile_definitions(test_tx_rx_physical
+    PRIVATE
+      TEST_PHYSICAL_ONLY
+  )
 
-set_tests_properties(test_tx_rx_physical PROPERTIES
-  LABELS "integration;requires_hardware"
-  TIMEOUT 30
-)
+  add_test(NAME test_tx_rx_physical 
+           COMMAND test_tx_rx_physical
+           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+  set_tests_properties(test_tx_rx_physical PROPERTIES
+    LABELS "integration;requires_hardware"
+    TIMEOUT 30
+  )
+
+else()
+  message(STATUS "holoscan::advanced_network target not found; skipping ANO integration tests (loopback & physical)")
+endif()

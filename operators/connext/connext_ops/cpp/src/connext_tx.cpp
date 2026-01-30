@@ -113,7 +113,14 @@ void ConnextTxOp::compute(InputContext& input, OutputContext& output, ExecutionC
   if (!data) { return; }
 
   const auto payload_size = static_cast<std::size_t>(tensor->nbytes());
-  connext_lib::PayloadBufferView buffer{data, payload_size};
+  
+  // Create MemoryBufferView for the tensor data
+  connext_lib::MemoryBufferView buffer;
+  buffer.ptr = data;
+  buffer.size_bytes = payload_size;
+  // When ANO is enabled, assume GPU memory. Otherwise CPU memory.
+  // Note: In production, the source operator should create GPU tensors explicitly for ANO
+  buffer.is_device = ano_config_.enabled();
 
   if (dds_config_.enabled() && dds_writer_) {
     dds_writer_->broadcast(buffer);

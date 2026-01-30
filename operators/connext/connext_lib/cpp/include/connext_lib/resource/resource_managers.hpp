@@ -14,6 +14,7 @@
 #include "dds/core/SafeEnumeration.hpp"
 #include "dds/core/policy/CorePolicy.hpp"
 #include "rti/core/policy/CorePolicy.hpp"
+#include "connext_lib/transport/sender_info.hpp"
 
 namespace connext_lib {
 
@@ -50,7 +51,8 @@ class SenderResourcesManagerInterface {
    */
   virtual void stopProcessing() = 0;
   /**
-   * Returns a map of discovered destinations (unique identifier to resource ID).
+   * Returns a map of discovered destinations (unique identifier to canonical
+   * destination string produced by `DestinationInfo::toString()`).
    */
   [[nodiscard]] virtual std::map<std::string, std::string> destinations() const = 0;
 };
@@ -71,7 +73,7 @@ class AbstractSenderResourcesManager : public SenderResourcesManagerInterface {
   /**
    * Registers a receiver with the given destination and resource ID.
    */
-  void registerReceiver(std::string destination, std::string resource_id);
+  void registerReceiver(std::string destination, std::string destination_info);
   /**
    * Unregisters a receiver by destination.
    */

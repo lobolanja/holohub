@@ -7,6 +7,7 @@
 #include <memory>
 #include <stdexcept>
 #include <vector>
+#include <cstring>
 
 namespace connext_lib {
 
@@ -25,9 +26,26 @@ ConnextRx::ConnextRx(
 
 ConnextRx::~ConnextRx() = default;
 
-bool ConnextRx::receive(std::vector<std::uint8_t>& destination,
-                        std::chrono::milliseconds timeout) {
-  return payload_reader_->readNext(destination, timeout);
+MemoryBufferView ConnextRx::receive(std::chrono::milliseconds timeout) {
+  void* data_ptr = nullptr;
+  std::size_t size = 0;
+  if (!payload_reader_->readNext(data_ptr, size, timeout)) {
+    return {nullptr, 0, false};
+  }
+  if (data_ptr == nullptr || size == 0) {
+    payload_reader_->freeData(data_ptr);
+    return {nullptr, 0, false};
+  }
+  // Return pointer without copying - caller must call freeBuffer()
+  // Note: is_device should be set based on the payload reader type
+  // For now, assume false (CPU) for DDS, true for ANO
+  return {data_ptr, size, false};
+}
+
+void ConnextRx::freeBuffer(const MemoryBufferView& buffer) {
+  if (buffer.ptr != nullptr) {
+    payload_reader_->freeData(buffer.ptr);
+  }
 }
 
 ConnextTx::ConnextTx(std::unique_ptr<SenderResourcesManagerInterface> sender_manager,
@@ -57,9 +75,9 @@ bool ConnextTx::sendTo(const std::string& destination_reference) {
 
 std::size_t ConnextTx::broadcast() {
   std::size_t sent = 0;
-  for (const auto& [destination, buffer_ref] : sender_manager_->destinations()) {
+  for (const auto& [destination, destination_info] : sender_manager_->destinations()) {
     (void)destination;
-    if (payload_writer_->writeTo(buffer_ref)) {
+    if (payload_writer_->writeTo(destination_info)) {
       ++sent;
     }
   }

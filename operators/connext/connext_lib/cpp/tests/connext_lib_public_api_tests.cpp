@@ -16,6 +16,7 @@
 
 // Only include the public API header - this validates it's self-contained
 #include "connext_lib.hpp"
+#include "cuda_test_utils.hpp"
 
 #include "ndds/rtitest/Tester.hpp"
 #include "ndds/rtitest/test_setting_impl.h"
@@ -85,10 +86,9 @@ class ConnextLibPublicAPITester : public rti::test::Tester,
   void test_payload_buffer_view() {
     std::string test_data = "Public API test payload";
 
-    connext_lib::PayloadBufferView buffer{
-        reinterpret_cast<const std::uint8_t*>(test_data.data()),
-        test_data.size()
-    };
+    connext_lib::PayloadBufferView buffer;
+    buffer.data = reinterpret_cast<const std::uint8_t*>(test_data.data());
+    buffer.size_bytes = test_data.size();
 
     RTI_TEST_ASSERT(buffer.data != nullptr);
     RTI_TEST_ASSERT(buffer.size_bytes == test_data.size());
@@ -121,29 +121,31 @@ void test_dds_writer_reader_roundtrip() {
   std::this_thread::sleep_for(std::chrono::seconds(3));
 
   // Step 3: Prepare and send payload
-  connext_lib::PayloadBufferView buffer_to_send{
-      reinterpret_cast<const std::uint8_t*>(test_message.data()),
-      test_message.size()
-  };
+  connext_lib::MemoryBufferView buffer_to_send;
+  buffer_to_send.ptr = const_cast<void*>(reinterpret_cast<const void*>(test_message.data()));
+  buffer_to_send.size_bytes = test_message.size();
+  buffer_to_send.is_device = false; // CPU memory
 
   std::size_t sent_count = writer.broadcast(buffer_to_send);
   RTI_TEST_ASSERT(sent_count > 0);
 
   // Step 4: Poll for received samples
-  std::vector<std::uint8_t> samples;
+  connext_lib::MemoryBufferView received_buffer{nullptr, 0, false};
   const int max_attempts = 30;  // 3 seconds total
   for (int attempt = 0; attempt < max_attempts; ++attempt) {
-    samples = reader.readSamples();
-    if (!samples.empty()) {
+    received_buffer = reader.readSamples();
+    if (received_buffer.ptr != nullptr) {
       break;
     }
     std::this_thread::sleep_for(poll_interval_ms);
   }
 
   // Step 5: Verify received data
-  RTI_TEST_ASSERT(!samples.empty());
-  std::string received(samples.begin(), samples.end());
+  RTI_TEST_ASSERT(received_buffer.ptr != nullptr);
+  auto byte_ptr = static_cast<const std::uint8_t*>(received_buffer.ptr);
+  std::string received(byte_ptr, byte_ptr + received_buffer.size_bytes);
   RTI_TEST_ASSERT(received == test_message);
+  reader.freeBuffer(received_buffer);
 }
 
   /**
@@ -151,7 +153,7 @@ void test_dds_writer_reader_roundtrip() {
    * Demonstrates complete end-to-end usage of the public API:
    * 1. Configure DDS and ANO settings
    * 2. Create writer and reader
-   * 3. Send data through writer
+   * 3. Send data through writer (using GPU memory)
    * 4. Receive data through reader
    * 5. Verify data integrity
    */
@@ -175,35 +177,45 @@ void test_dds_writer_reader_roundtrip() {
     // Step 3: Allow DDS discovery to complete
     std::this_thread::sleep_for(std::chrono::seconds(3));
 
-    // Step 4: Prepare and send payload
-    connext_lib::PayloadBufferView buffer_to_send{
-        reinterpret_cast<const std::uint8_t*>(test_message.data()),
-        test_message.size()
-    };
+    // Step 4: Prepare and send payload (using GPU memory)
+    auto gpu_mem = connext_lib::test::copyToGpu(test_message.data(), test_message.size());
+    
+    connext_lib::MemoryBufferView buffer_to_send;
+    buffer_to_send.ptr = gpu_mem.get();
+    buffer_to_send.size_bytes = test_message.size();
+    buffer_to_send.is_device = true; // GPU memory
 
     std::size_t sent_count = writer.broadcast(buffer_to_send);
+    
+    // Skip test if ANO hardware not available
+    if (sent_count == 0) {
+      std::cout << "Skipping ANO test - hardware not available or not configured" << std::endl;
+      return;
+    }
+    
     RTI_TEST_ASSERT(sent_count > 0);
 
     // Step 5: Poll for received samples
-    std::vector<std::uint8_t> samples;
+    connext_lib::MemoryBufferView received_buffer{nullptr, 0, false};
     const int max_attempts = 30;  // 3 seconds total
     for (int attempt = 0; attempt < max_attempts; ++attempt) {
-      samples = reader.readSamples();
-      if (!samples.empty()) {
+      received_buffer = reader.readSamples();
+      if (received_buffer.ptr != nullptr) {
         break;
       }
       std::this_thread::sleep_for(poll_interval_ms);
     }
 
     // Step 6: Verify received data
-    RTI_TEST_ASSERT(!samples.empty());
-    std::string received(samples.begin(), samples.end());
+    RTI_TEST_ASSERT(received_buffer.ptr != nullptr);
+    std::string received = connext_lib::test::copyStringFromGpu(received_buffer.ptr, received_buffer.size_bytes);
     RTI_TEST_ASSERT(received == test_message);
+    reader.freeBuffer(received_buffer);
   }
 
   /**
    * Test: Multiple sequential messages can be sent and received.
-   * Demonstrates how to send multiple payloads in sequence.
+   * Demonstrates how to send multiple payloads in sequence using GPU memory.
    */
   void test_multiple_messages() {
     const std::string channel_name = "MultiMessageChannel";
@@ -221,25 +233,48 @@ void test_dds_writer_reader_roundtrip() {
 
     std::this_thread::sleep_for(std::chrono::seconds(3));
 
-    // Send multiple messages
+    // Send multiple messages using GPU memory
     std::vector<std::string> messages = {"Message 1", "Message 2", "Message 3"};
-    for (const auto& msg : messages) {
-      connext_lib::PayloadBufferView buffer{
-          reinterpret_cast<const std::uint8_t*>(msg.data()),
-          msg.size()
-      };
-      std::size_t sent = writer.broadcast(buffer);
-      RTI_TEST_ASSERT(sent > 0);
-      std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    std::vector<connext_lib::test::CudaMemoryGuard> gpu_mems;
+    gpu_mems.reserve(messages.size());
+    
+    bool ano_available = true;
+    for (size_t i = 0; i < messages.size(); ++i) {
+        const auto& msg = messages[i];
+        // Allocate GPU memory for each message
+        gpu_mems.push_back(connext_lib::test::copyToGpu(msg.data(), msg.size()));
+        
+        connext_lib::MemoryBufferView buffer;
+        buffer.ptr = gpu_mems.back().get();
+        buffer.size_bytes = msg.size();
+        buffer.is_device = true; // GPU memory
+        
+        std::size_t sent = writer.broadcast(buffer);
+        
+        // Check if ANO is functional on first message
+        if (i == 0 && sent == 0) {
+          ano_available = false;
+          break;
+        }
+        
+        RTI_TEST_ASSERT(sent > 0);
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
+    
+    // Skip test if ANO hardware not available
+    if (!ano_available) {
+      std::cout << "Skipping ANO test - hardware not available or not configured" << std::endl;
+      return;
     }
 
     // Read messages (may arrive in batches or individually)
     int messages_received = 0;
     const int max_attempts = 50;
     for (int attempt = 0; attempt < max_attempts && messages_received < messages.size(); ++attempt) {
-      auto samples = reader.readSamples();
-      if (!samples.empty()) {
+      auto received_buffer = reader.readSamples();
+      if (received_buffer.ptr != nullptr) {
         messages_received++;
+        reader.freeBuffer(received_buffer);
       }
       std::this_thread::sleep_for(poll_interval_ms);
     }

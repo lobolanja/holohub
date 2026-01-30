@@ -99,15 +99,27 @@ void ConnextRxOp::compute(InputContext& input, OutputContext& output, ExecutionC
     throw std::runtime_error("ConnextRxOp output IO spec is not set.");
   }
 
-  std::vector<std::uint8_t> received_data;
+  connext_lib::MemoryBufferView received_buffer{nullptr, 0, false};
 
   if (dds_config_.enabled() && dds_reader_) {
-    received_data = dds_reader_->readSamples();
+    received_buffer = dds_reader_->readSamples();
   } else if (ano_config_.enabled() && ano_reader_) {
-    received_data = ano_reader_->readSamples();
+    received_buffer = ano_reader_->readSamples();
   }
 
-  if (received_data.empty()) { return; }
+  if (received_buffer.ptr == nullptr || received_buffer.size_bytes == 0) { return; }
+
+  // Copy data from buffer to vector for tensor wrapping
+  std::vector<std::uint8_t> received_data(
+      static_cast<const std::uint8_t*>(received_buffer.ptr),
+      static_cast<const std::uint8_t*>(received_buffer.ptr) + received_buffer.size_bytes);
+  
+  // Free the buffer after copying
+  if (dds_config_.enabled() && dds_reader_) {
+    dds_reader_->freeBuffer(received_buffer);
+  } else if (ano_config_.enabled() && ano_reader_) {
+    ano_reader_->freeBuffer(received_buffer);
+  }
 
   auto payload_storage =
       std::make_shared<std::vector<std::uint8_t>>(std::move(received_data));
