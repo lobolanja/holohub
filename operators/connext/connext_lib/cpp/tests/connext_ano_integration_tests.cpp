@@ -92,6 +92,50 @@ public:
     }
     return payload;
   }
+
+  // Helper: Start receiver thread that collects samples in parallel
+  std::thread startReceiverThread(
+      connext_lib::ConnextANOReader* reader,
+      std::vector<connext_lib::MemoryBufferView>& received_samples,
+      std::atomic<bool>& receiving,
+      std::atomic<size_t>& recv_count,
+      int max_consecutive_nulls = 200,
+      std::chrono::milliseconds poll_interval = 5ms) {
+    return std::thread([&, reader, max_consecutive_nulls, poll_interval]() {
+      int consecutive_nulls = 0;
+      
+      while (receiving && consecutive_nulls < max_consecutive_nulls) {
+        auto recv_buffer = reader->readSamples();
+        if (recv_buffer.ptr != nullptr) {
+          received_samples.push_back(recv_buffer);
+          recv_count++;
+          consecutive_nulls = 0;
+        } else {
+          consecutive_nulls++;
+          std::this_thread::sleep_for(poll_interval);
+        }
+      }
+    });
+  }
+
+  // Helper: Wait for all samples with timeout
+  bool waitForSamples(
+      std::atomic<size_t>& recv_count,
+      size_t expected_count,
+      std::chrono::seconds timeout = 5s) {
+    auto wait_start = std::chrono::high_resolution_clock::now();
+    while (recv_count < expected_count) {
+      auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::high_resolution_clock::now() - wait_start);
+      if (elapsed >= timeout) {
+        std::cout << "Timeout waiting for samples. Received: " << recv_count 
+                  << "/" << expected_count << std::endl;
+        return false;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    return true;
+  }
   void test_full_ano_writer_to_reader_gpu_roundtrip() {
     const std::string channel = "ano_integration_" + std::to_string(++channel_counter_);
     const std::string buffer_id = "integration_buffer_" + std::to_string(channel_counter_.load());
@@ -169,22 +213,8 @@ public:
     std::atomic<size_t> recv_count{0};
     
     auto recv_start = std::chrono::high_resolution_clock::now();
-    std::thread receiver_thread([&]() {
-      int consecutive_nulls = 0;
-      const int max_consecutive_nulls = 200;
-      
-      while (receiving && consecutive_nulls < max_consecutive_nulls) {
-        auto recv_buffer = reader->readSamples();
-        if (recv_buffer.ptr != nullptr) {
-          received_samples.push_back(recv_buffer);
-          recv_count++;
-          consecutive_nulls = 0;
-        } else {
-          consecutive_nulls++;
-          std::this_thread::sleep_for(std::chrono::milliseconds(5));
-        }
-      }
-    });
+    std::thread receiver_thread = startReceiverThread(
+      reader.get(), received_samples, receiving, recv_count);
     
     // Start throughput measurement
     auto send_start = std::chrono::high_resolution_clock::now();
@@ -301,22 +331,8 @@ public:
     std::atomic<size_t> recv_count{0};
     
     auto recv_start = std::chrono::high_resolution_clock::now();
-    std::thread receiver_thread([&]() {
-      int consecutive_nulls = 0;
-      const int max_consecutive_nulls = 200;
-      
-      while (receiving && consecutive_nulls < max_consecutive_nulls) {
-        auto recv_buffer = reader->readSamples();
-        if (recv_buffer.ptr != nullptr) {
-          received_samples.push_back(recv_buffer);
-          recv_count++;
-          consecutive_nulls = 0;
-        } else {
-          consecutive_nulls++;
-          std::this_thread::sleep_for(std::chrono::milliseconds(5));
-        }
-      }
-    });
+    std::thread receiver_thread = startReceiverThread(
+      reader.get(), received_samples, receiving, recv_count);
     
     // In BATCH mode, send in batches with periodic flushes
     // This allows GPU-completed bursts to be transmitted while preparing new ones
@@ -349,16 +365,7 @@ public:
     std::cout << "Send phase completed in " << (send_duration.count() / 1000.0) << " ms" << std::endl;
     
     // Wait for all samples to be received
-    auto wait_start = std::chrono::high_resolution_clock::now();
-    while (recv_count < num_samples) {
-      auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
-        std::chrono::high_resolution_clock::now() - wait_start);
-      if (elapsed.count() > 5) {
-        std::cout << "Timeout waiting for samples. Received: " << recv_count << "/" << num_samples << std::endl;
-        break;
-      }
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
+    waitForSamples(recv_count, num_samples, 5s);
     
     receiving = false;
     receiver_thread.join();
