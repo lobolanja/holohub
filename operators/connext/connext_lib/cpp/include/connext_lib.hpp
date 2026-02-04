@@ -38,28 +38,41 @@
  * ```
  *
  * ### Writing Data
- * Create a writer and broadcast payloads:
+ * Create a writer and broadcast payloads (using GPU memory):
  * ```cpp
  * connext_lib::ConnextANOWriter writer(ano_config, dds_config, 100ms);
  *
  * std::string message = "Hello, Connext!";
- * connext_lib::PayloadBufferView buffer{
- *     reinterpret_cast<const uint8_t*>(message.data()),
- *     message.size()
- * };
+ * // Allocate and copy data to GPU memory
+ * void* gpu_ptr;
+ * cudaMalloc(&gpu_ptr, message.size());
+ * cudaMemcpy(gpu_ptr, message.data(), message.size(), cudaMemcpyHostToDevice);
+ *
+ * connext_lib::MemoryBufferView buffer;
+ * buffer.ptr = gpu_ptr;
+ * buffer.size_bytes = message.size();
+ * buffer.is_device = true;  // GPU memory
  *
  * size_t sent = writer.broadcast(buffer);
+ * cudaFree(gpu_ptr);  // Clean up after broadcast
  * ```
  *
  * ### Reading Data
- * Create a reader and poll for samples:
+ * Create a reader and poll for samples (receives GPU memory):
  * ```cpp
  * connext_lib::ConnextANOReader reader(ano_config, dds_config, 100ms);
  *
- * std::vector<uint8_t> samples = reader.readSamples();
- * if (!samples.empty()) {
- *     std::string received(samples.begin(), samples.end());
- *     // Process received data...
+ * connext_lib::MemoryBufferView received_buffer = reader.readSamples();
+ * if (received_buffer.ptr != nullptr) {
+ *     // received_buffer.ptr points to GPU memory (is_device == true)
+ *     // Copy from GPU to host if needed for processing
+ *     std::vector<uint8_t> host_data(received_buffer.size_bytes);
+ *     cudaMemcpy(host_data.data(), received_buffer.ptr, 
+ *                received_buffer.size_bytes, cudaMemcpyDeviceToHost);
+ *     std::string received(host_data.begin(), host_data.end());
+ *     
+ *     // IMPORTANT: Free the buffer after use
+ *     reader.freeBuffer(received_buffer);
  * }
  * ```
  *
@@ -72,12 +85,18 @@
  *
  * ## Memory Management
  *
- * - `PayloadBufferView` does not own the data it points to. Ensure the
- *   underlying buffer remains valid for the duration of the operation.
- * - Writers and readers manage their own resources using RAII principles.
+ * - `MemoryBufferView` does not own the data it points to.
+ * - For writers: Ensure the underlying buffer remains valid for the duration
+ *   of the broadcast() operation.
+ * - For readers: `readSamples()` returns a `MemoryBufferView` pointing to
+ *   allocated memory. The caller MUST call `freeBuffer()` to release the
+ *   returned buffer and prevent memory leaks.
+ * - Writers and readers manage their own internal resources using RAII principles.
  *
  * @see connext_lib::DdsConfig
  * @see connext_lib::AnoConfig
+ * @see connext_lib::AnoNetworkConfig
+ * @see connext_lib::MemoryBufferView
  * @see connext_lib::ConnextANOWriter
  * @see connext_lib::ConnextANOReader
  * @see connext_lib::ConnextDDSWriter

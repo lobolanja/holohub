@@ -11,24 +11,20 @@ DdsConfig::DdsConfig(bool enabled,
       topic_name_(std::move(topic_name)),
       topic_type_name_(std::move(topic_type_name)) {}
 
-AnoNetworkConfig::AnoNetworkConfig(bool enabled,
-                                   std::string network_interface,
+AnoNetworkConfig::AnoNetworkConfig(std::string network_interface,
                                    int gpu_device_id,
                                    std::string fast_ip,
                                    std::string fast_mac_address,
                                    int fast_port)
-    : enabled_(enabled),
-      network_interface_(std::move(network_interface)),
+    : network_interface_(std::move(network_interface)),
       gpu_device_id_(gpu_device_id),
       fast_ip_(std::move(fast_ip)),
       fast_mac_address_(std::move(fast_mac_address)),
       fast_port_(fast_port) {}
 
-AnoNetworkConfig::AnoNetworkConfig(bool enabled,
-                                   std::string network_interface,
+AnoNetworkConfig::AnoNetworkConfig(std::string network_interface,
                                    int gpu_device_id)
-    : enabled_(enabled),
-      network_interface_(std::move(network_interface)),
+    : network_interface_(std::move(network_interface)),
       gpu_device_id_(gpu_device_id) {}
 
 void AnoNetworkConfig::validate() const {
@@ -37,6 +33,19 @@ void AnoNetworkConfig::validate() const {
   }
   if (gpu_device_id_ < 0) {
     throw InvalidConfigException("gpu_device_id must be non-negative");
+  }
+  
+  constexpr uint16_t MIN_HEADER_SIZE = 42;  // Eth(14) + IP(20) + UDP(8)
+  if (header_size_ < MIN_HEADER_SIZE) {
+    throw InvalidConfigException(
+        "header_size must be at least " + std::to_string(MIN_HEADER_SIZE) + 
+        " bytes (Ethernet + IPv4 + UDP), got " + std::to_string(header_size_));
+  }
+  
+  if (max_packet_size_ <= header_size_) {
+    throw InvalidConfigException(
+        "max_packet_size (" + std::to_string(max_packet_size_) + 
+        ") must be greater than header_size (" + std::to_string(header_size_) + ")");
   }
 }
 

@@ -61,12 +61,10 @@ class ANOPayloadReaderTester : public Tester, public Singleton<ANOPayloadReaderT
     auto* raw = new FakeReceiver(payload);
     std::unique_ptr<holoscan::ops::IGpuDirectNetworkReceiver> up(raw);
 
-    connext_lib::PayloadReaderOptions opts;
-    opts.expected_payload_bytes = 1024;
     connext_lib::AnoConfig ano_cfg;
 
     // Construct ANOPayloadReader directly with injected receiver
-    connext_lib::ANOPayloadReader reader(dds::domain::DomainParticipant(0), opts, ano_cfg, std::move(up));
+    connext_lib::ANOPayloadReader reader(ano_cfg, std::move(up));
 
     void* data_ptr = nullptr;
     std::size_t size = 0;

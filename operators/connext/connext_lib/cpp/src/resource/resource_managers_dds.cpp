@@ -18,7 +18,6 @@ namespace {
 constexpr char kBufferIdProperty[] = "connext_lib.receiver.buffer_id";
 constexpr char kChannelProperty[] = "connext_lib.receiver.channel";
 constexpr char kGuidProperty[] = "connext_lib.receiver.reader_guid";
-constexpr char kGpuDirectEnabledProperty[] = "connext_lib.receiver.gpu_direct.enabled";
 constexpr char kGpuDirectFastDestIpProperty[] = "connext_lib.receiver.gpu_direct.fast_dest_ip";
 constexpr char kGpuDirectFastDestMacProperty[] = "connext_lib.receiver.gpu_direct.fast_dest_mac";
 constexpr char kGpuDirectFastDestPortProperty[] = "connext_lib.receiver.gpu_direct.fast_dest_port";
@@ -54,12 +53,8 @@ rti::core::policy::Property DdsReceiverResourcesManager::buildProperties()
   properties.set({kBufferIdProperty, buffer_id_}, true);
   properties.set({kChannelProperty, channel_}, true);
   properties.set({kGuidProperty, guidString()}, true);
-  // Add GPUDirectReceiver properties when configured
+  // Publish fast destination fields for ANO discovery
   const auto& gpu_cfg = ano_config_.ano_network_config();
-  if (gpu_cfg.enabled()) {
-    properties.set({kGpuDirectEnabledProperty, std::string("true")}, true);
-  }
-  // Always publish fast destination fields (use defaults from config when not explicitly enabled).
   properties.set({kGpuDirectFastDestIpProperty, gpu_cfg.fast_ip()}, true);
   properties.set({kGpuDirectFastDestMacProperty, gpu_cfg.fast_mac_address()}, true);
   properties.set({kGpuDirectFastDestPortProperty, std::to_string(gpu_cfg.fast_port())}, true);
@@ -130,7 +125,6 @@ void DdsSenderResourcesManager::pollOnce() {
     const auto buffer_id = property.try_get(kBufferIdProperty);
     const auto channel = property.try_get(kChannelProperty);
     const auto guid = property.try_get(kGuidProperty);
-    const auto gpu_direct_enabled = property.try_get(kGpuDirectEnabledProperty);
     const auto gpu_direct_fast_dest_ip = property.try_get(kGpuDirectFastDestIpProperty);
     const auto gpu_direct_fast_dest_mac = property.try_get(kGpuDirectFastDestMacProperty);
     const auto gpu_direct_fast_dest_port = property.try_get(kGpuDirectFastDestPortProperty);
@@ -148,15 +142,12 @@ void DdsSenderResourcesManager::pollOnce() {
       continue;
     }
 
-    // Interpret gpu_direct_enabled: only treat as enabled when explicitly set to "true".
-    const bool gpu_enabled = (gpu_direct_enabled && *gpu_direct_enabled == "true");
-
-    // Determine whether fast destination fields are present.
+    // Check if fast destination fields are present - this indicates ANO capability
     const bool have_fast_dest = (gpu_direct_fast_dest_ip && gpu_direct_fast_dest_mac && gpu_direct_fast_dest_port);
 
-    // If neither gpu_direct is enabled nor fast destination fields are present, skip registration.
-    if (!gpu_enabled && !have_fast_dest) {
-      HOLOSCAN_LOG_INFO("Skipping receiver registration because gpu_direct is not enabled and no fast_dest info provided");
+    // Skip registration if no fast destination info is available
+    if (!have_fast_dest) {
+      HOLOSCAN_LOG_WARN("Skipping receiver registration: no fast_dest info provided");
       continue;
     }
 
@@ -165,26 +156,17 @@ void DdsSenderResourcesManager::pollOnce() {
     }
 
     DestinationInfo destination;
-
-    // If we have fast destination info (either because gpu_direct is enabled, or the fields were provided
-    // without the enabled flag), attempt to parse and use them. Parsing is done defensively.
-    if (have_fast_dest) {
-      destination.ip_addr = *gpu_direct_fast_dest_ip;
-      destination.mac_addr = *gpu_direct_fast_dest_mac;
-      try {
-        const int port = std::stoi(*gpu_direct_fast_dest_port);
-        if (port < 0 || port > 0xFFFF) {
-          HOLOSCAN_LOG_INFO("Skipping receiver registration due to invalid fast_dest_port value: {}", *gpu_direct_fast_dest_port);
-          continue;
-        }
-        destination.udp_port = static_cast<uint16_t>(port);
-      } catch (const std::exception& e) {
-        HOLOSCAN_LOG_INFO("Skipping receiver registration due to invalid fast_dest_port parse error: {}", e.what());
+    destination.ip_addr = *gpu_direct_fast_dest_ip;
+    destination.mac_addr = *gpu_direct_fast_dest_mac;
+    try {
+      const int port = std::stoi(*gpu_direct_fast_dest_port);
+      if (port < 0 || port > 0xFFFF) {
+        HOLOSCAN_LOG_WARN("Skipping receiver registration due to invalid fast_dest_port value: {}", *gpu_direct_fast_dest_port);
         continue;
       }
-    } else {
-      // No fast destination info available; fall back to skipping registration.
-      HOLOSCAN_LOG_INFO("Skipping receiver registration: no fast_dest info available");
+      destination.udp_port = static_cast<uint16_t>(port);
+    } catch (const std::exception& e) {
+      HOLOSCAN_LOG_WARN("Skipping receiver registration due to invalid fast_dest_port parse error: {}", e.what());
       continue;
     }
 

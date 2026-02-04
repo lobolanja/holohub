@@ -40,24 +40,14 @@ class ANOPayloadWriter : public PayloadWriterInterface {
  public:
   ~ANOPayloadWriter() override;
 
-  // Constructor: domain participant handle, writer options, and ANO config.
-  ANOPayloadWriter(dds::domain::DomainParticipant dp,
-                   const PayloadWriterOptions& opts,
-                   const AnoConfig& ano_config,
+  // Constructor: ANO config and optional sender factory.
+  ANOPayloadWriter(const AnoConfig& ano_config,
                    std::shared_ptr<ISenderFactory> sender_factory = nullptr);
 
   // PayloadWriterInterface (legacy writeTo for destination key)
-  void setBuffer(const PayloadBufferView& buffer) override;
+  void setBuffer(const MemoryBufferView& buffer) override;
   bool writeTo(const std::string& destination_reference) override;
-
-  // New: register destination info (called by resource manager upon discovery)
-  // The key is the canonical destination reference string (for example: "<ip>:<port>:<mac>").
-  void registerDestination(const std::string& destination_reference, const SenderDestination& dest);
-  void unregisterDestination(const std::string& destination_reference);
-  // Buffer staging: callers use the generic `setBuffer(const PayloadBufferView&)`.
-  // If `PayloadBufferView::is_device == true` then `device_ptr` will be used
-  // as a CUDA device pointer and no host copy will be made. Otherwise the
-  // payload is copied into an internal host staging buffer.
+  int flush(int timeout_ms = 1000) override;
 
  private:
   // Helper: get or create sender for given destination_reference; returns nullptr on error.
@@ -65,7 +55,6 @@ class ANOPayloadWriter : public PayloadWriterInterface {
 
   AnoConfig ano_config_;
   std::size_t max_payload_bytes_{0};
-  dds::domain::DomainParticipant dp_;
 
   // staging
   void* staged_gpu_ptr_{nullptr};
@@ -73,9 +62,6 @@ class ANOPayloadWriter : public PayloadWriterInterface {
   std::size_t staged_size_{0};
 
   std::mutex writer_mutex_;
-
-  // Discovery state: maps the canonical destination_reference -> DestinationInfo
-  std::unordered_map<std::string, SenderDestination> dest_map_;
 
   // Cache of per-destination senders
   std::unordered_map<std::string, std::shared_ptr<holoscan::ops::IGpuDirectNetworkSender>> sender_cache_;
@@ -85,17 +71,13 @@ class ANOPayloadWriter : public PayloadWriterInterface {
 
 // Factory helper to create a PayloadWriterInterface backed by ANO.
 std::unique_ptr<PayloadWriterInterface> MakeANOPayloadWriter(
-    dds::domain::DomainParticipant dp,
-    const PayloadWriterOptions& opts,
-    const AnoConfig& ano_config,
-    std::shared_ptr<ISenderFactory> sender_factory = nullptr);
+  const AnoConfig& ano_config,
+  std::shared_ptr<ISenderFactory> sender_factory = nullptr);
 
 // ANO-backed PayloadReader: returns GPU pointer and size from IGpuDirectNetworkReceiver
 class ANOPayloadReader : public PayloadReaderInterface {
  public:
-  ANOPayloadReader(dds::domain::DomainParticipant dp,
-           const PayloadReaderOptions& opts,
-           const AnoConfig& ano_config,
+  ANOPayloadReader(const AnoConfig& ano_config,
            std::unique_ptr<holoscan::ops::IGpuDirectNetworkReceiver> receiver = nullptr);
   ~ANOPayloadReader() override;
 
@@ -106,18 +88,14 @@ class ANOPayloadReader : public PayloadReaderInterface {
 
  private:
   AnoConfig ano_config_;
-  dds::domain::DomainParticipant dp_;
   std::unique_ptr<holoscan::ops::IGpuDirectNetworkReceiver> receiver_;
 };
 
 // Factory helper to create a PayloadReaderInterface backed by ANO.
 std::unique_ptr<PayloadReaderInterface> MakeANOPayloadReader(
-  dds::domain::DomainParticipant dp,
-  const PayloadReaderOptions& opts,
   const AnoConfig& ano_config);
-std::unique_ptr<ANOPayloadReader> MakeANOPayloadReader(dds::domain::DomainParticipant& participant,
-                                                      const PayloadReaderOptions& opts,
-                                                      const AnoConfig& ano_config,
-                                                      std::unique_ptr<holoscan::ops::IGpuDirectNetworkReceiver> receiver = nullptr);
+std::unique_ptr<ANOPayloadReader> MakeANOPayloadReader(
+  const AnoConfig& ano_config,
+  std::unique_ptr<holoscan::ops::IGpuDirectNetworkReceiver> receiver);
 
 }  // namespace connext_lib

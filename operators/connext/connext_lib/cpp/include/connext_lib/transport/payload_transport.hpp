@@ -25,23 +25,6 @@ struct MemoryBufferView {
 };
 
 /**
- * Immutable view into a contiguous payload buffer.
- * Used by writers to stage data and by readers to access received payloads.
- * Does not own memory; caller is responsible for buffer lifetime.
- */
-struct PayloadBufferView {
-  //TODO: delete this data pointer
-  const std::uint8_t* data{nullptr};
-  std::size_t size_bytes=0;
- 
-  // If sending from device memory (GPU), set `is_device` to true and
-  // provide a CUDA device pointer in `device_ptr` (caller-owned).
-  void* device_ptr{nullptr};
-  
-  
-};
-
-/**
  * Options for configuring a payload writer instance.
  * Includes logical channel and maximum payload size.
  * Used in tests to verify option propagation and defaults.
@@ -73,12 +56,18 @@ class PayloadWriterInterface {
   /**
    * Stages the supplied payload for later transmission.
    */
-  virtual void setBuffer(const PayloadBufferView& buffer) = 0;
+  virtual void setBuffer(const MemoryBufferView& buffer) = 0;
   /**
    * Sends the staged payload to the specified destination.
    * Returns true if successful.
    */
   virtual bool writeTo(const std::string& destination_reference) = 0;
+  
+  /**
+   * Flushes all pending bursts with timeout.
+   * Returns the number of bursts successfully sent.
+   */
+  virtual int flush(int timeout_ms = 1000) = 0;
 };
 
 /**

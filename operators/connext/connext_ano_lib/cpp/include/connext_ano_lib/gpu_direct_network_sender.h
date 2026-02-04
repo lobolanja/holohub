@@ -135,6 +135,27 @@ class IGpuDirectNetworkSender {
   virtual void reset_stats() = 0;
   
   /**
+   * @brief Flush all pending transmission bursts
+   * 
+   * Waits for all queued packet bursts to complete their CUDA operations
+   * and sends them to the network interface. This ensures all previously
+   * queued data is transmitted to the wire.
+   * 
+   * Use cases:
+   * - End of transmission sequence to ensure all data sent
+   * - Before teardown to flush remaining packets
+   * - Testing scenarios requiring deterministic transmission timing
+   * 
+   * The method polls for CUDA event completion using small sleep intervals
+   * to minimize CPU usage while ensuring timely transmission.
+   * 
+   * @param timeout_ms Maximum time to wait in milliseconds (default: 1000ms)
+   * @return Number of bursts successfully flushed and sent
+   * @throws std::runtime_error if timeout expires with bursts still pending
+   */
+  virtual int flush(int timeout_ms = 1000) = 0;
+  
+  /**
    * @brief Factory method to create sender instance
    * 
    * Initializes all low-level subsystems:

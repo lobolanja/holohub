@@ -57,9 +57,9 @@ using namespace holoscan::ops;
 
 namespace {
 
-constexpr int NUM_SAMPLES = 10;
-constexpr int SAMPLE_INTERVAL_MS = 100;
-constexpr int MIN_EXPECTED_PACKETS = 8;
+constexpr int NUM_SAMPLES = 100;
+constexpr int SAMPLE_INTERVAL_MS = 10;
+constexpr int MIN_EXPECTED_PACKETS = 80;
 constexpr size_t PAYLOAD_SIZE = 1000;
 constexpr char TEST_PAYLOAD_PATTERN[] = "test_roundtrip_";
 
@@ -124,6 +124,7 @@ ReceiverConfig create_loopback_receiver_config() {
   config.header_size = 64;
   config.max_packet_size = 1064;
   config.gpu_device = 0;
+  config.queue_id = 0;
   return config;
 }
 
@@ -161,6 +162,7 @@ ReceiverConfig create_physical_receiver_config() {
   config.header_size = 64;
   config.max_packet_size = 1064;
   config.gpu_device = 0;
+  config.queue_id = 0;
   return config;
 }
 
@@ -364,9 +366,10 @@ class RoundtripTestBase : public ::testing::Test {
       // Send packet
       ASSERT_NO_THROW(sender->send(tx_buffer.get(), PAYLOAD_SIZE));
       
+      std::optional<ReceivedData> received;
       // Poll for received packets (multiple times per sample)
       for (int poll = 0; poll < 2 && polls_attempted < MAX_POLLS; ++poll, ++polls_attempted) {
-        auto received = receiver->receive();
+        received = receiver->receive();
         
         if (received.has_value()) {
           auto& data = received.value();
@@ -394,36 +397,33 @@ class RoundtripTestBase : public ::testing::Test {
     }
     
     // Flush phase: ensure all TX bursts are sent to wire (required for physical NICs)
-    if (needs_flush_phase) {
-      for (int flush_iter = 0; flush_iter < 50; ++flush_iter) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        sender->is_ready();
-      }
-    }
+    if (needs_flush_phase && receiver->get_stats().packets_received < MIN_EXPECTED_PACKETS) {
+      std::cout<< log_prefix << "Starting flush phase to ensure all packets are sent..." << std::endl;
+      int flushed = sender->flush(1000);  // 1 second timeout
     
-    // Final polling phase: collect remaining packets
-    for (int final_poll = 0; final_poll < 20 && polls_attempted < MAX_POLLS; 
-         ++final_poll, ++polls_attempted) {
-      auto received = receiver->receive();
-      
-      if (received.has_value()) {
-        auto& data = received.value();
-        ASSERT_EQ(data.payload_bytes, PAYLOAD_SIZE);
+      // Final polling phase: collect remaining packets (limit to 20 polls after flush)
+      for (int final_poll = 0; final_poll < 20; ++final_poll) {
+        auto received = receiver->receive();
         
-        bool matched = false;
-        for (int sent_idx = 0; sent_idx < NUM_SAMPLES; ++sent_idx) {
-          if (verify_payload(data.gpu_payload, data.payload_bytes, sent_idx)) {
-            received_samples.push_back(sent_idx);
-            matched = true;
-            break;
+        if (received.has_value()) {
+          auto& data = received.value();
+          ASSERT_EQ(data.payload_bytes, PAYLOAD_SIZE);
+          
+          bool matched = false;
+          for (int sent_idx = 0; sent_idx < NUM_SAMPLES; ++sent_idx) {
+            if (verify_payload(data.gpu_payload, data.payload_bytes, sent_idx)) {
+              received_samples.push_back(sent_idx);
+              matched = true;
+              break;
+            }
           }
+          
+          EXPECT_TRUE(matched);
+          ASSERT_NO_THROW(receiver->free_received_data(data.gpu_payload));
         }
         
-        EXPECT_TRUE(matched);
-        ASSERT_NO_THROW(receiver->free_received_data(data.gpu_payload));
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
       }
-      
-      std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
     
     // Allow time for final packets to be fully processed

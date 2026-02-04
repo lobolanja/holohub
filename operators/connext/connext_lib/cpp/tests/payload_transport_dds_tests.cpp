@@ -82,7 +82,7 @@ class PayloadTransportDdsTester
    * 1. Create a DDS payload transport instance for the current domain.
    * 2. Configure writer and reader options, including a unique channel and maximum payload size.
    * 3. Instantiate a payload reader and writer using the configured options.
-   * 4. Prepare a test message ("dds_payload_roundtrip") and wrap it in a PayloadBufferView.
+   * 4. Prepare a test message ("dds_payload_roundtrip") and wrap it in a MemoryBufferView.
    * 5. Set the buffer on the writer and write the payload to the "broadcast" channel.
    * 6. Use the reader to read the next available payload within a 2-second timeout.
    * 7. Convert the received payload to a string.
@@ -97,9 +97,10 @@ class PayloadTransportDdsTester
     DdsTransportTestContext ctx;
     ctx.wait_for_discovery();
     const std::string message = "dds_payload_roundtrip";
-    connext_lib::PayloadBufferView buffer;
-    buffer.data = reinterpret_cast<const std::uint8_t*>(message.data());
+    connext_lib::MemoryBufferView buffer;
+    buffer.ptr = const_cast<void*>(static_cast<const void*>(message.data()));
     buffer.size_bytes = message.size();
+    buffer.is_device = false;
     ctx.writer->setBuffer(buffer);
     RTI_TEST_ASSERT(ctx.writer->writeTo("*"));
     void* data_ptr = nullptr;

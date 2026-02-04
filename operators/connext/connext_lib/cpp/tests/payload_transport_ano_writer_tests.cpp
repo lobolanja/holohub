@@ -27,6 +27,7 @@ class FakeSender : public holoscan::ops::IGpuDirectNetworkSender {
     return s;
   }
   void reset_stats() override { /* no-op for fake */ }
+  int flush(int /*timeout_ms*/) override { return 0; /* no-op for fake */ }
 
   bool called() const { return called_; }
   size_t last_size() const { return last_size_; }
@@ -63,43 +64,35 @@ class PayloadTransportANOTester : public Tester,
  public:
   void writeTo_respects_sender_readiness() {
     auto factory = std::make_shared<TestSenderFactory>();
-    //TODO: those fields are in ano_cfg, remove from opts
-    connext_lib::PayloadWriterOptions opts;
-    opts.channel = "test";
-    opts.max_payload_bytes = 1024;
-
+    // ANO config contains channel and max payload info
     connext_lib::AnoConfig ano_cfg;
 
-    auto writer = connext_lib::MakeANOPayloadWriter(dds::domain::DomainParticipant(0), opts, ano_cfg, factory);
+    auto writer = connext_lib::MakeANOPayloadWriter(ano_cfg, factory);
 
     std::vector<uint8_t> payload{1,2,3,4,5};
     void* raw_ptr = static_cast<void*>(payload.data());
-    connext_lib::PayloadBufferView view;
-    view.device_ptr = raw_ptr;
+    connext_lib::MemoryBufferView view;
+    view.ptr = raw_ptr;
     view.size_bytes = payload.size();
-    view.data = nullptr;
+    view.is_device = false;
 
     writer->setBuffer(view);
-    // First attempt: destination not registered yet, so write should fail and no sender should be created.
-    bool ok = writer->writeTo("dest-1");
-    RTI_TEST_ASSERT(!ok);
 
     auto created = factory->last_created();
     RTI_TEST_ASSERT(created == nullptr);
 
-    // Register destination info so the writer can create a sender.
+    // Defining destination info so the writer can create a sender.
     connext_lib::DestinationInfo dest_info;
     dest_info.ip_addr = "127.0.0.1";
     dest_info.mac_addr = "aa:bb:cc:dd:ee:ff";
     dest_info.udp_port = static_cast<uint16_t>(1234);
-    // Register destination with the writer (simulates discovery)
+
     // The writer will use this to create a sender via the factory.
     auto ano_writer = dynamic_cast<connext_lib::ANOPayloadWriter*>(writer.get());
     RTI_TEST_ASSERT(ano_writer != nullptr);
-    ano_writer->registerDestination("dest-1", dest_info);
 
     // Second attempt: writer should create a sender (which is not ready by default), so write should fail but sender exists.
-    bool ok2 = writer->writeTo("dest-1");
+    bool ok2 = writer->writeTo(dest_info.toString());
     RTI_TEST_ASSERT(!ok2);
 
     created = factory->last_created();
@@ -108,7 +101,7 @@ class PayloadTransportANOTester : public Tester,
 
     // Now mark sender as ready and try again: write should succeed and send should be invoked.
     created->set_ready(true);
-    bool ok3 = writer->writeTo("dest-1");
+    bool ok3 = writer->writeTo(dest_info.toString());
     RTI_TEST_ASSERT(ok3);
     RTI_TEST_ASSERT(created->called());
     RTI_TEST_ASSERT_EQUALS_INT(static_cast<int>(created->last_size()), static_cast<int>(payload.size()));

@@ -41,6 +41,7 @@ class GpuDirectNetworkSender : public IGpuDirectNetworkSender {
   size_t max_payload_size() const override;
   TransmissionStats get_stats() const override;
   void reset_stats() override;
+  int flush(int timeout_ms) override;
   
  private:
   // Configuration
@@ -48,6 +49,7 @@ class GpuDirectNetworkSender : public IGpuDirectNetworkSender {
   uint16_t queue_id_;
   uint16_t header_size_;
   uint16_t max_packet_size_;
+  SendMode send_mode_;
   
   // CUDA resources
   CudaResourceManager cuda_manager_;
@@ -69,6 +71,7 @@ GpuDirectNetworkSender::GpuDirectNetworkSender(const SenderConfig& config)
       queue_id_(config.queue_id),
       header_size_(config.header_size),
       max_packet_size_(config.max_packet_size),
+      send_mode_(config.send_mode),
       cuda_manager_(NUM_CONCURRENT_BATCHES),
       gpu_header_(config.header_size) {
   
@@ -152,10 +155,18 @@ void GpuDirectNetworkSender::send(void* gpu_data, size_t size) {
   // Enqueue burst
   burst_manager_->enqueue_tx_burst(burst, event);
   
-  // Send ready bursts
+  // Try to send any ready bursts (non-blocking first attempt)
   int sent_count = burst_manager_->send_ready_bursts();
   
-  // Update statistics
+  // In IMMEDIATE mode, block until this burst is sent
+  // In BATCH mode, just enqueue and return (caller must call flush())
+  if (send_mode_ == SendMode::IMMEDIATE && sent_count == 0) {
+    // Wait for GPU to finish, then send
+    cudaEventSynchronize(event);
+    sent_count = burst_manager_->send_ready_bursts();
+  }
+  
+  // Update statistics for any bursts that were sent
   if (sent_count > 0) {
     stats_.packets_sent += sent_count;
     stats_.bytes_transmitted += actual_size * sent_count;
@@ -176,6 +187,10 @@ TransmissionStats GpuDirectNetworkSender::get_stats() const {
 
 void GpuDirectNetworkSender::reset_stats() {
   stats_ = TransmissionStats{};
+}
+
+int GpuDirectNetworkSender::flush(int timeout_ms) {
+  return burst_manager_->flush_all_bursts(timeout_ms);
 }
 
 //

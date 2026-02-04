@@ -36,9 +36,10 @@ class ConnextCommTester : public rti::test::Tester,
     auto writer = std::make_unique<connext_lib::DdsPayloadWriter>(dp_write, "GPU/"+channel, 16);
     DDSCTestContext_waitForReaders(1, writer->get_dds_writer()->native_writer(), 5); // 5 seconds timeout
     const std::array<std::uint8_t, 3> payload{1, 2, 3};
-    connext_lib::PayloadBufferView view;
-    view.data = payload.data();
+    connext_lib::MemoryBufferView view;
+    view.ptr = const_cast<void*>(static_cast<const void*>(payload.data()));
     view.size_bytes = payload.size();
+    view.is_device = false;
     writer->setBuffer(view);
     RTI_TEST_ASSERT(writer->writeTo("rx_buffer"));
     connext_lib::ConnextRx rx(std::move(receiver), std::move(reader));
@@ -56,7 +57,7 @@ class ConnextCommTester : public rti::test::Tester,
     const std::string channel =
         "comm_channel_" + std::to_string(++channel_counter_);
     dds::domain::DomainParticipant dp_reader1(domain_id());
-    connext_lib::AnoNetworkConfig ano_network_config_a(false, "eth0", 0);
+    connext_lib::AnoNetworkConfig ano_network_config_a("eth0", 0);
     connext_lib::AnoConfig ano_a(channel, "buffer_a", 1024, true, ano_network_config_a);
     auto receiver_mgr_a = std::make_unique<connext_lib::DdsReceiverResourcesManager>(dp_reader1, ano_a);
     auto reader_a = std::make_unique<connext_lib::DdsPayloadReader>(dp_reader1, "GPU/"+channel, "buffer_a");
@@ -81,9 +82,10 @@ class ConnextCommTester : public rti::test::Tester,
     };
     // Broadcast all payloads first
     for (const auto& [payload_data, payload_size] : payloads) {
-      connext_lib::PayloadBufferView view;
-      view.data = payload_data;
+      connext_lib::MemoryBufferView view;
+      view.ptr = const_cast<void*>(static_cast<const void*>(payload_data));
       view.size_bytes = payload_size;
+      view.is_device = false;
       tx.setBuffer(view);
       std::size_t sent = 0;
       for (int attempt = 0; attempt < 80 && sent < 2; ++attempt) {

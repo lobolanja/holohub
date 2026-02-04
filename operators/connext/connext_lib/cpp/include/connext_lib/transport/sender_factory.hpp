@@ -10,6 +10,8 @@ namespace holoscan { namespace ops { struct IGpuDirectNetworkSender; struct Send
 
 namespace connext_lib {
 
+class AnoNetworkConfig;  // forward declaration
+
 class ISenderFactory {
  public:
   virtual ~ISenderFactory() = default;
@@ -27,8 +29,14 @@ class ISenderFactory {
 // Production factory will be implemented in .cpp and call into connext_ano_lib.
 class SenderFactory : public ISenderFactory {
  public:
+  // Constructor accepting config
+  explicit SenderFactory(const AnoNetworkConfig& config);
+  
   std::unique_ptr<holoscan::ops::IGpuDirectNetworkSender> create_sender(const std::string& destination_reference) override;
   std::unique_ptr<holoscan::ops::IGpuDirectNetworkSender> create_sender(const DestinationInfo& dest) override;
+  
+ private:
+  const AnoNetworkConfig* config_;
 };
 
 }  // namespace connext_lib

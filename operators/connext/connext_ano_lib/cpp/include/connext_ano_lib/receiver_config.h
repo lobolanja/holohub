@@ -22,6 +22,7 @@ struct ReceiverConfig {
   uint16_t header_size;        ///< Header size to skip (Eth+IP+UDP, minimum 42 bytes)
   uint16_t max_packet_size;    ///< Maximum expected packet size including headers
   int gpu_device;              ///< GPU device ID for CUDA operations
+  uint16_t queue_id;           ///< RX queue ID to poll from (default: 0)
   
   /**
    * @brief Validate configuration parameters
@@ -48,6 +49,8 @@ struct ReceiverConfig {
     if (gpu_device < 0) {
       throw InvalidConfigException("gpu_device must be non-negative");
     }
+    
+    // Note: queue_id validation deferred to runtime (depends on port configuration)
   }
 };
 

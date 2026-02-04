@@ -5,6 +5,9 @@
 
 #include <connext_ano_lib/internal/packet_burst_manager.h>
 #include <holoscan/holoscan.hpp>
+#include <arpa/inet.h>
+#include <chrono>
+#include <thread>
 
 namespace holoscan::ops {
 
@@ -131,7 +134,10 @@ void PacketBurstManager::copy_packet_payload(void* gpu_pkt_ptr, void* payload_da
 
 void PacketBurstManager::configure_packet_metadata(BurstParams* burst, int packet_idx, 
                                                    size_t payload_bytes) {
+  // Calculate total packet length
+  // header_size_ includes space for Ethernet/IP/UDP and application headers
   uint16_t total_len = header_size_ + payload_bytes;
+  
   if (!set_tx_packet_length(burst, packet_idx, total_len)) {
     throw std::runtime_error("Failed to set packet length in metadata");
   }
@@ -179,6 +185,37 @@ int PacketBurstManager::send_ready_bursts() {
   }
   
   return sent_count;
+}
+
+int PacketBurstManager::flush_all_bursts(int timeout_ms) {
+  auto start_time = std::chrono::steady_clock::now();
+  int total_flushed = 0;
+  constexpr int POLL_INTERVAL_MS = 5;
+  
+  while (!tx_queue_.empty()) {
+    // Check timeout
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - start_time).count();
+    
+    if (elapsed >= timeout_ms) {
+      throw std::runtime_error(
+          "Flush timeout: " + std::to_string(tx_queue_.size()) + " bursts still pending after " +
+          std::to_string(timeout_ms) + "ms");
+    }
+    
+    // Try to send ready bursts
+    int sent = send_ready_bursts();
+    if (sent > 0) {
+      total_flushed += sent;
+      HOLOSCAN_LOG_DEBUG("Flushed {} bursts, {} remaining", sent, tx_queue_.size());
+    } else {
+      // No bursts ready yet, sleep briefly
+      std::this_thread::sleep_for(std::chrono::milliseconds(POLL_INTERVAL_MS));
+    }
+  }
+  
+  HOLOSCAN_LOG_DEBUG("Flush complete: {} bursts sent", total_flushed);
+  return total_flushed;
 }
 
 }  // namespace holoscan::ops

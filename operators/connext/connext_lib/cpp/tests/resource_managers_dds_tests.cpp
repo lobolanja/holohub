@@ -53,7 +53,7 @@ class DdsResourceManagersTester
     dds::domain::DomainParticipant sender_participant(domain_id());
     // Enable GPUDirect properties on the announced receiver so the sender
     // registers a canonical serialized DestinationInfo.
-    connext_lib::AnoNetworkConfig gpu_cfg(true, "eth0", 0);
+    connext_lib::AnoNetworkConfig gpu_cfg("eth0", 0);
     connext_lib::AnoConfig ano_cfg(channel, buffer_id, 1024, true, gpu_cfg);
     connext_lib::DdsReceiverResourcesManager receiver(
       receiver_participant, ano_cfg);
@@ -74,7 +74,7 @@ class DdsResourceManagersTester
         "rm_channel_" + std::to_string(++channel_counter_);
     dds::domain::DomainParticipant receiver_participant(domain_id());
     dds::domain::DomainParticipant sender_participant(domain_id());
-    connext_lib::AnoNetworkConfig gpu_cfg(true, "eth0", 0);
+    connext_lib::AnoNetworkConfig gpu_cfg("eth0", 0);
     connext_lib::AnoConfig ano_filtered(channel, "buffer_filtered", 1024, true, gpu_cfg);
     connext_lib::DdsReceiverResourcesManager receiver(
       receiver_participant, ano_filtered);
@@ -94,7 +94,7 @@ class DdsResourceManagersTester
     const std::string buffer_id = "buffer_unannounced";
     dds::domain::DomainParticipant receiver_participant(domain_id());
     dds::domain::DomainParticipant sender_participant(domain_id());
-    connext_lib::AnoNetworkConfig gpu_cfg_un(true, "eth0", 0);
+    connext_lib::AnoNetworkConfig gpu_cfg_un("eth0", 0);
     connext_lib::AnoConfig ano_unannounced(channel, buffer_id, 1024, true, gpu_cfg_un);
     connext_lib::DdsReceiverResourcesManager receiver(
       receiver_participant, ano_unannounced);

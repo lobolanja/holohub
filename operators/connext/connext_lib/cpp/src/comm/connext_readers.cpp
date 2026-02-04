@@ -1,6 +1,7 @@
 #include "connext_lib/comm/connext_readers.hpp"
 #include "connext_lib/resource/resource_managers_dds.hpp"
 #include "connext_lib/transport/payload_transport_dds.hpp"
+#include "connext_lib/transport/payload_transport_ano.hpp"
 #include "connext_lib/comm/connext_rx.hpp"
 #include <memory>
 #include <vector>
@@ -41,23 +42,25 @@ void ConnextDDSReader::freeBuffer(const MemoryBufferView& buffer) const {
 ConnextANOReader::ConnextANOReader(const AnoConfig& ano_config, const DdsConfig& dds_config, std::chrono::milliseconds poll_interval_ms)
     : poll_interval_ms_(poll_interval_ms) {
 
-    // For now, use DDS-based as placeholder (replace with ANO when available)
     int domain_id = dds_config.domain_id();
-    std::string topic_name = "GPU/"+dds_config.topic_name();
+    
+    // Create DDS-based resource manager for discovery
     dds::domain::DomainParticipant dp(domain_id);
-    //TODO: for the resource manager, the dds topic used is the one described un the channel_name. We may want to change this in the future to us the topic_name described above.
-        std::unique_ptr<ReceiverResourcesManagerInterface> receiver_manager =
-            std::make_unique<DdsReceiverResourcesManager>(
-                    dp, ano_config);
-    // TODO: instantiate correct ANO payload reader
+    std::unique_ptr<ReceiverResourcesManagerInterface> receiver_manager =
+        std::make_unique<DdsReceiverResourcesManager>(dp, ano_config);
+    
+    // Create ANO payload reader from AnoConfig (buffer id / network config inside)
     std::unique_ptr<PayloadReaderInterface> payload_reader =
-        std::make_unique<DdsPayloadReader>(dp, topic_name, ano_config.buffer_id());
+        MakeANOPayloadReader(ano_config);
+    
     rx_ = std::make_unique<ConnextRx>(std::move(receiver_manager), std::move(payload_reader));
 }
 
 MemoryBufferView ConnextANOReader::readSamples() const {
     if (rx_) {
         return rx_->receive(poll_interval_ms_);
+    } else {
+        throw std::runtime_error("ConnextANOReader: receiver not initialized");
     }
     return {nullptr, 0, false};
 }

@@ -11,6 +11,8 @@
 #include "connext_lib/config/config.hpp"
 #include "connext_lib/comm/connext_tx.hpp"
 #include "connext_lib/transport/payload_transport.hpp"
+#include "dds/dds.hpp"
+#include "dds/dds.hpp"
 
 namespace connext_lib {
 
@@ -27,6 +29,13 @@ class ConnextANOWriter {
    * Returns the number of successful sends.
    */
   std::size_t broadcast(const MemoryBufferView& buffer);
+  
+  /**
+   * Flushes all pending bursts with timeout.
+   * Returns the number of bursts successfully sent.
+   */
+  int flush(int timeout_ms = 1000);
+  
  private:
   std::unique_ptr<ConnextTx> tx_;
   std::chrono::milliseconds poll_interval_ms_;
@@ -48,6 +57,11 @@ class ConnextDDSWriter {
    * Returns the number of successful sends.
    */
   std::size_t broadcast(const MemoryBufferView& buffer);
+  /**
+   * Returns the underlying DDS writer for test discovery helpers.
+   * Used in integration tests with DDSCTestContext_waitForReaders().
+   */
+  dds::pub::DataWriter<dds::core::BytesTopicType>* get_dds_writer();
  private:
   std::unique_ptr<PayloadWriterInterface> payload_writer_;
 };

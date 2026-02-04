@@ -24,8 +24,9 @@ class DdsPayloadWriter : public PayloadWriterInterface {
   DdsPayloadWriter(dds::domain::DomainParticipant& participant,
                    const std::string& topic_name,
                    std::size_t max_payload_bytes);
-  void setBuffer(const PayloadBufferView& buffer) override;
+  void setBuffer(const MemoryBufferView& buffer) override;
   bool writeTo(const std::string& destination_reference) override;
+  int flush(int timeout_ms = 1000) override;
   /**
    * Returns the underlying DDS DataWriter for test discovery helpers.
    */

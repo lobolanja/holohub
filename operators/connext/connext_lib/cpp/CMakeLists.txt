@@ -10,17 +10,12 @@ set(CONNEXT_LIB_CPP_SOURCES
     src/comm/connext_comm.cpp
     src/comm/connext_readers.cpp
     src/comm/connext_writers.cpp
-    src/comm/dds_hello.cpp
     src/transport/payload_transport_dds.cpp
+    src/transport/payload_transport_ano.cpp
+    src/transport/sender_factory.cpp
     src/resource/resource_managers.cpp
     src/resource/resource_managers_dds.cpp
 )
-
-option(ENABLE_CONNEXT_ANO "Enable ANO payload transport" ON)
-
-if(ENABLE_CONNEXT_ANO)
-  list(APPEND CONNEXT_LIB_CPP_SOURCES src/transport/payload_transport_ano.cpp src/transport/sender_factory.cpp)
-endif()
 
 add_library(connext_lib STATIC ${CONNEXT_LIB_CPP_SOURCES})
 add_library(holoscan::ops::connext_lib ALIAS connext_lib)
@@ -28,17 +23,20 @@ add_library(holoscan::ops::connext_lib ALIAS connext_lib)
 target_include_directories(connext_lib
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../connext_ano_lib/cpp/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/connext_lib>
 )
 
 target_compile_features(connext_lib PUBLIC cxx_std_17)
 
 target_link_libraries(connext_lib PUBLIC RTIConnextDDS::cpp2_api)
+target_link_libraries(connext_lib PRIVATE connext_ano_lib)
 target_compile_definitions(connext_lib PUBLIC CONNEXT_LIB_HAS_RTI=1)
 
-if(ENABLE_CONNEXT_ANO)
-  target_link_libraries(connext_lib PRIVATE connext_ano_lib)
-endif()
+# Make connext_ano_lib include paths available to all consumers
+target_include_directories(connext_lib PUBLIC
+  $<TARGET_PROPERTY:connext_ano_lib,INTERFACE_INCLUDE_DIRECTORIES>
+)
 
 install(TARGETS connext_lib
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -53,10 +51,6 @@ install(DIRECTORY include/
 if(BUILD_TESTING)
   enable_testing()
   find_package(CUDAToolkit REQUIRED)
-
-  add_executable(connext_lib_dds_tests tests/dds_tests.cpp)
-  target_link_libraries(connext_lib_dds_tests PRIVATE connext_lib RTIConnextDDS::test)
-  add_test(NAME connext_lib_dds_tests COMMAND connext_lib_dds_tests)
 
   add_executable(connext_lib_config_tests tests/config_tests.cpp)
   target_link_libraries(connext_lib_config_tests PRIVATE connext_lib RTIConnextDDS::test)
@@ -97,8 +91,12 @@ if(BUILD_TESTING)
   add_test(NAME connext_lib_writers_tests COMMAND connext_lib_writers_tests)
 
   add_executable(connext_lib_ano_integration_tests tests/connext_ano_integration_tests.cpp)
-  target_link_libraries(connext_lib_ano_integration_tests PRIVATE connext_lib RTIConnextDDS::test)
+  target_link_libraries(connext_lib_ano_integration_tests PRIVATE connext_lib connext_ano_lib holoscan::advanced_network RTIConnextDDS::test CUDA::cudart)
   add_test(NAME connext_lib_ano_integration_tests COMMAND connext_lib_ano_integration_tests)
+
+  add_executable(connext_lib_dds_integration_tests tests/connext_dds_integration_tests.cpp)
+  target_link_libraries(connext_lib_dds_integration_tests PRIVATE connext_lib RTIConnextDDS::test RTIConnextDDS::test_helpers)
+  add_test(NAME connext_lib_dds_integration_tests COMMAND connext_lib_dds_integration_tests)
 
   add_executable(connext_lib_public_api_tests tests/connext_lib_public_api_tests.cpp)
   target_link_libraries(connext_lib_public_api_tests PRIVATE connext_lib RTIConnextDDS::test CUDA::cudart)
@@ -117,6 +115,7 @@ if(BUILD_TESTING)
       connext_lib_readers_tests
       connext_lib_writers_tests
       connext_lib_ano_integration_tests
+      connext_lib_dds_integration_tests
       connext_lib_public_api_tests)
 
   set(CONNEXT_LIB_TEST_ENV "")
@@ -127,8 +126,6 @@ if(BUILD_TESTING)
     list(APPEND CONNEXT_LIB_TEST_ENV "RTI_LICENSE_FILE=$ENV{RTI_LICENSE_FILE}")
   endif()
   if(CONNEXT_LIB_TEST_ENV)
-    set_tests_properties(
-      connext_lib_dds_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
     set_tests_properties(
       connext_lib_config_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
     # connext_lib_payload_transport_tests properties removed
@@ -144,6 +141,8 @@ if(BUILD_TESTING)
       connext_lib_writers_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
     set_tests_properties(
       connext_lib_ano_integration_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
+    set_tests_properties(
+      connext_lib_dds_integration_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
     set_tests_properties(
       connext_lib_public_api_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
   endif()

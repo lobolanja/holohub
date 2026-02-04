@@ -37,8 +37,8 @@ DdsPayloadWriter::DdsPayloadWriter(dds::domain::DomainParticipant& participant,
                   "BuiltinQosLib::Pattern.Status")),
       max_payload_bytes_(max_payload_bytes) {}
 
-void DdsPayloadWriter::setBuffer(const PayloadBufferView& buffer) {
-  if (buffer.data == nullptr || buffer.size_bytes == 0) {
+void DdsPayloadWriter::setBuffer(const MemoryBufferView& buffer) {
+  if (buffer.ptr == nullptr || buffer.size_bytes == 0) {
     payload_.clear();
     return;
   }
@@ -46,7 +46,10 @@ void DdsPayloadWriter::setBuffer(const PayloadBufferView& buffer) {
   if (max_payload_bytes_ > 0 && buffer.size_bytes > max_payload_bytes_) {
     throw std::runtime_error("DDS payload exceeds configured maximum");
   }
-  payload_.assign(buffer.data, buffer.data + buffer.size_bytes);
+  
+  // DDS uses CPU memory - cast ptr to uint8_t*
+  const auto* data_ptr = static_cast<const std::uint8_t*>(buffer.ptr);
+  payload_.assign(data_ptr, data_ptr + buffer.size_bytes);
 }
 
 bool DdsPayloadWriter::writeTo(const std::string& destination_reference) {
@@ -75,6 +78,11 @@ bool DdsPayloadWriter::writeTo(const std::string& destination_reference) {
   } catch (const std::exception&) {
     return false;
   }
+}
+
+int DdsPayloadWriter::flush(int /*timeout_ms*/) {
+  // DDS writes are synchronous, no buffering to flush
+  return 0;
 }
 
 DdsPayloadReader::DdsPayloadReader(dds::domain::DomainParticipant& participant, const std::string& topic_name, const std::string& destination_reference)

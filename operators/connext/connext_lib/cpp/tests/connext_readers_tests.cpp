@@ -18,9 +18,10 @@ class ConnextReadersTester : public rti::test::Tester,
 
     // Create DDS writer
     connext_lib::DdsPayloadWriter writer(dp, topic, max_payload_bytes);
-    connext_lib::PayloadBufferView writer_buffer;
-    writer_buffer.data = reinterpret_cast<const std::uint8_t*>(test_message.data());
+    connext_lib::MemoryBufferView writer_buffer;
+    writer_buffer.ptr = const_cast<void*>(static_cast<const void*>(test_message.data()));
     writer_buffer.size_bytes = test_message.size();
+    writer_buffer.is_device = false;
     writer.setBuffer(writer_buffer);
     RTI_TEST_ASSERT(writer.writeTo("broadcast"));
 

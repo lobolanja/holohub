@@ -14,23 +14,23 @@ using namespace std::chrono_literals;
 
 class FakePayloadWriter : public connext_lib::PayloadWriterInterface {
  public:
-  void setBuffer(const connext_lib::PayloadBufferView& buffer) override {
+  void setBuffer(const connext_lib::MemoryBufferView& buffer) override {
     lastBuffer_ = buffer;
   }
 
   bool writeTo(const std::string& destination_reference) override {
     lastDestination_ = destination_reference;
-    return lastBuffer_.device_ptr != nullptr && lastBuffer_.size_bytes > 0;
+    return lastBuffer_.ptr != nullptr && lastBuffer_.size_bytes > 0;
   }
 
-  const connext_lib::PayloadBufferView& lastBuffer() const {
+  const connext_lib::MemoryBufferView& lastBuffer() const {
     return lastBuffer_;
   }
 
   const std::string& lastDestination() const { return lastDestination_; }
 
  private:
-    connext_lib::PayloadBufferView lastBuffer_{};
+    connext_lib::MemoryBufferView lastBuffer_{};
     std::string lastDestination_;
 };
 
@@ -95,14 +95,14 @@ class PayloadTransportTester : public rti::test::Tester,
                                public rti::test::Singleton<PayloadTransportTester> {
  public:
   /// Ensure the light-weight view simply aliases caller-owned memory.
-  void payloadBufferViewRetainsPointer() {
+  void memoryBufferViewRetainsPointer() {
     std::array<std::uint8_t, 4> buffer{{0x01, 0x02, 0x03, 0x04}};
     void* raw_ptr = static_cast<void*>(buffer.data());
-    connext_lib::PayloadBufferView view;
-    view.device_ptr = nullptr;
+    connext_lib::MemoryBufferView view;
+    view.ptr = raw_ptr;
     view.size_bytes = buffer.size();
-    view.data = static_cast<const std::uint8_t*>(raw_ptr);
-    RTI_TEST_ASSERT(view.data == raw_ptr);
+    view.is_device = false;
+    RTI_TEST_ASSERT(view.ptr == raw_ptr);
     RTI_TEST_ASSERT_EQUALS_INT(static_cast<int>(buffer.size()),
                    static_cast<int>(view.size_bytes));
   }
@@ -135,12 +135,12 @@ class PayloadTransportTester : public rti::test::Tester,
   void payloadWriterInterfaceStagesAndSends() {
     FakePayloadWriter writer;
     std::array<std::uint8_t, 2> data{{0xAA, 0x55}};
-    connext_lib::PayloadBufferView view;
-    view.data = data.data();
+    connext_lib::MemoryBufferView view;
+    view.ptr = static_cast<void*>(data.data());
     view.size_bytes = data.size();
-    view.device_ptr = const_cast<void*>(static_cast<const void*>(data.data()));
+    view.is_device = false;
     writer.setBuffer(view);
-    RTI_TEST_ASSERT(writer.lastBuffer().data == data.data());
+    RTI_TEST_ASSERT(writer.lastBuffer().ptr == data.data());
     RTI_TEST_ASSERT_EQUALS_INT(
       static_cast<int>(data.size()),
       static_cast<int>(writer.lastBuffer().size_bytes));
@@ -190,7 +190,7 @@ class PayloadTransportTester : public rti::test::Tester,
  private:
   PayloadTransportTester() : rti::test::Tester("connext_lib_payload_transport_tests") {
     RTI_TEST_FUNCTION_ADD(PayloadTransportTester,
-                          payloadBufferViewRetainsPointer);
+                          memoryBufferViewRetainsPointer);
     RTI_TEST_FUNCTION_ADD(PayloadTransportTester,
                           payloadWriterAndReaderOptionDefaults);
     RTI_TEST_FUNCTION_ADD(PayloadTransportTester,

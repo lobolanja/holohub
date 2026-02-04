@@ -80,17 +80,18 @@ class ConnextLibPublicAPITester : public rti::test::Tester,
   }
 
   /**
-   * Test: PayloadBufferView can be created and used.
+   * Test: MemoryBufferView can be created and used.
    * Demonstrates how to wrap user data for transmission.
    */
-  void test_payload_buffer_view() {
+  void test_memory_buffer_view() {
     std::string test_data = "Public API test payload";
 
-    connext_lib::PayloadBufferView buffer;
-    buffer.data = reinterpret_cast<const std::uint8_t*>(test_data.data());
+    connext_lib::MemoryBufferView buffer;
+    buffer.ptr = static_cast<void*>(test_data.data());
     buffer.size_bytes = test_data.size();
+    buffer.is_device = false;
 
-    RTI_TEST_ASSERT(buffer.data != nullptr);
+    RTI_TEST_ASSERT(buffer.ptr != nullptr);
     RTI_TEST_ASSERT(buffer.size_bytes == test_data.size());
   }
 
@@ -287,7 +288,7 @@ void test_dds_writer_reader_roundtrip() {
   ConnextLibPublicAPITester() : rti::test::Tester("connext_lib_public_api_tests") {
     RTI_TEST_FUNCTION_ADD(ConnextLibPublicAPITester, test_version_accessible);
     RTI_TEST_FUNCTION_ADD(ConnextLibPublicAPITester, test_configuration_types);
-    RTI_TEST_FUNCTION_ADD(ConnextLibPublicAPITester, test_payload_buffer_view);
+    RTI_TEST_FUNCTION_ADD(ConnextLibPublicAPITester, test_memory_buffer_view);
     RTI_TEST_FUNCTION_ADD(ConnextLibPublicAPITester, test_dds_writer_reader_roundtrip);
     RTI_TEST_FUNCTION_ADD(ConnextLibPublicAPITester, test_ano_writer_reader_roundtrip);
     RTI_TEST_FUNCTION_ADD(ConnextLibPublicAPITester, test_multiple_messages);

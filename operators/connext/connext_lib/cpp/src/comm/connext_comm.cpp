@@ -2,6 +2,9 @@
 #include "connext_lib/comm/connext_tx.hpp"
 #include "connext_lib/resource/resource_managers.hpp"
 #include "connext_lib/transport/payload_transport.hpp"
+#include "connext_lib/transport/payload_transport_ano.hpp"
+
+#include <holoscan/logger/logger.hpp>
 
 #include <chrono>
 #include <memory>
@@ -30,6 +33,7 @@ MemoryBufferView ConnextRx::receive(std::chrono::milliseconds timeout) {
   void* data_ptr = nullptr;
   std::size_t size = 0;
   if (!payload_reader_->readNext(data_ptr, size, timeout)) {
+    HOLOSCAN_LOG_WARN("ConnextRx: no data received within timeout {} ms", timeout.count());
     return {nullptr, 0, false};
   }
   if (data_ptr == nullptr || size == 0) {
@@ -37,9 +41,10 @@ MemoryBufferView ConnextRx::receive(std::chrono::milliseconds timeout) {
     return {nullptr, 0, false};
   }
   // Return pointer without copying - caller must call freeBuffer()
-  // Note: is_device should be set based on the payload reader type
-  // For now, assume false (CPU) for DDS, true for ANO
-  return {data_ptr, size, false};
+  // ANO readers return GPU memory, DDS readers return CPU memory
+  // Check if payload_reader_ is an ANOPayloadReader by using dynamic_cast
+  bool is_device = (dynamic_cast<ANOPayloadReader*>(payload_reader_.get()) != nullptr);
+  return {data_ptr, size, is_device};
 }
 
 void ConnextRx::freeBuffer(const MemoryBufferView& buffer) {
@@ -65,7 +70,7 @@ ConnextTx::~ConnextTx() {
   }
 }
 
-void ConnextTx::setBuffer(const PayloadBufferView& buffer) {
+void ConnextTx::setBuffer(const MemoryBufferView& buffer) {
   payload_writer_->setBuffer(buffer);
 }
 
@@ -82,6 +87,10 @@ std::size_t ConnextTx::broadcast() {
     }
   }
   return sent;
+}
+
+int ConnextTx::flush(int timeout_ms) {
+  return payload_writer_->flush(timeout_ms);
 }
 
 }  // namespace connext_lib

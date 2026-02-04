@@ -1,15 +1,12 @@
 #include "connext_lib/transport/sender_factory.hpp"
+#include "connext_lib/config/config.hpp"
 #include "connext_ano_lib/gpu_direct_network_sender.h"
 #include <holoscan/logger/logger.hpp>
-#include <cstdlib>
-#include <sstream>
-
-static std::string getenv_or(const char* env, const std::string& def) {
-  const char* v = std::getenv(env);
-  return v ? std::string(v) : def;
-}
 
 namespace connext_lib {
+
+SenderFactory::SenderFactory(const AnoNetworkConfig& config)
+    : config_(&config) {}
 
 std::unique_ptr<holoscan::ops::IGpuDirectNetworkSender> SenderFactory::create_sender(const std::string& destination_reference) {
   
@@ -26,19 +23,21 @@ std::unique_ptr<holoscan::ops::IGpuDirectNetworkSender> SenderFactory::create_se
 std::unique_ptr<holoscan::ops::IGpuDirectNetworkSender> SenderFactory::create_sender(const DestinationInfo& dest) {
   try {
     holoscan::ops::SenderConfig cfg;
-    // Fill destination-specific fields
+    // Fill destination-specific fields (from discovery)
     cfg.ip_dst_addr = dest.ip_addr;
     cfg.eth_dst_addr = dest.mac_addr;
     cfg.udp_dst_port = dest.udp_port;
 
-    // Fill other fields from environment or sensible defaults
-    //TODO: get them from the yaml file once that is supported
-    cfg.interface_name = getenv_or("ANO_INTERFACE", "eth0");
-    cfg.queue_id = static_cast<uint16_t>(std::stoul(getenv_or("ANO_QUEUE_ID", "0")));
-    cfg.ip_src_addr = getenv_or("ANO_SRC_IP", "0.0.0.0");
-    cfg.udp_src_port = static_cast<uint16_t>(std::stoul(getenv_or("ANO_SRC_PORT", "4096")));
-    cfg.header_size = static_cast<uint16_t>(std::stoul(getenv_or("ANO_HEADER_SIZE", "64")));
-    cfg.max_packet_size = static_cast<uint16_t>(std::stoul(getenv_or("ANO_MAX_PACKET_SIZE", "9000")));
+    // Fill fields from config
+    cfg.interface_name = config_->network_interface();
+    cfg.queue_id = config_->queue_id();
+    cfg.header_size = config_->header_size();
+    cfg.max_packet_size = config_->max_packet_size();
+    cfg.send_mode = config_->send_mode();
+    
+    // Source address/port come from the local receiver's advertised address
+    cfg.ip_src_addr = config_->fast_ip();
+    cfg.udp_src_port = static_cast<uint16_t>(config_->fast_port());
 
     cfg.validate();
     auto up = holoscan::ops::IGpuDirectNetworkSender::create(cfg);

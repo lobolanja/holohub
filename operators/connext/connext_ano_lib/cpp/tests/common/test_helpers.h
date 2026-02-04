@@ -50,6 +50,7 @@ inline holoscan::ops::ReceiverConfig CreateValidReceiverConfig() {
   config.header_size = 64;
   config.max_packet_size = 9000;
   config.gpu_device = 0;
+  config.queue_id = 0;
   return config;
 }
 

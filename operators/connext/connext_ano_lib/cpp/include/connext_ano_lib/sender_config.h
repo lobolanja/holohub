@@ -12,6 +12,17 @@
 namespace holoscan::ops {
 
 /**
+ * @brief Send mode for GPU Direct network sender
+ * 
+ * Controls whether send() blocks to ensure immediate transmission
+ * or enqueues bursts for batching (requiring explicit flush()).
+ */
+enum class SendMode {
+  IMMEDIATE,  ///< Block in send() until burst is transmitted (low latency, lower throughput)
+  BATCH       ///< Enqueue bursts without blocking (high throughput, requires flush())
+};
+
+/**
  * @brief Configuration for GPU Direct network sender
  * 
  * Plain struct with public fields for network transmission configuration.
@@ -37,6 +48,9 @@ struct SenderConfig {
   // Packet sizing
   uint16_t header_size = 64;       ///< Header size in bytes (minimum 42 for Eth+IP+UDP)
   uint16_t max_packet_size = 9000; ///< Maximum packet size including headers
+  
+  // Transmission mode
+  SendMode send_mode = SendMode::IMMEDIATE;  ///< Send mode (default: IMMEDIATE for backward compatibility)
   
   /**
    * @brief Validate configuration parameters

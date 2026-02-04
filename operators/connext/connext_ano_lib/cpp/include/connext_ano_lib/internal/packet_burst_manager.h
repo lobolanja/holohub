@@ -113,6 +113,19 @@ class PacketBurstManager {
    */
   int send_ready_bursts();
   
+  /**
+   * @brief Flush all pending TX bursts with timeout
+   * 
+   * Waits for all queued bursts to complete CUDA operations and sends
+   * them to the NIC. Uses polling with small sleep intervals to balance
+   * CPU usage and responsiveness.
+   * 
+   * @param timeout_ms Maximum time to wait in milliseconds
+   * @return Number of bursts successfully flushed
+   * @throws std::runtime_error if timeout expires with bursts still pending
+   */
+  int flush_all_bursts(int timeout_ms);
+  
   //
   // Utility Methods
   //
@@ -202,7 +215,7 @@ class PacketBurstManager {
    * @param cuda_manager CUDA resource manager for async operation
    * @throws std::runtime_error on CUDA copy failure
    */
-  void copy_packet_header(void* gpu_pkt_ptr, void* header_template,  CudaResourceManager& cuda_manager);
+  void copy_packet_header(void* gpu_pkt_ptr, void* header_template, CudaResourceManager& cuda_manager);
   
   /**
    * @brief Copy payload to packet buffer on GPU (after header)

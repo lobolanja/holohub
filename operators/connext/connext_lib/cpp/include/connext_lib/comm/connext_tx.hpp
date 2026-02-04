@@ -32,7 +32,7 @@ class ConnextTx {
   /**
    * Stages the payload so it can be broadcast or sent to a single destination.
    */
-  void setBuffer(const PayloadBufferView& buffer);
+  void setBuffer(const MemoryBufferView& buffer);
 
   /**
    * Sends the staged payload to a specific destination.
@@ -45,6 +45,12 @@ class ConnextTx {
    * Returns the number of successful sends.
    */
   std::size_t broadcast();
+  
+  /**
+   * Flushes all pending bursts with timeout.
+   * Returns the number of bursts successfully sent.
+   */
+  int flush(int timeout_ms = 1000);
 
  private:
   std::unique_ptr<SenderResourcesManagerInterface> sender_manager_;
