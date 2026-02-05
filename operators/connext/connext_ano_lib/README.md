@@ -4,7 +4,14 @@ Shared GPU Direct networking library for Holoscan connext applications with Adva
 
 ## Overview
 
-This library provides a high-level facade for GPU Direct network transmission using DPDK and CUDA, abstracting away low-level packet construction and hardware details.
+This library provides a high-level facade for GPU Direct network transmission and reception using DPDK and CUDA, abstracting away low-level packet construction and hardware details.
+
+**Key Features:**
+- Zero-copy GPU↔NIC transmission via GPUDirect
+- Dual send modes: IMMEDIATE (low latency) and BATCH (high throughput)
+- Manual flush control for batched operations
+- Single-queue receiver for deterministic packet routing
+- Async CUDA operations with event-based flow control
 
 ## Architecture
 
@@ -99,10 +106,11 @@ config.queue_id = 0;                        // TX queue ID
 config.ip_src_addr = "192.168.10.10";
 config.ip_dst_addr = "192.168.10.11";
 config.eth_dst_addr = "3c:6d:66:11:91:56"; // Destination MAC
-config.udp_src_port = 4096;
-config.udp_dst_port = 4096;
-config.header_size = 64;                    // Including padding
-config.max_packet_size = 1064;              // Total packet size
+config.udp_src_port = 5000;                 // Or use default
+config.udp_dst_port = 5001;                 // Or use default
+config.header_size = 64;                    // Including padding (or use default)
+config.max_packet_size = 9000;              // Total packet size (or use default)
+config.send_mode = SendMode::IMMEDIATE;     // Or BATCH for high throughput
 
 // Validate configuration (throws InvalidConfigException)
 config.validate();
@@ -136,16 +144,22 @@ HOLOSCAN_LOG_INFO("Total: {} packets, {} bytes, {} dropped",
 
 **Configuration**
 ```cpp
+enum class SendMode {
+  IMMEDIATE,  // Block in send() for immediate transmission (low latency)
+  BATCH       // Enqueue bursts without blocking (high throughput, requires flush())
+};
+
 struct SenderConfig {
   std::string interface_name;  // NIC interface from advanced_network config
-  uint16_t queue_id;           // TX queue ID (must match advanced_network)
+  uint16_t queue_id = 0;       // TX queue ID (must match advanced_network)
   std::string ip_src_addr;     // Source IPv4 (e.g., "192.168.10.10")
   std::string ip_dst_addr;     // Destination IPv4 (e.g., "192.168.10.11")
   std::string eth_dst_addr;    // Destination MAC (e.g., "AA:BB:CC:DD:EE:FF")
-  uint16_t udp_src_port;       // UDP source port
-  uint16_t udp_dst_port;       // UDP destination port
-  uint16_t header_size;        // Header size including padding (≥42)
-  uint16_t max_packet_size;    // Maximum packet size including headers
+  uint16_t udp_src_port = 5000;  // UDP source port (default: 5000)
+  uint16_t udp_dst_port = 5001;  // UDP destination port (default: 5001)
+  uint16_t header_size = 64;     // Header size including padding (≥42, default: 64)
+  uint16_t max_packet_size = 9000; // Maximum packet size including headers (default: 9000)
+  SendMode send_mode = SendMode::IMMEDIATE; // Send mode (default: IMMEDIATE)
   
   void validate();  // Throws InvalidConfigException if invalid
 };
@@ -169,6 +183,9 @@ class IGpuDirectNetworkSender {
   
   // Reset statistics counters
   virtual void reset_stats() = 0;
+  
+  // Flush all pending transmission bursts (essential for BATCH mode)
+  virtual int flush(int timeout_ms = 1000) = 0;
   
   // Factory method to create sender
   static std::unique_ptr<IGpuDirectNetworkSender> create(const SenderConfig& config);
@@ -216,6 +233,47 @@ The sender operates in **GPU-only mode** (no header-data split):
 - Zero CPU copies during transmission
 - Requires DPDK GPUDirect support
 
+#### Send Modes
+
+**IMMEDIATE Mode (Default)**
+- `send()` blocks until burst is transmitted to NIC
+- Lower latency, slightly lower throughput
+- No need to call `flush()`
+- Best for: Real-time applications, interactive systems
+
+**BATCH Mode**
+- `send()` enqueues bursts without blocking
+- Higher throughput, requires explicit `flush()`
+- Best for: High-rate streaming, bulk data transfer
+- **IMPORTANT**: Must call `flush()` to ensure packets are sent
+
+```cpp
+// BATCH mode example
+config.send_mode = SendMode::BATCH;
+auto sender = IGpuDirectNetworkSender::create(config);
+
+for (int i = 0; i < 100; i++) {
+  sender->send(gpu_data, size);  // Enqueues without blocking
+}
+
+sender->flush();  // Ensures all packets are transmitted
+```
+
+#### Flush Method
+
+The `flush()` method waits for all pending bursts to complete and transmit:
+
+```cpp
+int flush(int timeout_ms = 1000);  // Returns number of bursts flushed
+```
+
+- **Required for BATCH mode**: Ensures all queued packets are sent
+- **Optional for IMMEDIATE mode**: No-op, returns immediately
+- **Timeout**: Default 1000ms, throws `std::runtime_error` on timeout
+- **Use cases**: End of transmission, synchronization points, testing
+
+See `FLUSH_IMPLEMENTATION.md` for detailed documentation.
+
 #### Configuration Constraints
 
 - `header_size` must be ≥ 42 bytes (Ethernet + IP + UDP minimum)
@@ -248,8 +306,9 @@ The companion interface is `IGpuDirectNetworkReceiver`, which provides a symmetr
 ReceiverConfig config;
 config.interface_name = "rx_port";       // From advanced_network config
 config.header_size = 64;                 // Including padding
-config.max_packet_size = 1064;           // Total packet size
+config.max_packet_size = 9000;           // Total packet size
 config.gpu_device = 0;                   // GPU device ID
+config.queue_id = 0;                     // RX queue to poll
 
 // Validate configuration (throws InvalidConfigException)
 config.validate();
@@ -292,6 +351,7 @@ struct ReceiverConfig {
   uint16_t header_size;        // Header size including padding (≥42)
   uint16_t max_packet_size;    // Maximum packet size including headers
   int gpu_device;              // GPU device ID (≥0)
+  uint16_t queue_id;           // RX queue ID to poll from (specific queue)
   
   void validate();  // Throws InvalidConfigException if invalid
 };
@@ -368,13 +428,25 @@ The receiver operates in **GPU-only mode** (no header-data split):
 - Zero CPU copies during reception
 - Requires DPDK GPUDirect support
 
+#### Single-Queue Reception
+
+The receiver polls only the **specific queue** configured via `queue_id`:
+
+```cpp
+config.queue_id = 0;  // Poll only queue 0
+```
+
+- **Deterministic routing**: Each receiver instance polls one queue
+- **Multi-queue setup**: Create multiple receiver instances for different queues
+- **Load balancing**: Advanced network can distribute packets across queues
+
 #### Configuration Constraints
 
 - `header_size` must be ≥ 42 bytes (Ethernet + IP + UDP minimum)
 - `max_packet_size` must be > `header_size`
 - `gpu_device` must be ≥ 0
+- `queue_id` validated at runtime (depends on port configuration)
 - Concurrent CUDA slots internally set to 4
-- Multi-queue polling: All RX queues polled each receive() call
 
 ### Integration with Holoscan Operators
 
@@ -393,6 +465,7 @@ class TensorNetworkTxOp : public Operator {
     config.udp_dst_port = udp_dst_port_.get();
     config.header_size = header_size_.get();
     config.max_packet_size = max_packet_size_.get();
+    config.send_mode = send_mode_.get();  // IMMEDIATE or BATCH
     
     try {
       config.validate();
@@ -430,6 +503,18 @@ class TensorNetworkTxOp : public Operator {
     }
   }
   
+  void stop() override {
+    // Flush remaining packets in BATCH mode before shutdown
+    if (sender_) {
+      try {
+        int flushed = sender_->flush(2000);
+        HOLOSCAN_LOG_INFO("Flushed {} bursts on shutdown", flushed);
+      } catch (const std::runtime_error& e) {
+        HOLOSCAN_LOG_WARN("Flush timeout on shutdown: {}", e.what());
+      }
+    }
+  }
+  
  private:
   std::unique_ptr<IGpuDirectNetworkSender> sender_;
   Parameter<std::string> interface_name_;
@@ -450,6 +535,7 @@ class TensorNetworkRxOp : public Operator {
     config.header_size = header_size_.get();
     config.max_packet_size = max_packet_size_.get();
     config.gpu_device = gpu_device_.get();
+    config.queue_id = queue_id_.get();
     
     try {
       config.validate();
@@ -508,6 +594,7 @@ class TensorNetworkRxOp : public Operator {
   Parameter<uint16_t> header_size_;
   Parameter<uint16_t> max_packet_size_;
   Parameter<int> gpu_device_;
+  Parameter<uint16_t> queue_id_;
 };
 ```
 

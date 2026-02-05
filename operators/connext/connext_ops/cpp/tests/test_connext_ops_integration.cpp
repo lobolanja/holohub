@@ -26,6 +26,7 @@
 #include <chrono>
 #include <string>
 #include <cstring>
+#include "net_test_config_helper.hpp"
 
 using namespace holoscan;
 using namespace holoscan::ops;
@@ -223,7 +224,15 @@ class ConnextOpsIntegrationTestContainer : public rti::test::TesterContainer,
 
   bool on_tests_begin(const RTITestSetting& setting) override {
     RTITestSetting_setupStandalone();
+    // Initialize ANO for loopback mode
+    connext_lib::test::AnoInitializer::Initialize();
     return rti::test::TesterContainer::on_tests_begin(setting);
+  }
+
+  bool on_tests_end(const RTITestSetting& setting) override {
+    // Shutdown ANO to cleanup resources
+    connext_lib::test::AnoInitializer::Shutdown();
+    return rti::test::TesterContainer::on_tests_end(setting);
   }
 
   friend class rti::test::Singleton<ConnextOpsIntegrationTestContainer>;

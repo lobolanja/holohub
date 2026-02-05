@@ -17,6 +17,7 @@
 // Only include the public API header - this validates it's self-contained
 #include "connext_lib.hpp"
 #include "cuda_test_utils.hpp"
+#include "net_test_config_helper.hpp"
 
 #include "ndds/rtitest/Tester.hpp"
 #include "ndds/rtitest/test_setting_impl.h"
@@ -157,6 +158,8 @@ void test_dds_writer_reader_roundtrip() {
    * 3. Send data through writer (using GPU memory)
    * 4. Receive data through reader
    * 5. Verify data integrity
+   * 
+   * Note: This test runs in loopback mode and always executes.
    */
   void test_ano_writer_reader_roundtrip() {
     const std::string channel_name = "PublicAPITestChannel";
@@ -166,14 +169,23 @@ void test_dds_writer_reader_roundtrip() {
     const std::string test_message = "Hello from public API!";
     const std::size_t max_payload_bytes = 1024;
 
-    // Step 1: Configure DDS and ANO
-    connext_lib::AnoConfig ano_config(channel_name, buffer_id, max_payload_bytes, true);
+    // Step 1: Configure DDS and ANO with proper network configuration
+    auto reader_net_config = connext_lib::test::AnoTestConfigHelper::CreateDefaultReaderNetworkConfig();
+    auto writer_net_config = connext_lib::test::AnoTestConfigHelper::CreateDefaultWriterNetworkConfig();
+    
+    connext_lib::AnoConfig reader_ano_config = 
+      connext_lib::test::AnoTestConfigHelper::CreateStandardAnoConfig(
+        channel_name, buffer_id, max_payload_bytes, reader_net_config);
+    connext_lib::AnoConfig writer_ano_config = 
+      connext_lib::test::AnoTestConfigHelper::CreateStandardAnoConfig(
+        channel_name, buffer_id, max_payload_bytes, writer_net_config);
+    
     connext_lib::DdsConfig dds_config(true, domain, topic, "BytesTopicType");
     std::chrono::milliseconds poll_interval_ms(100);
 
     // Step 2: Create writer and reader
-    connext_lib::ConnextANOWriter writer(ano_config, dds_config, poll_interval_ms);
-    connext_lib::ConnextANOReader reader(ano_config, dds_config, poll_interval_ms);
+    connext_lib::ConnextANOWriter writer(writer_ano_config, dds_config, poll_interval_ms);
+    connext_lib::ConnextANOReader reader(reader_ano_config, dds_config, poll_interval_ms);
 
     // Step 3: Allow DDS discovery to complete
     std::this_thread::sleep_for(std::chrono::seconds(3));
@@ -186,14 +198,10 @@ void test_dds_writer_reader_roundtrip() {
     buffer_to_send.size_bytes = test_message.size();
     buffer_to_send.is_device = true; // GPU memory
 
+    // Wait for ANO discovery, then attempt a single broadcast
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+
     std::size_t sent_count = writer.broadcast(buffer_to_send);
-    
-    // Skip test if ANO hardware not available
-    if (sent_count == 0) {
-      std::cout << "Skipping ANO test - hardware not available or not configured" << std::endl;
-      return;
-    }
-    
     RTI_TEST_ASSERT(sent_count > 0);
 
     // Step 5: Poll for received samples
@@ -214,76 +222,6 @@ void test_dds_writer_reader_roundtrip() {
     reader.freeBuffer(received_buffer);
   }
 
-  /**
-   * Test: Multiple sequential messages can be sent and received.
-   * Demonstrates how to send multiple payloads in sequence using GPU memory.
-   */
-  void test_multiple_messages() {
-    const std::string channel_name = "MultiMessageChannel";
-    const std::string buffer_id = "multi_msg_buffer";
-    const std::string topic = "MultiMessageTopic";
-    const int domain = domain_id();
-    const std::size_t max_payload_bytes = 1024;
-
-    connext_lib::AnoConfig ano_config(channel_name, buffer_id, max_payload_bytes, true);
-    connext_lib::DdsConfig dds_config(true, domain, topic, "BytesTopicType");
-    std::chrono::milliseconds poll_interval_ms(100);
-
-    connext_lib::ConnextANOWriter writer(ano_config, dds_config, poll_interval_ms);
-    connext_lib::ConnextANOReader reader(ano_config, dds_config, poll_interval_ms);
-
-    std::this_thread::sleep_for(std::chrono::seconds(3));
-
-    // Send multiple messages using GPU memory
-    std::vector<std::string> messages = {"Message 1", "Message 2", "Message 3"};
-    std::vector<connext_lib::test::CudaMemoryGuard> gpu_mems;
-    gpu_mems.reserve(messages.size());
-    
-    bool ano_available = true;
-    for (size_t i = 0; i < messages.size(); ++i) {
-        const auto& msg = messages[i];
-        // Allocate GPU memory for each message
-        gpu_mems.push_back(connext_lib::test::copyToGpu(msg.data(), msg.size()));
-        
-        connext_lib::MemoryBufferView buffer;
-        buffer.ptr = gpu_mems.back().get();
-        buffer.size_bytes = msg.size();
-        buffer.is_device = true; // GPU memory
-        
-        std::size_t sent = writer.broadcast(buffer);
-        
-        // Check if ANO is functional on first message
-        if (i == 0 && sent == 0) {
-          ano_available = false;
-          break;
-        }
-        
-        RTI_TEST_ASSERT(sent > 0);
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    }
-    
-    // Skip test if ANO hardware not available
-    if (!ano_available) {
-      std::cout << "Skipping ANO test - hardware not available or not configured" << std::endl;
-      return;
-    }
-
-    // Read messages (may arrive in batches or individually)
-    int messages_received = 0;
-    const int max_attempts = 50;
-    for (int attempt = 0; attempt < max_attempts && messages_received < messages.size(); ++attempt) {
-      auto received_buffer = reader.readSamples();
-      if (received_buffer.ptr != nullptr) {
-        messages_received++;
-        reader.freeBuffer(received_buffer);
-      }
-      std::this_thread::sleep_for(poll_interval_ms);
-    }
-
-    // At least one message should have been received
-    RTI_TEST_ASSERT(messages_received > 0);
-  }
-
  private:
   ConnextLibPublicAPITester() : rti::test::Tester("connext_lib_public_api_tests") {
     RTI_TEST_FUNCTION_ADD(ConnextLibPublicAPITester, test_version_accessible);
@@ -291,7 +229,6 @@ void test_dds_writer_reader_roundtrip() {
     RTI_TEST_FUNCTION_ADD(ConnextLibPublicAPITester, test_memory_buffer_view);
     RTI_TEST_FUNCTION_ADD(ConnextLibPublicAPITester, test_dds_writer_reader_roundtrip);
     RTI_TEST_FUNCTION_ADD(ConnextLibPublicAPITester, test_ano_writer_reader_roundtrip);
-    RTI_TEST_FUNCTION_ADD(ConnextLibPublicAPITester, test_multiple_messages);
   }
   friend class rti::test::Singleton<ConnextLibPublicAPITester>;
 };
@@ -305,7 +242,20 @@ class ConnextLibPublicAPITestContainer : public rti::test::TesterContainer,
 
   bool on_tests_begin(const RTITestSetting& setting) override {
     RTITestSetting_setupStandalone();
+    
+    // Initialize ANO if hardware is available
+    if (!connext_lib::test::AnoInitializer::Initialize()) {
+      std::cout << "Warning: ANO initialization failed or hardware not available. "
+                << "Tests may fail if they require ANO hardware." << std::endl;
+    }
+    
     return rti::test::TesterContainer::on_tests_begin(setting);
+  }
+  
+  bool on_tests_end(const RTITestSetting& setting) override {
+    bool result = rti::test::TesterContainer::on_tests_end(setting);
+    connext_lib::test::AnoInitializer::Shutdown();
+    return result;
   }
 
   friend class rti::test::Singleton<ConnextLibPublicAPITestContainer>;

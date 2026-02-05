@@ -57,8 +57,12 @@ install(DIRECTORY include/
 if(BUILD_TESTING)
   enable_testing()
   find_package(CUDAToolkit REQUIRED)
-  add_executable(test_connext_rx_integration tests/test_connext_rx_integration.cpp)
-  target_link_libraries(test_connext_rx_integration
+  add_executable(test_connext_ops_integration tests/test_connext_ops_integration.cpp)
+  target_include_directories(test_connext_ops_integration
+    PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/../../connext_lib/cpp/tests
+  )
+  target_link_libraries(test_connext_ops_integration
     PRIVATE
       connext_ops
       holoscan::core
@@ -66,11 +70,11 @@ if(BUILD_TESTING)
       RTIConnextDDS::test
       CUDA::cudart
   )
-  add_test(NAME test_connext_rx_integration COMMAND test_connext_rx_integration)
+  add_test(NAME test_connext_ops_integration COMMAND test_connext_ops_integration)
 
   add_custom_target(connext_ops_cpp_tests
           DEPENDS
-          test_connext_rx_integration
+          test_connext_ops_integration
   )
   set(CONNEXT_LIB_TEST_ENV "")
   if(DEFINED ENV{NDDSHOME})
@@ -81,6 +85,6 @@ if(BUILD_TESTING)
   endif()
   if(CONNEXT_LIB_TEST_ENV)
     set_tests_properties(
-            test_connext_rx_integration PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
+            test_connext_ops_integration PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
   endif()
 endif()

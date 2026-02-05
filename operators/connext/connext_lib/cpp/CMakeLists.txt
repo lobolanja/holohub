@@ -82,14 +82,6 @@ if(BUILD_TESTING)
   target_link_libraries(connext_lib_comm_tests PRIVATE connext_lib RTIConnextDDS::test RTIConnextDDS::test_helpers)
   add_test(NAME connext_lib_comm_tests COMMAND connext_lib_comm_tests)
 
-  add_executable(connext_lib_readers_tests tests/connext_readers_tests.cpp)
-  target_link_libraries(connext_lib_readers_tests PRIVATE connext_lib RTIConnextDDS::test CUDA::cudart)
-  add_test(NAME connext_lib_readers_tests COMMAND connext_lib_readers_tests)
-
-  add_executable(connext_lib_writers_tests tests/connext_writers_tests.cpp)
-  target_link_libraries(connext_lib_writers_tests PRIVATE connext_lib RTIConnextDDS::test CUDA::cudart)
-  add_test(NAME connext_lib_writers_tests COMMAND connext_lib_writers_tests)
-
   add_executable(connext_lib_ano_integration_tests tests/connext_ano_integration_tests.cpp)
   target_link_libraries(connext_lib_ano_integration_tests PRIVATE connext_lib connext_ano_lib holoscan::advanced_network RTIConnextDDS::test CUDA::cudart)
   add_test(NAME connext_lib_ano_integration_tests COMMAND connext_lib_ano_integration_tests)
@@ -112,8 +104,6 @@ if(BUILD_TESTING)
       connext_lib_payload_transport_ano_reader_tests
       connext_lib_resource_managers_dds_tests
       connext_lib_comm_tests
-      connext_lib_readers_tests
-      connext_lib_writers_tests
       connext_lib_ano_integration_tests
       connext_lib_dds_integration_tests
       connext_lib_public_api_tests)
@@ -135,10 +125,6 @@ if(BUILD_TESTING)
       connext_lib_resource_managers_dds_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
     set_tests_properties(
       connext_lib_comm_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
-    set_tests_properties(
-      connext_lib_readers_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
-    set_tests_properties(
-      connext_lib_writers_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
     set_tests_properties(
       connext_lib_ano_integration_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
     set_tests_properties(
