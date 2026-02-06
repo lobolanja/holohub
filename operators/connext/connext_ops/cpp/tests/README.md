@@ -21,9 +21,9 @@ the native operators, the shared helper library, and the RTI Connext middleware.
 Execute the registered CTest target (from the same build tree):
 
 ```sh
-ctest --test-dir build -R test_connext_rx_integration -V
+ctest --test-dir build -R test_connext_ops_integration -V
 ```
 
-The helper target `connext_ops_cpp_tests` builds the `test_connext_rx_integration` executable so you can run it directly
+The helper target `connext_ops_cpp_tests` builds the `test_connext_ops_integration` executable so you can run it directly
 if preferred. Keep the RTI environment variables exported whenever the test is launched.
 

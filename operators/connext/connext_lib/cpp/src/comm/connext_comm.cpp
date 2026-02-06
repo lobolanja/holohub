@@ -33,7 +33,7 @@ MemoryBufferView ConnextRx::receive(std::chrono::milliseconds timeout) {
   void* data_ptr = nullptr;
   std::size_t size = 0;
   if (!payload_reader_->readNext(data_ptr, size, timeout)) {
-    HOLOSCAN_LOG_WARN("ConnextRx: no data received within timeout {} ms", timeout.count());
+    HOLOSCAN_LOG_INFO("ConnextRx: no data received within timeout {} ms", timeout.count());
     return {nullptr, 0, false};
   }
   if (data_ptr == nullptr || size == 0) {

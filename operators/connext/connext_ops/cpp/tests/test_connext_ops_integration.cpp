@@ -116,9 +116,13 @@ class TestReceiverOp : public Operator {
   HOLOSCAN_OPERATOR_FORWARD_ARGS(TestReceiverOp)
   TestReceiverOp() = default;
   std::string received_payload;
+  bool received_gpu_tensor = false;
+  
   void setup(OperatorSpec& spec) override {
     spec.input<nvidia::gxf::Entity>("input");
+    spec.param(expect_gpu_, "expect_gpu", "Expect GPU", "Expect GPU tensor for validation", false);
   }
+  
   void compute(InputContext& input, OutputContext&, ExecutionContext&) override {
     auto entity = input.receive<nvidia::gxf::Entity>("input").value();
     auto tensor = entity.get<nvidia::gxf::Tensor>("payload");
@@ -131,12 +135,25 @@ class TestReceiverOp : public Operator {
         size_t size = shape.dimension(0);
         
         // Check if data is on GPU or CPU
-        if (tensor_handle->storage_type() == nvidia::gxf::MemoryStorageType::kDevice) {
-          // Copy from GPU to CPU
+        const bool is_gpu = 
+            (tensor_handle->storage_type() == nvidia::gxf::MemoryStorageType::kDevice);
+        received_gpu_tensor = is_gpu;
+        
+        // Validate expected memory type
+        if (expect_gpu_.has_value() && expect_gpu_.get() && !is_gpu) {
+          throw std::runtime_error(
+              "TestReceiverOp: Expected GPU tensor but received CPU tensor");
+        }
+        
+        if (is_gpu) {
+          // Copy from GPU to CPU for validation
           std::vector<uint8_t> cpu_data(size);
           cudaError_t err = cudaMemcpy(cpu_data.data(), data, size, cudaMemcpyDeviceToHost);
           if (err == cudaSuccess) {
             received_payload.assign(reinterpret_cast<const char*>(cpu_data.data()), size);
+          } else {
+            throw std::runtime_error(
+                std::string("TestReceiverOp: cudaMemcpy failed: ") + cudaGetErrorString(err));
           }
         } else {
           // Data already on CPU
@@ -145,14 +162,18 @@ class TestReceiverOp : public Operator {
       }
     }
   }
+  
+ private:
+  Parameter<bool> expect_gpu_;
 };
 
 class ConnextOpsApp : public Application {
  public:
- ConnextOpsApp(bool enable_dds, bool enable_ano)
+  ConnextOpsApp(bool enable_dds, bool enable_ano)
       : enable_dds_(enable_dds), enable_ano_(enable_ano) {}
 
   const std::string& received_payload() const { return sink_op_->received_payload; }
+  bool received_gpu_tensor() const { return sink_op_->received_gpu_tensor; }
 
   void compose() override {
     auto source_count = make_condition<CountCondition>(10);
@@ -174,7 +195,8 @@ class ConnextOpsApp : public Application {
                                          Arg("topic_name", kTopicName),
                                          Arg("ano_channel", kAnoChannel),
                                          rx_count);
-    sink_op_ = make_operator<TestReceiverOp>("sink");
+    sink_op_ = make_operator<TestReceiverOp>("sink",
+                                              Arg("expect_gpu", enable_ano_));
 
     add_flow(source, tx, {{"output", "input"}});
     add_flow(rx, sink_op_, {{"output", "input"}});
@@ -196,7 +218,15 @@ void run_connext_tx_rx_roundtrip_test(bool enable_dds, bool enable_ano) {
     return;
   }
   
+  // Validate payload content
   RTI_TEST_ASSERT(app.received_payload() == kTestPayload);
+  
+  // Validate memory type: ANO should produce GPU tensors, DDS should produce CPU tensors
+  if (enable_ano && !enable_dds) {
+    RTI_TEST_ASSERT(app.received_gpu_tensor());
+  } else if (enable_dds && !enable_ano) {
+    RTI_TEST_ASSERT(!app.received_gpu_tensor());
+  }
 }
 
 class ConnextOpsIntegrationTester : public rti::test::Tester,

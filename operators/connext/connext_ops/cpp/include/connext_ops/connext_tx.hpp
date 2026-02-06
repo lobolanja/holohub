@@ -41,6 +41,16 @@ class ConnextTxOp : public Operator {
   Parameter<std::string> ano_buffer_id_;
   Parameter<uint64_t> ano_max_payload_;
   Parameter<std::string> destination_reference_;
+  
+  // ANO Network Configuration parameters
+  Parameter<std::string> ano_network_interface_;
+  Parameter<int> ano_gpu_device_id_;
+  Parameter<std::string> ano_fast_ip_;
+  Parameter<std::string> ano_fast_mac_address_;
+  Parameter<int> ano_fast_port_;
+  Parameter<uint16_t> ano_header_size_;
+  Parameter<uint16_t> ano_max_packet_size_;
+  Parameter<uint16_t> ano_queue_id_;
 
   connext_lib::DdsConfig dds_config_{};
   connext_lib::AnoConfig ano_config_{};

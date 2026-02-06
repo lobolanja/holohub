@@ -11,7 +11,9 @@ void ConnextTxOp::setup(OperatorSpec& spec) {
   spec.param(enable_dds_,
              "enable_dds",
              "Enable DDS",
-             "Toggle DDS transport usage.",
+             "Toggle DDS transport. Accepts both CPU and GPU tensors; GPU tensors are "
+             "automatically copied to CPU (incurs performance cost). For best performance, "
+             "provide CPU tensors (MemoryStorageType::kSystem) when using DDS.",
              true);
   spec.param(domain_id_, "domain_id", "DDS Domain ID", "DDS domain identifier.", 0);
   spec.param(topic_name_,
@@ -27,7 +29,9 @@ void ConnextTxOp::setup(OperatorSpec& spec) {
   spec.param(enable_ano_,
              "enable_ano",
              "Enable ANO transport",
-             "Toggle ANO transport fallback.",
+             "Toggle ANO transport with GPU Direct RDMA. REQUIRES GPU tensors "
+             "(MemoryStorageType::kDevice) for zero-copy transmission. Will throw error "
+             "if CPU tensor is received. Requires NVIDIA ConnectX NIC with GPUDirect RDMA.",
              false);
   spec.param(ano_channel_,
              "ano_channel",
@@ -49,6 +53,48 @@ void ConnextTxOp::setup(OperatorSpec& spec) {
              "Destination Reference",
              "Optional destination hint that writers use.",
              std::string(""));
+  
+  // ANO Network Configuration parameters
+  spec.param(ano_network_interface_,
+             "ano_network_interface",
+             "ANO Network Interface",
+             "Network interface name for ANO (e.g., 'eth0', 'enp1s0f0')",
+             std::string("eth0"));
+  spec.param(ano_gpu_device_id_,
+             "ano_gpu_device_id",
+             "ANO GPU Device ID",
+             "CUDA GPU device ID for GPUDirect operations",
+             0);
+  spec.param(ano_fast_ip_,
+             "ano_fast_ip",
+             "ANO Fast Path IP",
+             "IP address for ANO fast path communication",
+             std::string("192.168.10.10"));
+  spec.param(ano_fast_mac_address_,
+             "ano_fast_mac_address",
+             "ANO Fast Path MAC",
+             "MAC address for ANO fast path",
+             std::string("00:00:00:00:00:00"));
+  spec.param(ano_fast_port_,
+             "ano_fast_port",
+             "ANO Fast Path Port",
+             "UDP port for ANO fast path",
+             5000);
+  spec.param(ano_header_size_,
+             "ano_header_size",
+             "ANO Header Size",
+             "Network header size in bytes (Ethernet+IP+UDP, minimum 42)",
+             static_cast<uint16_t>(64));
+  spec.param(ano_max_packet_size_,
+             "ano_max_packet_size",
+             "ANO Max Packet Size",
+             "Maximum packet size (MTU constraint, typically 1500 or 9000)",
+             static_cast<uint16_t>(9000));
+  spec.param(ano_queue_id_,
+             "ano_queue_id",
+             "ANO Queue ID",
+             "Advanced Network TX queue ID",
+             static_cast<uint16_t>(0));
 }
 
 void ConnextTxOp::refresh_configs() {
@@ -57,11 +103,25 @@ void ConnextTxOp::refresh_configs() {
   dds_config_.set_topic_name(topic_name_.get());
   dds_config_.set_topic_type_name(topic_type_name_.get());
 
-  ano_config_ =
-      connext_lib::AnoConfig(ano_channel_.get(),
-                 ano_buffer_id_.get(),
-                 static_cast<std::size_t>(ano_max_payload_.get()),
-                 enable_ano_.get());
+  // Build ANO network configuration
+  connext_lib::AnoNetworkConfig ano_net_config(
+      ano_network_interface_.get(),
+      ano_gpu_device_id_.get(),
+      ano_fast_ip_.get(),
+      ano_fast_mac_address_.get(),
+      ano_fast_port_.get());
+  
+  ano_net_config.set_header_size(ano_header_size_.get());
+  ano_net_config.set_max_packet_size(ano_max_packet_size_.get());
+  ano_net_config.set_queue_id(ano_queue_id_.get());
+
+  // Build ANO configuration with network config
+  ano_config_ = connext_lib::AnoConfig(
+      ano_channel_.get(),
+      ano_buffer_id_.get(),
+      static_cast<std::size_t>(ano_max_payload_.get()),
+      enable_ano_.get(),
+      ano_net_config);
 }
 
 void ConnextTxOp::start() {
@@ -114,18 +174,44 @@ void ConnextTxOp::compute(InputContext& input, OutputContext& output, ExecutionC
 
   const auto payload_size = static_cast<std::size_t>(tensor->nbytes());
   
-  // Create MemoryBufferView for the tensor data
-  connext_lib::MemoryBufferView buffer;
-  buffer.ptr = data;
-  buffer.size_bytes = payload_size;
-  // When ANO is enabled, assume GPU memory. Otherwise CPU memory.
-  // Note: In production, the source operator should create GPU tensors explicitly for ANO
-  buffer.is_device = ano_config_.enabled();
-
-  if (dds_config_.enabled() && dds_writer_) {
-    dds_writer_->broadcast(buffer);
-  } else if (ano_config_.enabled() && ano_writer_) {
+  // Check if tensor is on GPU device using DLPack device type
+  const bool is_gpu_tensor = (tensor->device().device_type == kDLCUDA);
+  
+  // Validate memory type requirements based on transport mode
+  if (ano_config_.enabled()) {
+    // ANO mode requires GPU memory for zero-copy GPU Direct RDMA
+    if (!is_gpu_tensor) {
+      throw std::runtime_error(
+          "ConnextTxOp: ANO transport requires GPU memory (MemoryStorageType::kDevice), "
+          "but received CPU tensor. Ensure upstream operator outputs GPU tensors for ANO mode.");
+    }
+    
+    // Create buffer view with GPU pointer
+    connext_lib::MemoryBufferView buffer{data, payload_size, true};
     ano_writer_->broadcast(buffer);
+    
+  } else if (dds_config_.enabled()) {
+    // DDS mode: Accept both GPU and CPU tensors
+    // If GPU tensor, auto-copy to CPU (DDS requires host memory)
+    if (is_gpu_tensor) {
+      // GPU→CPU copy for DDS (incurs performance cost)
+      std::vector<std::uint8_t> cpu_data(payload_size);
+      cudaError_t err = cudaMemcpy(
+          cpu_data.data(), data, payload_size, cudaMemcpyDeviceToHost);
+      
+      if (err != cudaSuccess) {
+        throw std::runtime_error(
+            std::string("ConnextTxOp: Failed to copy GPU tensor to CPU for DDS: ") +
+            cudaGetErrorString(err));
+      }
+      
+      connext_lib::MemoryBufferView buffer{cpu_data.data(), payload_size, false};
+      dds_writer_->broadcast(buffer);
+    } else {
+      // CPU tensor: Direct transmission
+      connext_lib::MemoryBufferView buffer{data, payload_size, false};
+      dds_writer_->broadcast(buffer);
+    }
   }
 }
 

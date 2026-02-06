@@ -26,9 +26,8 @@ ANOPayloadWriter::ANOPayloadWriter(const AnoConfig& ano_config,
 }
 
 ANOPayloadWriter::~ANOPayloadWriter() {
-  std::lock_guard<std::mutex> g(writer_mutex_);
-  // TODO: free staged_gpu_ptr_ if allocated (cudaFree)
-
+  // staged_gpu_ptr_ is always a borrowed pointer from setBuffer() - caller owns it
+  // No cleanup needed
 }
 
 void ANOPayloadWriter::setBuffer(const MemoryBufferView& buffer) {
@@ -45,7 +44,7 @@ void ANOPayloadWriter::setBuffer(const MemoryBufferView& buffer) {
 
   std::lock_guard<std::mutex> g(writer_mutex_);
   
-  // Use the pointer directly (GPU or CPU)
+  // Use the pointer directly (GPU or CPU) - caller owns this memory
   staged_gpu_ptr_ = buffer.ptr;
   staged_size_ = buffer.size_bytes;
   HOLOSCAN_LOG_DEBUG("ANOPayloadWriter: staged buffer {} bytes", staged_size_);
