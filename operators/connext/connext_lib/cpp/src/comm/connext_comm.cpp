@@ -22,12 +22,22 @@ ConnextRx::ConnextRx(
   if (!receiver_manager_ || !payload_reader_) {
     throw std::invalid_argument("ConnextRx requires valid interfaces");
   }
-  if (!receiver_manager_->announce()) {
-    throw std::runtime_error("Receiver resources announcement failed");
-  }
+  // Start a thread to periodically call announce() every 400ms
+  announce_thread_ = std::thread([this]() {
+    std::lock_guard<std::mutex> lock(announce_mutex_);
+    while (!stop_announce_thread_) {
+      receiver_manager_->announce();
+      std::this_thread::sleep_for(std::chrono::milliseconds(400));
+    }
+  });
 }
 
-ConnextRx::~ConnextRx() = default;
+ConnextRx::~ConnextRx() {
+  stop_announce_thread_ = true;
+  if (announce_thread_.joinable()) {
+    announce_thread_.join();
+  }
+}
 
 MemoryBufferView ConnextRx::receive(std::chrono::milliseconds timeout) {
   void* data_ptr = nullptr;
@@ -81,7 +91,7 @@ bool ConnextTx::sendTo(const std::string& destination_reference) {
 std::size_t ConnextTx::broadcast() {
   std::size_t sent = 0;
   for (const auto& [destination, destination_info] : sender_manager_->destinations()) {
-    (void)destination;
+    
     if (payload_writer_->writeTo(destination_info)) {
       ++sent;
     }

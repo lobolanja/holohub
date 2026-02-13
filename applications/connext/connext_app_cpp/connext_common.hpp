@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <holoscan/holoscan.hpp>
+#include <cuda_runtime.h>
 
 namespace connext_demo {
 
@@ -45,6 +46,7 @@ class PayloadSourceOp : public holoscan::Operator {
 
  private:
   holoscan::Parameter<std::string> base_payload_;
+  holoscan::Parameter<bool> use_gpu_memory_;
   int emitted_count_ = 0;
 };
 

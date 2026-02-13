@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+#include <thread>
 #include "connext_lib/transport/payload_transport.hpp"
 #include "connext_lib/resource/resource_managers.hpp"
 
@@ -46,6 +47,9 @@ class ConnextRx {
  private:
   std::unique_ptr<ReceiverResourcesManagerInterface> receiver_manager_;
   std::unique_ptr<PayloadReaderInterface> payload_reader_;
+  std::thread announce_thread_;
+  std::mutex announce_mutex_;
+  bool stop_announce_thread_ = false;
 };
 
 }  // namespace connext_lib

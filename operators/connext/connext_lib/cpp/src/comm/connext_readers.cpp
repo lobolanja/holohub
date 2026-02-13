@@ -1,5 +1,5 @@
 #include "connext_lib/comm/connext_readers.hpp"
-#include "connext_lib/resource/resource_managers_dds.hpp"
+#include "connext_lib/resource/resource_managers_idl.hpp"
 #include "connext_lib/transport/payload_transport_dds.hpp"
 #include "connext_lib/transport/payload_transport_ano.hpp"
 #include "connext_lib/comm/connext_rx.hpp"
@@ -23,6 +23,7 @@ ConnextDDSReader::ConnextDDSReader(const DdsConfig& dds_config, std::chrono::mil
 MemoryBufferView ConnextDDSReader::readSamples() const {
     void* data_ptr = nullptr;
     std::size_t size = 0;
+    //TODO: change poll_interval_ms_ for timeout_ms 
     if (payload_reader_->readNext(data_ptr, size, poll_interval_ms_)) {
         if (data_ptr && size > 0) {
             // Return pointer without copying - caller must call freeBuffer()
@@ -44,10 +45,14 @@ ConnextANOReader::ConnextANOReader(const AnoConfig& ano_config, const DdsConfig&
 
     int domain_id = dds_config.domain_id();
     
-    // Create DDS-based resource manager for discovery
-    dds::domain::DomainParticipant dp(domain_id);
+    // Create IDL-based resource manager for discovery
+    
+    //dds::domain::qos::DomainParticipantQos participant_qos = dds::core::QosProvider::Default().participant_qos();
+    //participant_qos << dds::core::policy::EntityFactory::ManuallyEnable();
+    dds::domain::DomainParticipant dp(domain_id);  
+
     std::unique_ptr<ReceiverResourcesManagerInterface> receiver_manager =
-        std::make_unique<DdsReceiverResourcesManager>(dp, ano_config);
+        std::make_unique<DdsIdlReceiverResourcesManager>(dp, ano_config);
     
     // Create ANO payload reader from AnoConfig (buffer id / network config inside)
     std::unique_ptr<PayloadReaderInterface> payload_reader =

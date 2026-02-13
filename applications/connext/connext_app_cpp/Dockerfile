@@ -15,17 +15,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG BASE_IMAGE
-ARG GPU_TYPE
-
 ############################################################
 # Base image
 ############################################################
 
-ARG BASE_IMAGE
-ARG GPU_TYPE
-
-FROM ${BASE_IMAGE} AS base
+FROM holohub:adv_networking_bench  AS base
 
 ARG DEBIAN_FRONTEND=noninteractive
 

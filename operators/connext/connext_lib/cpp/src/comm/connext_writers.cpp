@@ -1,7 +1,7 @@
 #include "connext_lib/config/config.hpp"
 #include "connext_lib/comm/connext_writers.hpp"
 #include "connext_lib/comm/connext_tx.hpp"
-#include "connext_lib/resource/resource_managers_dds.hpp"
+#include "connext_lib/resource/resource_managers_idl.hpp"
 #include "connext_lib/transport/payload_transport_dds.hpp"
 #include "connext_lib/transport/payload_transport_ano.hpp"
 #include "dds/dds.hpp"
@@ -16,7 +16,7 @@ ConnextANOWriter::ConnextANOWriter(const AnoConfig& ano_config, const DdsConfig&
     : poll_interval_ms_(poll_interval_ms) {
     int domain_id = dds_config.domain_id();
     dds::domain::DomainParticipant dp(domain_id);
-    auto sender_manager = std::make_unique<DdsSenderResourcesManager>(dp, ano_config.channel_name());
+    auto sender_manager = std::make_unique<DdsIdlSenderResourcesManager>(dp, ano_config.channel_name());
     auto payload_writer = MakeANOPayloadWriter(ano_config);
     tx_ = std::make_unique<ConnextTx>(std::move(sender_manager), std::move(payload_writer), poll_interval_ms_);
 }

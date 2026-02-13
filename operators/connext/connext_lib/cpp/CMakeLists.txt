@@ -5,6 +5,9 @@ enable_language(CXX)
 include(GNUInstallDirs)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../../cmake/modules")
 
+# Generate IDL type library for ResourceAnnouncement
+add_rti_type_library(ResourceAnnouncement ${CMAKE_CURRENT_SOURCE_DIR}/../idl/ResourceAnnouncement.idl)
+
 set(CONNEXT_LIB_CPP_SOURCES
     src/config/config.cpp
     src/comm/connext_comm.cpp
@@ -15,6 +18,7 @@ set(CONNEXT_LIB_CPP_SOURCES
     src/transport/sender_factory.cpp
     src/resource/resource_managers.cpp
     src/resource/resource_managers_dds.cpp
+    src/resource/resource_managers_idl.cpp
 )
 
 add_library(connext_lib STATIC ${CONNEXT_LIB_CPP_SOURCES})
@@ -29,9 +33,14 @@ target_include_directories(connext_lib
 
 target_compile_features(connext_lib PUBLIC cxx_std_17)
 
-target_link_libraries(connext_lib PUBLIC RTIConnextDDS::cpp2_api)
+target_link_libraries(connext_lib PUBLIC RTIConnextDDS::cpp2_api ResourceAnnouncement)
 target_link_libraries(connext_lib PRIVATE connext_ano_lib)
 target_compile_definitions(connext_lib PUBLIC CONNEXT_LIB_HAS_RTI=1)
+
+# Make ResourceAnnouncement include paths available
+target_include_directories(connext_lib PUBLIC
+  $<TARGET_PROPERTY:ResourceAnnouncement,INTERFACE_INCLUDE_DIRECTORIES>
+)
 
 # Make connext_ano_lib include paths available to all consumers
 target_include_directories(connext_lib PUBLIC
@@ -78,6 +87,10 @@ if(BUILD_TESTING)
   target_link_libraries(connext_lib_resource_managers_dds_tests PRIVATE connext_lib RTIConnextDDS::test)
   add_test(NAME connext_lib_resource_managers_dds_tests COMMAND connext_lib_resource_managers_dds_tests)
 
+  add_executable(connext_lib_resource_managers_idl_tests tests/resource_managers_idl_tests.cpp)
+  target_link_libraries(connext_lib_resource_managers_idl_tests PRIVATE connext_lib RTIConnextDDS::test ResourceAnnouncement)
+  add_test(NAME connext_lib_resource_managers_idl_tests COMMAND connext_lib_resource_managers_idl_tests)
+
   add_executable(connext_lib_comm_tests tests/connext_comm_tests.cpp)
   target_link_libraries(connext_lib_comm_tests PRIVATE connext_lib RTIConnextDDS::test RTIConnextDDS::test_helpers)
   add_test(NAME connext_lib_comm_tests COMMAND connext_lib_comm_tests)
@@ -103,6 +116,7 @@ if(BUILD_TESTING)
       connext_lib_payload_transport_ano_tests
       connext_lib_payload_transport_ano_reader_tests
       connext_lib_resource_managers_dds_tests
+      connext_lib_resource_managers_idl_tests
       connext_lib_comm_tests
       connext_lib_ano_integration_tests
       connext_lib_dds_integration_tests
@@ -123,6 +137,8 @@ if(BUILD_TESTING)
       connext_lib_payload_transport_dds_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
     set_tests_properties(
       connext_lib_resource_managers_dds_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
+    set_tests_properties(
+      connext_lib_resource_managers_idl_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
     set_tests_properties(
       connext_lib_comm_tests PROPERTIES ENVIRONMENT "${CONNEXT_LIB_TEST_ENV}")
     set_tests_properties(

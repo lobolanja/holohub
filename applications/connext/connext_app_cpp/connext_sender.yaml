@@ -2,6 +2,38 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 ---
+# Advanced Network Configuration for TX
+advanced_network:
+  cfg:
+    version: 1
+    manager: "dpdk"
+    master_core: 3
+    debug: false
+    log_level: "info"
+    # loopback: "sw"  # Use "sw" for loopback testing, comment out for physical NICs
+
+    memory_regions:
+    - name: "Data_TX_GPU"
+      kind: "device"
+      affinity: 0
+      num_bufs: 51200
+      buf_size: 1064
+
+    interfaces:
+    - name: "tx_interface"
+      address: "0005:03:00.0"  # Physical NIC for TX
+      tx:
+        queues:
+        - name: "tx_q_0"
+          id: 0
+          batch_size: 1024
+          cpu_core: 10
+          timeout_us: 1000
+          memory_regions:
+            - "Data_TX_GPU"
+          offloads:
+            - "tx_eth_src"
+
 demo:
   mode: tx
   message_count: 0
@@ -10,6 +42,7 @@ demo:
 
 payload_source:
   base_payload: hello_holoscan
+  use_gpu_memory: true
 
 connext_tx:
   enable_dds: false
@@ -21,3 +54,15 @@ connext_tx:
   ano_buffer_id: connext_demo_buffer
   ano_max_payload: 4096
   destination_reference: ""
+
+  #TODO: study fast_port automatic setup
+  
+  # ANO Network Configuration (for GPU Direct)
+  ano_network_interface: tx_interface
+  ano_gpu_device_id: 0
+  ano_fast_ip: 192.168.10.10
+  ano_fast_mac_address: "3c:6d:66:11:91:55" # TODO:review if this is still needed
+  ano_fast_port: 5000 
+  ano_header_size: 64
+  ano_max_packet_size: 9000
+  ano_queue_id: 0

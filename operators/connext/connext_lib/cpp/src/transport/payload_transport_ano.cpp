@@ -75,7 +75,7 @@ bool ANOPayloadWriter::writeTo(const std::string& destination_reference) {
       std::lock_guard<std::mutex> g(writer_mutex_);
       sender->send(staged_gpu_ptr_, staged_size_);
       //sender->flush(100);  // flush with 100ms timeout
-      HOLOSCAN_LOG_DEBUG("ANOPayloadWriter: sent {} bytes to destination {}", staged_size_, destination_reference);
+      HOLOSCAN_LOG_INFO("ANOPayloadWriter: sent {} bytes to destination {}", staged_size_, destination_reference);
     }
     
   } catch (const std::exception& e) {

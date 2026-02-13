@@ -34,15 +34,15 @@ class DdsReceiverResourcesManager : public ReceiverResourcesManagerInterface {
   /**
    * Applies DDS properties to the receiver entity.
    */
-  bool applyProperties(const ReceiverPropertySet& properties);
+  dds::pub::qos::DataWriterQos applyProperties(const ReceiverPropertySet& properties);
   /**
    * Returns the receiver's DDS GUID as a string.
    */
   [[nodiscard]] std::string guidString() const;
   dds::domain::DomainParticipant participant_;
-  dds::sub::Subscriber subscriber_;
+  dds::pub::Publisher publisher_;
   dds::topic::Topic<dds::core::BytesTopicType> topic_;
-  dds::sub::DataReader<dds::core::BytesTopicType> reader_;
+  dds::pub::DataWriter<dds::core::BytesTopicType> writer_;
   std::string buffer_id_;
   std::string channel_;
   connext_lib::AnoConfig ano_config_;
@@ -65,10 +65,10 @@ class DdsSenderResourcesManager : public AbstractSenderResourcesManager {
   void pollOnce() override;
  private:
   dds::domain::DomainParticipant participant_;
-  dds::pub::Publisher publisher_;
+  dds::sub::Subscriber subscriber_;
   dds::topic::Topic<dds::core::BytesTopicType> topic_;
-  dds::pub::DataWriter<dds::core::BytesTopicType> writer_;
-  dds::sub::DataReader<dds::topic::SubscriptionBuiltinTopicData> subscription_reader_;
+  dds::sub::DataReader<dds::core::BytesTopicType> reader_;
+  dds::sub::DataReader<dds::topic::PublicationBuiltinTopicData> subscription_reader_;
   std::string channel_filter_;
 };
 

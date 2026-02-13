@@ -714,7 +714,7 @@ struct YAML::convert<holoscan::advanced_network::NetworkConfig> {
           input_spec.ifs_.push_back(ifcfg);
         }
       } catch (const std::exception& e) {
-        GXF_LOG_ERROR(e.what());
+        HOLOSCAN_LOG_ERROR("{}", e.what());
         return false;
       }
 
@@ -722,7 +722,7 @@ struct YAML::convert<holoscan::advanced_network::NetworkConfig> {
 
       return true;
     } catch (const std::exception& e) {
-      GXF_LOG_ERROR(e.what());
+      HOLOSCAN_LOG_ERROR("{}", e.what());
       return false;
     }
   }

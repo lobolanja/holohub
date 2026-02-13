@@ -2,6 +2,46 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 ---
+# Advanced Network Configuration for RX
+advanced_network:
+  cfg:
+    version: 1
+    manager: "dpdk"
+    master_core: 3
+    debug: false
+    log_level: "info"
+    # loopback: "sw"  # Use "sw" for loopback testing, comment out for physical NICs
+
+    memory_regions:
+    - name: "Data_RX_GPU"
+      kind: "device"
+      affinity: 0
+      num_bufs: 51200
+      buf_size: 1064
+    #TODO: How many queues and buffers do we need for RX?
+    interfaces:
+    - name: "rx_interface"
+      address: "0005:03:00.1"  # Physical NIC for RX
+      rx:
+        queues:
+        - name: "rx_q_0"
+          id: 0  # Use RX queue 0 for matched packets
+          cpu_core: 8
+          timeout_us: 1000
+          batch_size: 10240
+          memory_regions:
+            - "Data_RX_GPU"
+        flows:
+        - name: "flow_0"
+          id: 0
+          action:
+            type: queue
+            id: 0  # Direct matched packets to RX queue 0
+          match:
+            udp_src: 5000
+            udp_dst: 5000
+            # ipv4_len: 1050
+
 demo:
   mode: rx
   message_count: 0
@@ -10,13 +50,24 @@ demo:
 
 payload_source:
   base_payload: hello_holoscan
+  use_gpu_memory: true
 
 connext_rx:
   enable_dds: false
   enable_ano: true
   domain_id: 2
   topic_name: ConnextDemoTopic
-  topic_type_name: ""
+  topic_type_name: "" #TODO: review if this is still needed
   ano_channel: connext_demo_channel
-  ano_buffer_id: connext_demo_buffer
+  ano_buffer_id: connext_demo_buffer #TODO: review if this is still needed
   ano_max_payload: 4096
+  
+  # ANO Network Configuration (for GPU Direct)
+  ano_network_interface: rx_interface
+  ano_gpu_device_id: 0
+  ano_fast_ip: 192.168.10.11
+  ano_fast_mac_address: "3c:6d:66:11:91:56"
+  ano_fast_port: 5000
+  ano_header_size: 64
+  ano_max_packet_size: 9000
+  ano_queue_id: 0

@@ -51,14 +51,13 @@ class DdsResourceManagersTester
     const std::string buffer_id = "buffer_dds";
     dds::domain::DomainParticipant receiver_participant(domain_id());
     dds::domain::DomainParticipant sender_participant(domain_id());
-    // Enable GPUDirect properties on the announced receiver so the sender
-    // registers a canonical serialized DestinationInfo.
+    
     connext_lib::AnoNetworkConfig gpu_cfg("eth0", 0);
     connext_lib::AnoConfig ano_cfg(channel, buffer_id, 1024, true, gpu_cfg);
-    connext_lib::DdsReceiverResourcesManager receiver(
-      receiver_participant, ano_cfg);
     connext_lib::DdsSenderResourcesManager sender(
         sender_participant, channel);
+    connext_lib::DdsReceiverResourcesManager receiver(
+      receiver_participant, ano_cfg);
     // Build expected destination string from the GPU config (ip:port:mac)
     const std::string expected = connext_lib::DestinationInfo{
         gpu_cfg.fast_ip(),

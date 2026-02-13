@@ -5,6 +5,7 @@
 #include <chrono>
 #include <thread>
 
+#include <advanced_network/common.h>
 #include <connext_ops/connext_rx.hpp>
 #include <connext_ops/connext_tx.hpp>
 #include <holoscan/core/conditions/gxf/count.hpp>
@@ -25,6 +26,11 @@ namespace connext_demo {
 void PayloadSourceOp::setup(holoscan::OperatorSpec& spec) {
   spec.output<nvidia::gxf::Entity>("output");
   spec.param(base_payload_, "base_payload", "Base Payload", "Base payload string.");
+  spec.param(use_gpu_memory_,
+             "use_gpu_memory",
+             "Use GPU Memory",
+             "Allocate tensors in GPU memory for ANO transport (true) or CPU memory for DDS (false)",
+             false);
 }
 
 void PayloadSourceOp::start() {
@@ -39,9 +45,6 @@ void PayloadSourceOp::compute(holoscan::InputContext&, holoscan::OutputContext& 
 
   std::cout << "PayloadSource sending payload: " << message << std::endl;
 
-  auto payload_storage =
-      std::make_shared<std::vector<std::uint8_t>>(message.begin(), message.end());
-
   auto entity = nvidia::gxf::Entity::New(context.context());
   if (!entity) {
     throw std::runtime_error("Failed to allocate entity for payload source.");
@@ -52,22 +55,61 @@ void PayloadSourceOp::compute(holoscan::InputContext&, holoscan::OutputContext& 
     throw std::runtime_error("Failed to add payload tensor to entity in payload source.");
   }
 
-  nvidia::gxf::Shape payload_shape{static_cast<int32_t>(payload_storage->size())};
+  nvidia::gxf::Shape payload_shape{static_cast<int32_t>(message.size())};
 
-  auto wrap_result = payload_tensor.value()->wrapMemory(
-      payload_shape,
-      nvidia::gxf::PrimitiveType::kUnsigned8,
-      sizeof(std::uint8_t),
-      nvidia::gxf::ComputeTrivialStrides(payload_shape, sizeof(std::uint8_t)),
-      nvidia::gxf::MemoryStorageType::kSystem,
-      payload_storage->data(),
-      [payload_storage](void*) mutable {
-        payload_storage.reset();
-        return nvidia::gxf::Success;
-      });
+  if (use_gpu_memory_.get()) {
+    // ANO mode: Allocate GPU memory for zero-copy transmission
+    void* gpu_ptr = nullptr;
+    cudaError_t err = cudaMalloc(&gpu_ptr, message.size());
+    if (err != cudaSuccess) {
+      throw std::runtime_error("Failed to allocate GPU memory: " +
+                               std::string(cudaGetErrorString(err)));
+    }
 
-  if (!wrap_result) {
-    throw std::runtime_error("Failed to wrap payload storage into tensor in payload source.");
+    // Copy data to GPU
+    err = cudaMemcpy(gpu_ptr, message.data(), message.size(), cudaMemcpyHostToDevice);
+    if (err != cudaSuccess) {
+      cudaFree(gpu_ptr);
+      throw std::runtime_error("Failed to copy to GPU: " + std::string(cudaGetErrorString(err)));
+    }
+
+    // Wrap GPU memory with custom deleter
+    auto wrap_result = payload_tensor.value()->wrapMemory(
+        payload_shape,
+        nvidia::gxf::PrimitiveType::kUnsigned8,
+        sizeof(std::uint8_t),
+        nvidia::gxf::ComputeTrivialStrides(payload_shape, sizeof(std::uint8_t)),
+        nvidia::gxf::MemoryStorageType::kDevice,
+        gpu_ptr,
+        [gpu_ptr](void*) mutable {
+          cudaFree(gpu_ptr);
+          return nvidia::gxf::Success;
+        });
+
+    if (!wrap_result) {
+      cudaFree(gpu_ptr);
+      throw std::runtime_error("Failed to wrap GPU memory into tensor in payload source.");
+    }
+  } else {
+    // DDS mode: Use CPU memory
+    auto payload_storage =
+        std::make_shared<std::vector<std::uint8_t>>(message.begin(), message.end());
+
+    auto wrap_result = payload_tensor.value()->wrapMemory(
+        payload_shape,
+        nvidia::gxf::PrimitiveType::kUnsigned8,
+        sizeof(std::uint8_t),
+        nvidia::gxf::ComputeTrivialStrides(payload_shape, sizeof(std::uint8_t)),
+        nvidia::gxf::MemoryStorageType::kSystem,
+        payload_storage->data(),
+        [payload_storage](void*) mutable {
+          payload_storage.reset();
+          return nvidia::gxf::Success;
+        });
+
+    if (!wrap_result) {
+      throw std::runtime_error("Failed to wrap payload storage into tensor in payload source.");
+    }
   }
 
   output.emit(entity.value(), "output");
@@ -98,7 +140,24 @@ void PayloadSinkOp::compute(holoscan::InputContext& input, holoscan::OutputConte
   if (shape.rank() == 0) { return; }
 
   const auto length = static_cast<std::size_t>(shape.dimension(0));
-  std::string payload(reinterpret_cast<const char*>(data), length);
+
+  // Check if tensor is on GPU
+  bool is_gpu_tensor = (tensor->storage_type() == nvidia::gxf::MemoryStorageType::kDevice);
+
+  std::string payload;
+  if (is_gpu_tensor) {
+    // GPU tensor: Copy to CPU before processing
+    std::vector<std::uint8_t> cpu_data(length);
+    cudaError_t err = cudaMemcpy(cpu_data.data(), data, length, cudaMemcpyDeviceToHost);
+    if (err != cudaSuccess) {
+      throw std::runtime_error("Failed to copy GPU tensor to CPU: " +
+                               std::string(cudaGetErrorString(err)));
+    }
+    payload = std::string(reinterpret_cast<const char*>(cpu_data.data()), length);
+  } else {
+    // CPU tensor: Direct access
+    payload = std::string(reinterpret_cast<const char*>(data), length);
+  }
 
   std::cout << "PayloadSink received payload: " << payload << std::endl;
 
@@ -231,6 +290,19 @@ void ConnextDemoApp::compose() {
   demo_config_ = load_demo_config();
   received_payloads_ = std::make_shared<std::vector<std::string>>();
 
+  // Initialize advanced network if ANO transport is enabled 
+  if (!demo_config_.use_dds) {
+    try {
+      auto adv_net_config = from_config("advanced_network").as<holoscan::advanced_network::NetworkConfig>();
+      if (holoscan::advanced_network::adv_net_init(adv_net_config) != holoscan::advanced_network::Status::SUCCESS) {
+        throw std::runtime_error("Failed to initialize advanced network manager");
+      }
+      HOLOSCAN_LOG_INFO("Advanced network manager initialized successfully");
+    } catch (const std::exception& e) {
+      throw std::runtime_error("Failed to load or initialize advanced_network configuration: " + std::string(e.what()));
+    }
+  }
+
   if (demo_config_.mode == DemoMode::kTx) {
     configure_tx_operators();
   } else {
@@ -249,8 +321,14 @@ void ConnextDemoApp::configure_tx_operators() {
         "payload_source_period", std::chrono::milliseconds(demo_config_.message_period_ms));
   }
 
+  // Determine if GPU memory should be used (ANO mode requires GPU memory)
+  bool use_gpu = !demo_config_.use_dds;
+
   auto source = make_operator<PayloadSourceOp>(
-      "payload_source", from_config("payload_source"), source_condition);
+      "payload_source",
+      from_config("payload_source"),
+      source_condition,
+      Arg("use_gpu_memory") = use_gpu);
 
   auto tx = make_operator<holoscan::ops::ConnextTxOp>("connext_tx", from_config("connext_tx"));
 
@@ -262,19 +340,21 @@ void ConnextDemoApp::configure_tx_operators() {
 
   if (demo_config_.message_count > 0) {
     HOLOSCAN_LOG_INFO(
-        "Connext sender configured. transport={}, payload='{}', iterations={}, period_ms={}, discovery_wait_ms={}",
+        "Connext sender configured. transport={}, payload='{}', iterations={}, period_ms={}, discovery_wait_ms={}, gpu_memory={}",
         demo_config_.use_dds ? "dds" : "ano",
         demo_config_.payload,
         demo_config_.message_count,
         demo_config_.message_period_ms,
-        demo_config_.discovery_wait_ms);
+        demo_config_.discovery_wait_ms,
+        use_gpu);
   } else {
     HOLOSCAN_LOG_INFO(
-        "Connext sender configured. transport={}, payload='{}', iterations=continuous, period_ms={}, discovery_wait_ms={}",
+        "Connext sender configured. transport={}, payload='{}', iterations=continuous, period_ms={}, discovery_wait_ms={}, gpu_memory={}",
         demo_config_.use_dds ? "dds" : "ano",
         demo_config_.payload,
         demo_config_.message_period_ms,
-        demo_config_.discovery_wait_ms);
+        demo_config_.discovery_wait_ms,
+        use_gpu);
   }
 }
 
@@ -285,6 +365,7 @@ void ConnextDemoApp::configure_rx_operators() {
   if (demo_config_.message_count > 0) {
     rx_condition = make_condition<CountCondition>(demo_config_.message_count);
   } else {
+    //TODO: change poll_interval_ms_ for timeout_ms 
     rx_condition = make_condition<PeriodicCondition>(
         "rx_poll_period", std::chrono::milliseconds(demo_config_.message_period_ms));
   }

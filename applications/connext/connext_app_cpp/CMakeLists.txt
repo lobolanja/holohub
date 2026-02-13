@@ -13,6 +13,7 @@ add_executable(connext_sender_receiver
 
 target_compile_features(connext_sender_receiver PRIVATE cxx_std_17)
 
+# TODO: change the name to connext_demo_app
 target_link_libraries(connext_sender_receiver
   PRIVATE
     holoscan::core

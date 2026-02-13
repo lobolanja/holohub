@@ -1,6 +1,6 @@
-# Connext Application simulating ANO path using DDS (C++)
+# Connext Example Application for Connext Holoscan Operator(C++)
 
-This application is used for Integration porpuses with RTI Connext DDS and ANO transport using C++ Holoscan operators. But it does not implement the ANO transport, it simulates it using DDS transport.
+This application is used for Integration porpuses with RTI Connext DDS and ANO transport using C++ Holoscan operators.
 
 ## Dependencies
 :warning: All those dependencies are already installed if you use the devcontainer provided with this application (Look in metadata.json). if that is the case you can jump directly to the C++ Holoscan Application section.
@@ -58,7 +58,7 @@ export RTI_LICENSE_FILE=</path/to/rti_license.dat>
 
 If this variable is not set or points to an invalid file, the application will not start.
 
-## C++ Holoscan Application
+## C++ Holoscan Demo Application
 
 Before running the application, ensure that you have the rti_license.dat file in the holohub root folder or change the path in the run commands below.
 
@@ -69,11 +69,13 @@ Please Notice that this instruction are for building inside the dockerfile under
 Build the C++ example from the Holohub root.
 
 ```sh
-./holohub build connext_app_cpp --build-type debug 
+./holohub build connext_app_cpp --build-type debug --configure-args="-DCONNEXTDDS_ARCH=armv8Linux4gcc7.3.0"
+
 ```
 you can use the --local flag to keep all build artifacts under the host machine instead of the container:
 ```sh
-./holohub build connext_app_cpp --build-type debug --local
+./holohub build connext_app_cpp --build-type debug --local --configure-args="-DCONNEXTDDS_ARCH=armv8Linux4gcc7.3.0"
+
 ```
 
 ## Run
@@ -100,7 +102,8 @@ ID and topic name must match, as do ANO channel and buffer identifiers.
 
 Terminal 1 (transmitter):
 ```sh
-./holohub run connext_app_cpp --run-args="/workspace/holohub/build/connext_app_cpp/applications/connext/connext_app_cpp/connext_sender.yaml" --docker-opts="-v ./rti_license.dat:/opt/rti.com/rti_connext_dds-7.3.0/rti_license.dat"
+./holohub run connext_app_cpp --run-args="/workspace/holohub/build/connext_app_cpp/applications/connext/connext_app_cpp/connext_sender.yaml" --docker-opts="-v ./rti_license.dat:/opt/rti.com/rti_connext_dds-7.3.0/rti_license.dat" --cap-add=SYS_ADMIN --cap-add=IPC_LOCK --cap-add=NET_ADMIN --device=/dev/hugepages:/dev/hugepages --ulimit memlock=-1:-1 --privileged -v /dev/hugepages:/dev/hugepage" --configure-args="-DCONNEXTDDS_ARCH=armv8Linux4gcc7.3.0"
+
 ```
 
 for running those commands in the IGX, you have to add the architecture by adding the --configure-args="-DCONNEXTDDS_ARCH=armv8Linux4gcc7.3.0" to the holohub run command.
@@ -121,3 +124,4 @@ Receiver:
 ```sh
 ./holohub run connext_app_cpp --run-args="applications/connext/connext_app_cpp/connext_receiver.yaml" --local
 ```
+:warning: DPDK doesn't allow to run the sender and receiver under the same container ot host. But you can run them in different containers from the same host.

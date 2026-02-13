@@ -1,0 +1,19 @@
+// IDL definition for ANO Resource Discovery
+// This replaces DDS built-in discovery with explicit messaging
+
+module connext_lib {
+    
+    enum RegistrationAction {
+        REGISTER,
+        UNREGISTER
+    };
+    
+    struct ResourceAnnouncement {
+        @key string<256> buffer_id;      // DataWriter GUID - instance key
+        string<256> channel;               // ANO channel name
+        string<64> fast_dest_ip;          // Fast path destination IP
+        string<32> fast_dest_mac;         // Fast path destination MAC
+        uint16 fast_dest_port;            // Fast path destination port
+        RegistrationAction action;        // Register or Unregister
+    };
+};
