@@ -1,0 +1,109 @@
+%YAML 1.2
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+---
+# E2E Test Configuration - ANO Mode (Loopback)
+enable_dds: false
+enable_ano: true
+domain_id: 42
+topic_name: "E2ETestTopic"
+ano_channel: "E2ETestChannel"
+expected_payload: "integration_test_payload"
+
+# Time-based test configuration
+test_duration_seconds: 25       # Run test for 25 seconds (ANO needs more time)
+message_period_ms: 1000         # Send message every 1000ms (1 msg/sec)
+expected_message_count: 18      # With 7s delays, ~18s effective time = 18 messages
+success_threshold_percent: 90   # Pass if we receive >= 90% (16/18 messages)
+
+# RX Polling Configuration
+rx_poll_period_ms: 50           # Poll every 50ms (ANO needs faster polling)
+
+# TX Configuration
+tx_start_delay_ms: 5000         # Wait 5s for ANO/DPDK initialization
+discovery_wait_ms: 0            # No discovery needed for ANO
+
+scheduler:
+  check_recession_period_ms: 0
+  worker_thread_number: 5
+  stop_on_deadlock: false
+
+# Advanced Network Configuration for ANO loopback mode
+advanced_network:
+  cfg:
+    version: 1
+    manager: "dpdk"
+    master_core: 3
+    debug: false
+    log_level: "info"
+    loopback: "sw"
+
+    memory_regions:
+    - name: "Data_TX_GPU"
+      kind: "device"
+      affinity: 0
+      num_bufs: 51200
+      buf_size: 1064
+    - name: "Data_RX_GPU"
+      kind: "device"
+      affinity: 0
+      num_bufs: 51200
+      buf_size: 1064
+
+    interfaces:
+    - name: "loopback_ports"
+      address: "loopback"
+      tx:
+        queues:
+        - name: "tx_q_0"
+          id: 0
+          batch_size: 10240
+          cpu_core: 11
+          timeout_us: 1000
+          memory_regions:
+            - "Data_TX_GPU"
+          offloads:
+            - "tx_eth_src"
+      rx:
+        queues:
+        - name: "rx_q_0"
+          id: 0
+          cpu_core: 9
+          timeout_us: 1000
+          batch_size: 10240
+          memory_regions:
+            - "Data_RX_GPU"
+
+tx:
+  enable_dds: false
+  enable_ano: true
+  domain_id: 42
+  topic_name: "E2ETestTopic"
+  ano_channel: "E2ETestChannel"
+  
+  # ANO Network Configuration (for GPU Direct)
+  ano_network_interface: loopback_ports
+  ano_gpu_device_id: 0
+  ano_fast_ip: 192.168.10.10
+  ano_fast_mac_address: "3c:6d:66:11:91:55"
+  ano_fast_port: 5000
+  ano_header_size: 64
+  ano_max_packet_size: 9000
+  ano_queue_id: 0
+
+rx:
+  enable_dds: false
+  enable_ano: true
+  domain_id: 42
+  topic_name: "E2ETestTopic"
+  ano_channel: "E2ETestChannel"
+  
+  # ANO Network Configuration (for GPU Direct)
+  ano_network_interface: loopback_ports
+  ano_gpu_device_id: 0
+  ano_fast_ip: 192.168.10.11
+  ano_fast_mac_address: "3c:6d:66:11:91:56"
+  ano_fast_port: 5000
+  ano_header_size: 64
+  ano_max_packet_size: 9000
+  ano_queue_id: 0
