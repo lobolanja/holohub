@@ -74,59 +74,9 @@ if(BUILD_TESTING)
   )
   add_test(NAME test_connext_ops_integration COMMAND test_connext_ops_integration)
 
-  # E2E TX application
-  add_executable(e2e_tx_app tests/e2e_tx_app.cpp)
-  target_include_directories(e2e_tx_app
-    PRIVATE
-      ${CMAKE_CURRENT_SOURCE_DIR}/../../connext_lib/cpp/tests
-  )
-  target_link_libraries(e2e_tx_app
-    PRIVATE
-      connext_ops
-      holoscan::core
-      holoscan::ops::connext_lib
-      CUDA::cudart
-  )
-
-  # E2E RX application
-  add_executable(e2e_rx_app tests/e2e_rx_app.cpp)
-  target_include_directories(e2e_rx_app
-    PRIVATE
-      ${CMAKE_CURRENT_SOURCE_DIR}/../../connext_lib/cpp/tests
-  )
-  target_link_libraries(e2e_rx_app
-    PRIVATE
-      connext_ops
-      holoscan::core
-      holoscan::ops::connext_lib
-      CUDA::cudart
-  )
-
-  # Copy test files to build directory
-  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/tests/conftest.py"
-       DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/tests")
-  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/tests/process_utils.py"
-       DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/tests")
-  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_e2e_connext_ops.py"
-       DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/tests")
-  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e_config_dds.yaml"
-       DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
-  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e_config_ano.yaml"
-       DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
-
-  # Register Python E2E tests with CTest
-  include(add_python_tests)
-  add_python_tests(
-    INPUT "tests"
-    PYTEST_ARGS "-v" "-s" "--log-cli-level=DEBUG" "--show-capture=no" 
-                "--workdir=${CMAKE_CURRENT_BINARY_DIR}"
-  )
-
   add_custom_target(connext_ops_cpp_tests
           DEPENDS
           test_connext_ops_integration
-          e2e_tx_app
-          e2e_rx_app
   )
   
   set(CONNEXT_LIB_TEST_ENV "")

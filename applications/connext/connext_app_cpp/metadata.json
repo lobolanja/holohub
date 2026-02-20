@@ -25,7 +25,7 @@
 		"requirements": {
 		},
 		"run": {
-			"command": "<holohub_app_bin>/connext_sender_receiver",
+			"command": "<holohub_app_bin>/connext_app",
 			"workdir": "holohub_bin"
 		}
 	}

@@ -1,0 +1,32 @@
+%YAML 1.2
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+---
+# E2E Test Configuration - DDS RX (Containers)
+# This configuration is for multi-container testing with DDS transport
+# DDS uses shared memory and network sockets, no physical NICs required
+
+scheduler:
+  check_recession_period_ms: 0
+  worker_thread_number: 5
+  stop_on_deadlock: false
+
+demo:
+  mode: rx
+  message_count: 0               # Continuous mode with PeriodicCondition
+  message_period_ms: 100         # Poll every 100ms
+  discovery_wait_ms: 0           # Discovery handled by DDS middleware
+
+payload_source:
+  base_payload: integration_test_dds_payload
+  use_gpu_memory: false          # DDS uses CPU memory
+
+payload_sink:
+  expected_payload_prefix: integration_test_dds_payload  # Validate payload prefix
+
+connext_rx:
+  enable_dds: true
+  enable_ano: false
+  domain_id: 42                  # Test domain ID (matches TX)
+  topic_name: testing_dds_topic  # Test topic name (matches TX)
+  topic_type_name: HoloscanPayload

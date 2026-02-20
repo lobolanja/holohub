@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,56 +19,7 @@
 # Base image
 ############################################################
 
-FROM holohub:adv_networking_bench  AS base
-
-ARG DEBIAN_FRONTEND=noninteractive
-
-# --------------------------------------------------------------------------
-#
-# Holohub dev setup
-#
-
-RUN mkdir -p /tmp/scripts
-COPY holohub /tmp/scripts/
-RUN mkdir -p /tmp/scripts/utilities
-COPY utilities /tmp/scripts/utilities/
-RUN chmod +x /tmp/scripts/holohub
-RUN /tmp/scripts/holohub setup && rm -rf /var/lib/apt/lists/*
-
-# Enable autocomplete
-RUN echo ". /etc/bash_completion.d/holohub_autocomplete" >> /etc/bash.bashrc
-
-# - This variable is consumed by all dependencies below as an environment variable (CMake 3.22+)
-# - We use ARG to only set it at docker build time, so it does not affect cmake builds
-#   performed at docker run time in case users want to use a different BUILD_TYPE
-ARG CMAKE_BUILD_TYPE=Release
-
-# Qcap dependency
-RUN apt update \
-    && apt install --no-install-recommends -y \
-    libgstreamer1.0-0 \
-    libgstreamer-plugins-base1.0-0 \
-    libgles2 \
-    libopengl0
-
-# For benchmarking
-RUN apt update \
-    && apt install --no-install-recommends -y \
-    libcairo2-dev \
-    libgirepository1.0-dev \
-    gobject-introspection \
-    libgtk-3-dev \
-    libcanberra-gtk-module \
-    graphviz\
-    ninja-build
-
-RUN pip install meson
-
-RUN if ! grep -q "VERSION_ID=\"22.04\"" /etc/os-release; then \
-    pip install setuptools; \
-    fi
-COPY benchmarks/holoscan_flow_benchmarking/requirements.txt /tmp/benchmarking_requirements.txt
-RUN pip install -r /tmp/benchmarking_requirements.txt
+FROM holohub:adv_networking_bench AS base
 
 
 # Install connext 7.3.0 from .deb package
@@ -91,6 +42,8 @@ RUN export RTI_LICENSE_AGREEMENT_ACCEPTED=accepted && apt update \
 # For RTI Connext DDS
 RUN apt update \
     && apt install --no-install-recommends -y \
+    gdb \
+    vim \
     openjdk-21-jre
 RUN echo 'export JREHOME=$(readlink /etc/alternatives/java | sed -e "s/\/bin\/java//")' >> /etc/bash.bashrc
 
