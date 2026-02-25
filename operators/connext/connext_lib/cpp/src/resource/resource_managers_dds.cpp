@@ -110,7 +110,7 @@ bool DdsReceiverResourcesManager::announce() {
     writer_ = dds::pub::DataWriter<dds::core::BytesTopicType>(publisher_, topic_, qos);
     return true;
   } else {
-    HOLOSCAN_LOG_INFO("Re-announcing receiver resources");
+    //HOLOSCAN_LOG_INFO("Re-announcing receiver resources");
     //auto qos = applyProperties(buildProperties());
     //writer_.qos(qos); // workaround for forcing endpoint discovery again.
     //dds::core::BytesTopicType sample;

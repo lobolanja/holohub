@@ -1,0 +1,89 @@
+%YAML 1.2
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+---
+# E2E Test Configuration - ANO RX Many-to-Many Subscriber 3
+# Full many-to-many (2TX→3RX): Subscriber 3 receives from Publisher 2 only (src port 6002)
+# DPDK flow rule: udp_src=6002, udp_dst=6003 → queue 0
+#
+# Required environment variables:
+#   TEST_TX_NIC_PCIE - PCIe address of TX NIC (e.g., "0005:03:00.0")
+#   TEST_RX_NIC_PCIE - PCIe address of RX NIC (e.g., "0005:03:00.1")
+
+# Advanced Network Configuration for ANO physical NICs
+advanced_network:
+  cfg:
+    version: 1
+    manager: "dpdk"
+    master_core: 3
+    debug: false
+    log_level: "info"
+    debug: true
+    loopback: ""  # Empty string for disabled loopback (not 'disabled')
+
+    memory_regions:
+    - name: "Data_RX_GPU"
+      kind: "device"
+      affinity: 0
+      num_bufs: 16384
+      buf_size: 1064
+
+    interfaces:
+    - name: "rx_port"
+      address: "0005:03:00.1"  # RX NIC PCIe address
+      rx:
+        queues:
+        - name: "rx_q_0"
+          id: 0
+          cpu_core: 8
+          timeout_us: 1000
+          batch_size: 256  # Reduced from 10240 to prevent meta buffer exhaustion
+          memory_regions:
+            - "Data_RX_GPU"
+        flows:
+        - name: "connext_flow_pub2"
+          id: 0
+          action:
+            type: queue
+            id: 0          # Pub2 (udp_src 6002) → queue 0
+          match:
+            udp_src: 6002
+            udp_dst: 6003
+
+scheduler:
+  check_recession_period_ms: 0
+  worker_thread_number: 5
+  stop_on_deadlock: false
+
+demo:
+  mode: rx
+  message_count: 0               # Continuous mode with PeriodicCondition
+  message_period_ms: 10          # Poll every 10ms to drain DPDK queue faster
+  discovery_wait_ms: 0           # No discovery needed for ANO
+
+payload_source:
+  base_payload: integration_test_payload
+  use_gpu_memory: true
+
+payload_sink:
+  expected_payload_prefix: pub2_payload  # Receives from Publisher 2 only
+
+connext_rx:
+  enable_dds: false
+  enable_ano: true
+  domain_id: 42
+  topic_name: E2ETestTopic_ManyToMany
+  topic_type_name: ""
+  ano_channel: E2ETestChannel_ManyToMany  # Must match TX channel for discovery
+  ano_buffer_id: e2e_test_buffer_mtm_sub3  # Unique per subscriber
+  ano_max_payload: 4096
+  
+  # ANO Network Configuration (for GPU Direct) - Subscriber 3
+  ano_network_interface: rx_port
+  ano_gpu_device_id: 0
+  ano_fast_ip: 192.168.10.11
+  ano_fast_mac_address: "3c:6d:66:11:91:56"
+  ano_fast_port: 6003
+  ano_header_size: 64
+  ano_max_packet_size: 9000
+  ano_queue_id: 0

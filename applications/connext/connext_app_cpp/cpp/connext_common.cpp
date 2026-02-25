@@ -230,9 +230,9 @@ DemoAppConfig ConnextDemoApp::load_demo_config() {
     const auto enable_dds_key = section + ".enable_dds";
     if (auto enable_dds_arg = from_config(enable_dds_key); enable_dds_arg.size() > 0) {
       result.use_dds = enable_dds_arg.as<bool>();
-    } else if (auto enable_ano_arg = from_config(section + ".enable_ano");
-               enable_ano_arg.size() > 0) {
-      result.use_dds = !enable_ano_arg.as<bool>();
+    }
+    if (auto enable_ano_arg = from_config(section + ".enable_ano"); enable_ano_arg.size() > 0) {
+      result.use_ano = enable_ano_arg.as<bool>();
     }
 
     // DDS configuration
@@ -290,8 +290,7 @@ void ConnextDemoApp::compose() {
   demo_config_ = load_demo_config();
   received_payloads_ = std::make_shared<std::vector<std::string>>();
 
-  // Initialize advanced network if ANO transport is enabled 
-  if (!demo_config_.use_dds) {
+  if (demo_config_.use_ano) {
     try {
       auto adv_net_config = from_config("advanced_network").as<holoscan::advanced_network::NetworkConfig>();
       if (holoscan::advanced_network::adv_net_init(adv_net_config) != holoscan::advanced_network::Status::SUCCESS) {
@@ -321,8 +320,16 @@ void ConnextDemoApp::configure_tx_operators() {
         "payload_source_period", std::chrono::milliseconds(demo_config_.message_period_ms));
   }
 
-  // Determine if GPU memory should be used (ANO mode requires GPU memory)
-  bool use_gpu = !demo_config_.use_dds;
+  bool use_gpu = demo_config_.use_ano;
+
+  std::string transport_label;
+  if (demo_config_.use_dds && demo_config_.use_ano) {
+    transport_label = "dds+ano";
+  } else if (demo_config_.use_dds) {
+    transport_label = "dds";
+  } else {
+    transport_label = "ano";
+  }
 
   auto source = make_operator<PayloadSourceOp>(
       "payload_source",
@@ -341,7 +348,7 @@ void ConnextDemoApp::configure_tx_operators() {
   if (demo_config_.message_count > 0) {
     HOLOSCAN_LOG_INFO(
         "Connext sender configured. transport={}, payload='{}', iterations={}, period_ms={}, discovery_wait_ms={}, gpu_memory={}",
-        demo_config_.use_dds ? "dds" : "ano",
+        transport_label,
         demo_config_.payload,
         demo_config_.message_count,
         demo_config_.message_period_ms,
@@ -350,7 +357,7 @@ void ConnextDemoApp::configure_tx_operators() {
   } else {
     HOLOSCAN_LOG_INFO(
         "Connext sender configured. transport={}, payload='{}', iterations=continuous, period_ms={}, discovery_wait_ms={}, gpu_memory={}",
-        demo_config_.use_dds ? "dds" : "ano",
+        transport_label,
         demo_config_.payload,
         demo_config_.message_period_ms,
         demo_config_.discovery_wait_ms,

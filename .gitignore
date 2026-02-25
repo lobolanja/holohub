@@ -64,3 +64,31 @@ operators/connext/connext_lib/path/
 
 # LLM doc feeds
 rtitest_cpp_docs.pdf
+.saved_holohub_build_cmd.sh
+192_168_10_10.out.txt
+192_168_10_11.out.txt
+output_t.pcap
+output_t2.pcap
+output_t3.pcap
+output.out
+output.pcap
+output.txt
+output3a.pcap
+output3b.pcap
+.dotnet/corefx/cryptography/crls/7abcc12f.dea36fd7.crl
+.dotnet/corefx/cryptography/crls/75d1b2ed.de05bb98.crl
+.dotnet/corefx/cryptography/crls/7462804f.d5a68194.crl
+.dotnet/corefx/cryptography/crls/bd6662f5.8ba5d856.crl
+.dotnet/corefx/cryptography/crls/cf887acb.0f995861.crl
+.dotnet/corefx/cryptography/crls/d16da424.cbeb964c.crl
+.gnupg/pubring.gpg
+.gnupg/pubring.kbx
+.gnupg/trustdb.gpg
+.vscode/browse.vc.db
+.vscode/browse.vc.db-shm
+.vscode/browse.vc.db-wal
+CMakeFiles/CMakeSystem.cmake
+operators/connext/connext_ops/Testing/Temporary/CTestCostData.txt
+operators/connext/connext_ops/Testing/Temporary/LastTest.log
+Testing/Temporary/CTestCostData.txt
+Testing/Temporary/LastTest.log

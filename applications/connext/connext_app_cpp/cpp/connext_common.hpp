@@ -22,6 +22,7 @@ struct DemoAppConfig {
   int message_count = 0;
   int message_period_ms = 1000;
   bool use_dds = false;
+  bool use_ano = false;
   int dds_domain_id = 2;
   std::string dds_topic_name = "ConnextDemoTopic";
   std::string dds_topic_type;

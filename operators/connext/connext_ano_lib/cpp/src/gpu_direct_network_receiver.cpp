@@ -134,7 +134,7 @@ class GpuDirectNetworkReceiver : public IGpuDirectNetworkReceiver {
   
   // Configuration
   int port_id_;
-  uint16_t queue_id_;       ///< RX queue ID to poll from
+  uint16_t queue_id_;       ///< RX queue ID to poll from (set via ano_queue_id YAML param)
   int num_rx_queues_;       ///< Number of RX queues on port (for validation)
   uint16_t header_size_;
   uint16_t max_packet_size_;
@@ -156,7 +156,7 @@ class GpuDirectNetworkReceiver : public IGpuDirectNetworkReceiver {
   /**
    * @brief Poll the configured RX queue for a valid burst
    * 
-   * Polls only the specific queue_id configured for this receiver.
+   * Polls only the queue_id_ configured for this receiver (from ano_queue_id YAML param).
    * Automatically frees empty bursts.
    * 
    * @return BurstParams* if valid burst found, std::nullopt otherwise
@@ -164,20 +164,19 @@ class GpuDirectNetworkReceiver : public IGpuDirectNetworkReceiver {
   std::optional<BurstParams*> poll_for_burst() {
     BurstParams* burst = nullptr;
     Status status = get_rx_burst(&burst, port_id_, queue_id_);
-    
+
     if (status != Status::SUCCESS || burst == nullptr) {
       return std::nullopt;
     }
-    
+
     auto burst_size = get_num_packets(burst);
     if (burst_size == 0) {
       free_all_packets_and_burst_rx(burst);
       return std::nullopt;
     }
 
-    HOLOSCAN_LOG_DEBUG("Received burst with {} packets from port {} queue {}", 
-                     burst_size, port_id_, queue_id_);
-      
+    HOLOSCAN_LOG_DEBUG("Received burst with {} packets from port {} queue {}",
+                       burst_size, port_id_, queue_id_);
     return burst;
   }
   

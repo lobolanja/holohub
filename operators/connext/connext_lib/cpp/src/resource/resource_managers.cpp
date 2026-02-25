@@ -71,11 +71,6 @@ void AbstractSenderResourcesManager::workerLoop(const std::chrono::milliseconds 
       // this hook. Keeping the loop tiny makes behavior easy to reason about.
       pollOnce();
       
-      // Log periodic heartbeat every 50 iterations (5 seconds with 100ms poll)
-      if (++iteration_count % 50 == 0) {
-        std::cout << "Sender resources manager worker still polling (iteration " 
-                  << iteration_count << ")" << std::endl;
-      }
     } catch (const std::exception& e) {
       std::cerr << "Exception in pollOnce(): " << e.what() 
                 << " - continuing worker loop" << std::endl;

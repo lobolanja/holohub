@@ -31,6 +31,16 @@ Both test suites use the unified `connext_app` application in TX and RX modes wi
     - [ANO Test Configuration](#ano-test-configuration)
     - [DDS Test Configuration](#dds-test-configuration)
   - [Test Validation](#test-validation)
+- [Multi-Topology ANO Tests](#multi-topology-ano-tests)
+  - [1-to-Many](#1-to-many-1-tx--3-rx)
+  - [Many-to-Many](#many-to-many-2-tx--3-rx)
+  - [Pre-flight Checklist](#pre-flight-checklist)
+  - [Multi-Topology Troubleshooting](#multi-topology-troubleshooting)
+- [Mixed-Transport Test (ANO + DDS)](#mixed-transport-test-ano--dds)
+  - [Mixed-Transport Topology](#mixed-transport-topology)
+  - [Running the Mixed-Transport Test](#running-the-mixed-transport-test)
+  - [Mixed-Transport Configuration](#mixed-transport-configuration)
+  - [Mixed-Transport Validation](#mixed-transport-validation)
 - [ANO vs DDS Comparison](#ano-vs-dds-comparison)
 - [Troubleshooting](#troubleshooting)
   - [Common Issues](#common-issues-both-ano-and-dds)
@@ -62,20 +72,44 @@ The test files are organized in the source directory and automatically copied to
 
 ```
 tests/
-├── test_ano_e2e.py              # ANO test orchestrator
-├── test_dds_e2e.py              # DDS test orchestrator  
-├── test_utils.py                # Shared utilities
-├── README.md                     # This file
-├── scripts/                      # Shell scripts
-│   ├── run_e2e_rx_container.sh           # ANO RX container launcher
-│   ├── run_e2e_tx_container.sh           # ANO TX container launcher
-│   ├── run_e2e_dds_rx_container.sh       # DDS RX container launcher
-│   └── run_e2e_dds_tx_container.sh       # DDS TX container launcher
-└── config/                       # YAML configurations
-    ├── test_ano_rx.yaml                  # ANO RX configuration
-    ├── test_ano_tx.yaml                  # ANO TX configuration
-    ├── test_dds_rx.yaml                  # DDS RX configuration
-    └── test_dds_tx.yaml                  # DDS TX configuration
+├── test_ano_e2e.py                      # ANO 1-to-1 test orchestrator
+├── test_ano_1_to_many_e2e.py            # ANO 1-to-many test orchestrator
+├── test_ano_many_to_many_e2e.py         # ANO many-to-many test orchestrator
+├── test_dds_e2e.py                      # DDS test orchestrator
+├── test_mixed_transport_e2e.py          # Mixed ANO+DDS test orchestrator
+├── test_utils.py                        # Shared utilities (orchestrator, parsers)
+├── HUGEPAGES.md                         # Hugepage requirements and troubleshooting
+├── TEST_PLAN.md                         # Living test plan and lessons learned
+├── README.md                            # This file
+├── scripts/
+│   ├── run_e2e_rx_container.sh                    # ANO 1-to-1 RX launcher
+│   ├── run_e2e_tx_container.sh                    # ANO 1-to-1 TX launcher
+│   ├── run_e2e_rx_1_to_many_container.sh          # ANO 1-to-many RX launcher (takes sub ID)
+│   ├── run_e2e_tx_1_to_many_container.sh          # ANO 1-to-many TX launcher
+│   ├── run_e2e_rx_many_to_many_container.sh       # ANO many-to-many RX launcher (takes sub ID)
+│   ├── run_e2e_tx_many_to_many_container.sh       # ANO many-to-many TX launcher (takes pub ID)
+│   ├── run_e2e_dds_rx_container.sh                # DDS RX launcher
+│   ├── run_e2e_dds_tx_container.sh                # DDS TX launcher
+│   ├── run_e2e_tx_mixed_container.sh              # Mixed TX (ANO+DDS dual-mode)
+│   ├── run_e2e_rx_mixed_ano_container.sh          # Mixed RX1 (ANO subscriber)
+│   └── run_e2e_rx_mixed_dds_container.sh          # Mixed RX2 (DDS subscriber)
+└── config/
+    ├── test_ano_rx.yaml                           # ANO 1-to-1 RX config
+    ├── test_ano_tx.yaml                           # ANO 1-to-1 TX config
+    ├── test_ano_tx_1_to_many.yaml                 # 1-to-many TX config
+    ├── test_ano_rx_1_to_many_sub1.yaml            # 1-to-many RX1 (port 5001)
+    ├── test_ano_rx_1_to_many_sub2.yaml            # 1-to-many RX2 (port 5002)
+    ├── test_ano_rx_1_to_many_sub3.yaml            # 1-to-many RX3 (port 5003)
+    ├── test_ano_tx_many_to_many_pub1.yaml         # many-to-many TX Pub1 (port 6001)
+    ├── test_ano_tx_many_to_many_pub2.yaml         # many-to-many TX Pub2 (port 6002)
+    ├── test_ano_rx_many_to_many_sub1.yaml         # many-to-many RX1 (dual-flow: Pub1+Pub2)
+    ├── test_ano_rx_many_to_many_sub2.yaml         # many-to-many RX2 (Pub1 only)
+    ├── test_ano_rx_many_to_many_sub3.yaml         # many-to-many RX3 (Pub2 only)
+    ├── test_dds_rx.yaml                           # DDS RX config
+    ├── test_dds_tx.yaml                           # DDS TX config
+    ├── test_mixed_tx.yaml                         # Mixed TX (ANO+DDS, port 7000)
+    ├── test_mixed_rx_ano.yaml                     # Mixed RX1 ANO (port 7000)
+    └── test_mixed_rx_dds.yaml                     # Mixed RX2 DDS (no ANO block)
 ```
 
 **Note:** After building with `./holohub build connext_app_cpp`, all test files are copied to:
@@ -731,6 +765,234 @@ Minimum required: 640 messages (80.0%)
 ================================================================================
 ```
 
+## Multi-Topology ANO Tests
+
+The ANO test suite extends the basic 1-to-1 topology to cover **1-to-Many** (fan-out) and
+**Many-to-Many** (full mesh) scenarios, exercising DPDK flow steering across multiple containers.
+
+---
+
+### 1-to-Many (1 TX → 3 RX)
+
+**Topology:**
+
+```
+                    ┌──────────────────────────────────────┐
+                    │           TX Container               │
+                    │  PayloadSourceOp → ConnextTxOp       │
+                    │  ano_fast_port: 5000                 │
+                    └──────────────┬───────────────────────┘
+                                   │  UDP multicast fan-out
+              ┌────────────────────┼────────────────────┐
+              ▼                    ▼                    ▼
+  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+  │  RX Sub1         │  │  RX Sub2         │  │  RX Sub3         │
+  │  port: 5001      │  │  port: 5002      │  │  port: 5003      │
+  └──────────────────┘  └──────────────────┘  └──────────────────┘
+```
+
+**Run the test (from the `tests/` directory):**
+
+```bash
+pytest test_ano_1_to_many_e2e.py -v -s
+```
+
+The orchestrator automatically:
+1. Starts 3 RX containers (Sub1, Sub2, Sub3) in parallel
+2. Starts the TX container
+3. Waits for the TX container to finish sending
+4. Stops all RX containers
+5. Parses each container's log for receive counts
+6. Asserts ≥ 80% delivery to every subscriber
+
+**Key configs:**
+
+| Role | Config file | UDP port |
+|------|-------------|----------|
+| TX | `config/test_ano_tx_1_to_many.yaml` | 5000 (src) |
+| RX Sub1 | `config/test_ano_rx_1_to_many_sub1.yaml` | 5001 (dst) |
+| RX Sub2 | `config/test_ano_rx_1_to_many_sub2.yaml` | 5002 (dst) |
+| RX Sub3 | `config/test_ano_rx_1_to_many_sub3.yaml` | 5003 (dst) |
+
+---
+
+### Many-to-Many (2 TX → 3 RX)
+
+**Full mesh topology:**
+
+```
+  ┌──────────────────────┐       ┌──────────────────────┐
+  │  TX Pub1             │       │  TX Pub2             │
+  │  ano_fast_port: 6001 │       │  ano_fast_port: 6002 │
+  └───┬──────────────────┘       └──────────────┬───────┘
+      │ pub1_payload                pub2_payload │
+      │                                          │
+      │  ┌───────────────────────────────────────┤
+      │  │                                       │
+      ▼  ▼                                       │
+  ┌──────────────────┐                           │
+  │  RX Sub1         │◄──────────────────────────┘
+  │  port: 6001      │  receives Pub1 + Pub2
+  └──────────────────┘
+      │
+      │  Pub1 only
+      ▼
+  ┌──────────────────┐
+  │  RX Sub2         │
+  │  port: 6002      │  receives Pub1 only
+  └──────────────────┘
+
+  TX Pub2 ──► RX Sub3
+  ┌──────────────────┐
+  │  RX Sub3         │
+  │  port: 6003      │  receives Pub2 only
+  └──────────────────┘
+```
+
+**Subscription mapping:**
+
+| Publisher | Subscribers | Payload prefix |
+|-----------|-------------|----------------|
+| Pub1 | Sub1, Sub2 | `pub1_payload` |
+| Pub2 | Sub1, Sub3 | `pub2_payload` |
+
+Sub1 uses **dual DPDK flow rules** to receive from both publishers simultaneously.
+
+**Run the test (from the `tests/` directory):**
+
+```bash
+pytest test_ano_many_to_many_e2e.py -v -s
+```
+
+The orchestrator automatically:
+1. Starts 3 RX containers in parallel
+2. Starts 2 TX containers in parallel
+3. Waits for both TX containers to finish
+4. Stops all RX containers
+5. Validates per-publisher delivery ratios on every subscriber
+6. Asserts ≥ 80% delivery for every applicable publisher/subscriber pair
+
+**Key configs:**
+
+| Role | Config file | UDP port |
+|------|-------------|----------|
+| TX Pub1 | `config/test_ano_tx_many_to_many_pub1.yaml` | 6001 (src) |
+| TX Pub2 | `config/test_ano_tx_many_to_many_pub2.yaml` | 6002 (src) |
+| RX Sub1 | `config/test_ano_rx_many_to_many_sub1.yaml` | 6001 (dst) — dual flow |
+| RX Sub2 | `config/test_ano_rx_many_to_many_sub2.yaml` | 6002 (dst) |
+| RX Sub3 | `config/test_ano_rx_many_to_many_sub3.yaml` | 6003 (dst) |
+
+---
+
+### Pre-flight Checklist
+
+Run these checks before launching any multi-topology test:
+
+```bash
+# 1. Check available hugepages (need N+2 where N = total containers)
+#    1-to-many needs 6, many-to-many needs 7
+grep HugePages_Free /proc/meminfo
+
+# 2. Check for stale containers from a previous run
+docker ps -a --filter ancestor=holohub:connext_app_cpp
+
+# 3. Remove stale containers if any
+docker rm -f $(docker ps -aq --filter ancestor=holohub:connext_app_cpp)
+
+# 4. Clean up leftover DPDK runtime files
+sudo rm -rf /var/run/dpdk/
+
+# 5. Confirm both NICs are visible to DPDK
+ls /sys/bus/pci/drivers/mlx5_core/
+```
+
+---
+
+### Multi-Topology Troubleshooting
+
+#### Not enough hugepages
+
+**Symptom:** Last container to start fails with:
+
+```
+EAL: No free 1048576 kB hugepages reported on node 0
+```
+
+**Fix (temporary):**
+```bash
+sudo sh -c 'echo 7 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages'
+```
+
+**Fix (permanent):** Add to `/etc/sysctl.conf`:
+```
+vm.nr_hugepages = 7
+```
+Then apply: `sudo sysctl -p`
+
+**If pages exist but are fragmented:**
+```bash
+sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches'
+# Then retry allocation
+sudo sh -c 'echo 7 > /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages'
+```
+
+**Rule of thumb:** allocate `N + 2` hugepages where N is the total number of containers.
+
+---
+
+#### GPU DMA map failure (SMMU exhaustion) — IGX Orin specific
+
+**Symptom:** A TX container exits with code 137 or logs:
+
+```
+mlx5_common: Fail to create MR for address (0xffff60200000)
+Could not DMA map EXT memory: -1 err=Invalid argument
+```
+
+**Root cause:** On NVIDIA IGX Orin (integrated SoC) the GPU and both NICs share a
+single SMMU (System Memory Management Unit). When the total GPU DMA footprint of
+all containers exceeds the SMMU's addressable range, `ibv_reg_mr` returns `EINVAL`.
+
+**Memory footprint formula:**
+```
+footprint_per_container ≈ num_bufs × adj_buf_size
+total_SMMU_usage        = footprint_per_container × num_containers
+```
+
+| `num_bufs` | Per container | 5 containers | Result |
+|------------|---------------|--------------|--------|
+| 51200 | ~61 MB | ~305 MB | ❌ SMMU overflow |
+| 16384 | ~19.5 MB | ~97.5 MB | ✅ fits |
+
+**Fix:** Reduce `num_bufs` in every TX and RX YAML config:
+
+```yaml
+# In test_ano_tx_many_to_many_pub{1,2}.yaml
+# and test_ano_rx_many_to_many_sub{1,2,3}.yaml
+advanced_network:
+  ...
+  num_bufs: 16384   # was 51200 — reduced to avoid SMMU exhaustion on IGX Orin
+```
+
+**Constraints:**
+- Hard floor: `8192` (`default_num_rx_desc` in `adv_network_dpdk_mgr.h`) — do not go below this
+- Recommended: `16384` (power-of-2, 2× the floor)
+- Rule of thumb on IGX Orin: `num_bufs × adj_size × num_containers < 200 MB`
+
+---
+
+#### Container exits with code 137 at startup (race condition)
+
+**Symptom:** One or more containers exit immediately during the startup phase.
+
+**Cause:** DPDK `primary` process (first container) hasn't finished initialising shared
+memory before secondary containers attempt to attach.
+
+**Fix:** The test orchestrator already inserts a staggered startup delay between
+containers. If the issue persists, increase `startup_delay_s` in `test_utils.py`.
+
+---
+
 ## Architecture
 
 ### ANO Architecture
@@ -926,6 +1188,90 @@ graph TB
   - Multiple UDP ports for user data and meta-traffic
   - Host networking simplifies container-to-container communication
   - Avoids Docker bridge network complexity
+
+## Mixed-Transport Test (ANO + DDS)
+
+The mixed-transport test validates that a single dual-mode publisher can simultaneously
+deliver messages over **both** the ANO (DPDK) fast path **and** the DDS middleware path.
+Each transport path is independently verified with its own subscriber and threshold check.
+
+### Mixed-Transport Topology
+
+```
+  ┌──────────────────────────────────────┐
+  │  TX container  (dual-mode: ANO+DDS)  │
+  └────────────┬─────────────────────────┘
+               │  mixed_test_payload_#N
+               ├──── [ANO / DPDK  port 7000] ──► RX1 container  (ANO only)
+               │                                  └─ validates ≥80% delivery
+               └──── [DDS  topic: E2ETestTopicMixed  domain 42] ──► RX2 container  (DDS only)
+                                                                    └─ validates ≥80% delivery
+```
+
+- **TX** has both `enable_ano: true` and `enable_dds: true`; sends `mixed_test_payload_#N`
+- **RX1** has `enable_ano: true`, `enable_dds: false`; listens on UDP port 7000
+- **RX2** has `enable_dds: true`, `enable_ano: false`; **no hugepages needed**
+- Startup order: RX2 → (2 s) → RX1 → (rx_init_wait s) → TX
+  - DDS subscriber starts first so discovery is warm before DPDK initialises
+- Topic `E2ETestTopicMixed` (domain 42) is distinct from the pure-DDS test topic to prevent cross-talk
+
+### Running the Mixed-Transport Test
+
+**Prerequisites:**
+```bash
+export TEST_TX_NIC_PCIE="0005:03:00.0"   # ANO TX NIC
+export TEST_RX_NIC_PCIE="0005:03:00.1"   # ANO RX NIC
+export RTI_LICENSE_FILE="./rti_license.dat"
+```
+
+**Run (from build directory):**
+```bash
+cd build/connext_app_cpp/applications/connext/connext_app_cpp/cpp/tests
+python3 test_mixed_transport_e2e.py
+
+# With custom timeout and threshold
+python3 test_mixed_transport_e2e.py --timeout 120 --threshold 0.75
+
+# Via pytest
+pytest test_mixed_transport_e2e.py -v -s
+```
+
+**Hugepage budget:**
+| Container | Transport | Hugepages |
+|-----------|-----------|----------:|
+| TX        | ANO + DDS | 1         |
+| RX1       | ANO only  | 1         |
+| RX2       | DDS only  | **0**     |
+| **Total** |           | **2**     |
+
+### Mixed-Transport Configuration
+
+| File | Role | Key settings |
+|------|------|--------------|
+| `config/test_mixed_tx.yaml`     | TX publisher  | `enable_ano: true`, `enable_dds: true`, `ano_fast_port: 7000`, `topic_name: E2ETestTopicMixed` |
+| `config/test_mixed_rx_ano.yaml` | RX1 subscriber | `enable_ano: true`, `enable_dds: false`, `ano_fast_port: 7000`, UDP flow rule 7000→7000 |
+| `config/test_mixed_rx_dds.yaml` | RX2 subscriber | `enable_dds: true`, `enable_ano: false`, no `advanced_network` block |
+
+All ANO configs use `num_bufs: 16384` (SMMU-safe value for shared-SMMU platforms).
+
+### Mixed-Transport Validation
+
+The test runner performs three independent checks:
+
+1. **ANO path threshold**: RX1 must receive ≥ 80% of TX messages via DPDK
+2. **DDS path threshold**: RX2 must receive ≥ 80% of TX messages via DDS
+3. **Transport isolation**: RX1 log must contain no DDS indicators; RX2 log must contain no ANO/DPDK indicators
+
+**Exit codes:**
+| Code | Meaning |
+|------|---------|
+| 0    | PASS — both paths met threshold, isolation confirmed |
+| 1    | Environment / setup failure |
+| 2    | ANO path (RX1) below threshold |
+| 3    | DDS path (RX2) below threshold |
+| 4    | Transport isolation violation |
+
+---
 
 ## Related Documentation
 

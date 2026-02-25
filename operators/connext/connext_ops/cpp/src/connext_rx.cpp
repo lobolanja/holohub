@@ -130,7 +130,7 @@ void ConnextRxOp::start() {
     dds_reader_ = std::make_unique<connext_lib::ConnextDDSReader>(dds_config_);
   } else if (ano_config_.enabled()) {
     HOLOSCAN_LOG_INFO("ConnextRxOp: ANO transport enabled.");
-    constexpr std::chrono::milliseconds kAnoReaderPollInterval{100};
+    constexpr std::chrono::milliseconds kAnoReaderPollInterval{10};
     ano_reader_ = std::make_unique<connext_lib::ConnextANOReader>(
         ano_config_, dds_config_, kAnoReaderPollInterval);
   }

@@ -131,15 +131,14 @@ void ConnextTxOp::start() {
   if (!dds_config_.enabled() && !ano_config_.enabled()) {
     throw std::runtime_error(
         "ConnextTxOp requires at least one transport to be enabled (DDS or ANO).");
-  } else if (dds_config_.enabled() && ano_config_.enabled()) {
-    throw std::runtime_error(
-        "ConnextTxOp currently supports only one transport at a time (DDS or ANO).");
   }
 
   if (dds_config_.enabled()) {
     dds_writer_ = std::make_unique<connext_lib::ConnextDDSWriter>(
         dds_config_, static_cast<int>(ano_max_payload_.get()));
-  } else if (ano_config_.enabled()) {
+  }
+
+  if (ano_config_.enabled()) {
     constexpr std::chrono::milliseconds kAnoWriterPollInterval{100};
     ano_writer_ = std::make_unique<connext_lib::ConnextANOWriter>(
         ano_config_, dds_config_, kAnoWriterPollInterval);
@@ -176,39 +175,30 @@ void ConnextTxOp::compute(InputContext& input, OutputContext& output, ExecutionC
   
   // Check if tensor is on GPU device using DLPack device type
   const bool is_gpu_tensor = (tensor->device().device_type == kDLCUDA);
-  
-  // Validate memory type requirements based on transport mode
-  if (ano_config_.enabled()) {
-    // ANO mode requires GPU memory for zero-copy GPU Direct RDMA
+
+  if (ano_config_.enabled() && ano_writer_) {
     if (!is_gpu_tensor) {
       throw std::runtime_error(
           "ConnextTxOp: ANO transport requires GPU memory (MemoryStorageType::kDevice), "
           "but received CPU tensor. Ensure upstream operator outputs GPU tensors for ANO mode.");
     }
-    
-    // Create buffer view with GPU pointer
     connext_lib::MemoryBufferView buffer{data, payload_size, true};
     ano_writer_->broadcast(buffer);
-    
-  } else if (dds_config_.enabled()) {
-    // DDS mode: Accept both GPU and CPU tensors
-    // If GPU tensor, auto-copy to CPU (DDS requires host memory)
+  }
+
+  if (dds_config_.enabled() && dds_writer_) {
     if (is_gpu_tensor) {
-      // GPU→CPU copy for DDS (incurs performance cost)
       std::vector<std::uint8_t> cpu_data(payload_size);
       cudaError_t err = cudaMemcpy(
           cpu_data.data(), data, payload_size, cudaMemcpyDeviceToHost);
-      
       if (err != cudaSuccess) {
         throw std::runtime_error(
             std::string("ConnextTxOp: Failed to copy GPU tensor to CPU for DDS: ") +
             cudaGetErrorString(err));
       }
-      
       connext_lib::MemoryBufferView buffer{cpu_data.data(), payload_size, false};
       dds_writer_->broadcast(buffer);
     } else {
-      // CPU tensor: Direct transmission
       connext_lib::MemoryBufferView buffer{data, payload_size, false};
       dds_writer_->broadcast(buffer);
     }

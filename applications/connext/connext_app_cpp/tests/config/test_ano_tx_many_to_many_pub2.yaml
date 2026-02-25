@@ -1,0 +1,78 @@
+%YAML 1.2
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+---
+# E2E Test Configuration - ANO TX Many-to-Many Publisher 2
+# This configuration is for many-to-many testing - Publisher 2
+# Sends to Subscribers 2, 3, 4 on UDP port 6002
+#
+# Required environment variables:
+#   TEST_TX_NIC_PCIE - PCIe address of TX NIC (e.g., "0005:03:00.0")
+#   TEST_RX_NIC_PCIE - PCIe address of RX NIC (e.g., "0005:03:00.1")
+
+# Advanced Network Configuration for ANO physical NICs
+advanced_network:
+  cfg:
+    version: 1
+    manager: "dpdk"
+    master_core: 3
+    log_level: "info"
+    debug: true
+    loopback: ""  # Empty string for disabled loopback (not 'disabled')
+
+    memory_regions:
+    - name: "Data_TX_GPU"
+      kind: "device"
+      affinity: 0
+      num_bufs: 16384
+      buf_size: 1064
+
+    interfaces:
+    - name: "tx_port"
+      address: "0005:03:00.0"  # TX NIC PCIe address
+      tx:
+        queues:
+        - name: "tx_q_0"
+          id: 0
+          batch_size: 1024
+          cpu_core: 10
+          timeout_us: 1000
+          memory_regions:
+            - "Data_TX_GPU"
+          offloads:
+            - "tx_eth_src"
+
+scheduler:
+  check_recession_period_ms: 0
+  worker_thread_number: 5
+  stop_on_deadlock: false
+
+demo:
+  mode: tx
+  message_count: 0               # 0 = continuous mode (rate-based)
+  message_period_ms: 100         # Send message every 100ms (10 msg/sec)
+  discovery_wait_ms: 5000        # Wait 5s for ANO/DPDK initialization
+
+payload_source:
+  base_payload: pub2_payload
+  use_gpu_memory: true
+
+connext_tx:
+  enable_dds: false              # DDS data plane (fallback)
+  enable_ano: true               # ANO data plane (GPU Direct)
+  domain_id: 42
+  topic_name: E2ETestTopic_ManyToMany
+  topic_type_name: ""
+  ano_channel: E2ETestChannel_ManyToMany
+  ano_buffer_id: e2e_test_buffer_mtm_pub2
+  ano_max_payload: 4096
+  
+  # ANO Network Configuration (for GPU Direct)
+  ano_network_interface: tx_port
+  ano_gpu_device_id: 0
+  ano_fast_ip: 192.168.10.10
+  ano_fast_mac_address: "3c:6d:66:11:91:55"
+  ano_fast_port: 6002
+  ano_header_size: 64
+  ano_max_packet_size: 9000
+  ano_queue_id: 0

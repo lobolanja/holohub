@@ -36,6 +36,9 @@ add_custom_target(connext_app_tests
   # Copy Python test files
   COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/tests/
   COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/test_ano_e2e.py" ${CMAKE_CURRENT_BINARY_DIR}/tests
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/test_ano_1_to_many_e2e.py" ${CMAKE_CURRENT_BINARY_DIR}/tests
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/test_ano_many_to_many_e2e.py" ${CMAKE_CURRENT_BINARY_DIR}/tests
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/test_mixed_transport_e2e.py" ${CMAKE_CURRENT_BINARY_DIR}/tests
   COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/test_dds_e2e.py" ${CMAKE_CURRENT_BINARY_DIR}/tests
   COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/test_utils.py" ${CMAKE_CURRENT_BINARY_DIR}/tests
   # Create subdirectories
@@ -44,25 +47,66 @@ add_custom_target(connext_app_tests
   # Copy shell scripts
   COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_rx_container.sh" ${CMAKE_CURRENT_BINARY_DIR}/tests/scripts
   COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_tx_container.sh" ${CMAKE_CURRENT_BINARY_DIR}/tests/scripts
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_rx_1_to_many_container.sh" ${CMAKE_CURRENT_BINARY_DIR}/tests/scripts
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_tx_1_to_many_container.sh" ${CMAKE_CURRENT_BINARY_DIR}/tests/scripts
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_rx_many_to_many_container.sh" ${CMAKE_CURRENT_BINARY_DIR}/tests/scripts
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_tx_many_to_many_container.sh" ${CMAKE_CURRENT_BINARY_DIR}/tests/scripts
   COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_dds_rx_container.sh" ${CMAKE_CURRENT_BINARY_DIR}/tests/scripts
   COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_dds_tx_container.sh" ${CMAKE_CURRENT_BINARY_DIR}/tests/scripts
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_tx_mixed_container.sh" ${CMAKE_CURRENT_BINARY_DIR}/tests/scripts
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_rx_mixed_ano_container.sh" ${CMAKE_CURRENT_BINARY_DIR}/tests/scripts
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_rx_mixed_dds_container.sh" ${CMAKE_CURRENT_BINARY_DIR}/tests/scripts
   # Copy YAML config files
   COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_rx.yaml" ${CMAKE_CURRENT_BINARY_DIR}/tests/config
   COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_tx.yaml" ${CMAKE_CURRENT_BINARY_DIR}/tests/config
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_tx_1_to_many.yaml" ${CMAKE_CURRENT_BINARY_DIR}/tests/config
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_rx_1_to_many_sub1.yaml" ${CMAKE_CURRENT_BINARY_DIR}/tests/config
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_rx_1_to_many_sub2.yaml" ${CMAKE_CURRENT_BINARY_DIR}/tests/config
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_rx_1_to_many_sub3.yaml" ${CMAKE_CURRENT_BINARY_DIR}/tests/config
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_tx_many_to_many_pub1.yaml" ${CMAKE_CURRENT_BINARY_DIR}/tests/config
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_tx_many_to_many_pub2.yaml" ${CMAKE_CURRENT_BINARY_DIR}/tests/config
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_rx_many_to_many_sub1.yaml" ${CMAKE_CURRENT_BINARY_DIR}/tests/config
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_rx_many_to_many_sub2.yaml" ${CMAKE_CURRENT_BINARY_DIR}/tests/config
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_rx_many_to_many_sub3.yaml" ${CMAKE_CURRENT_BINARY_DIR}/tests/config
   COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_dds_rx.yaml" ${CMAKE_CURRENT_BINARY_DIR}/tests/config
   COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_dds_tx.yaml" ${CMAKE_CURRENT_BINARY_DIR}/tests/config
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_mixed_tx.yaml" ${CMAKE_CURRENT_BINARY_DIR}/tests/config
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_mixed_rx_ano.yaml" ${CMAKE_CURRENT_BINARY_DIR}/tests/config
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_mixed_rx_dds.yaml" ${CMAKE_CURRENT_BINARY_DIR}/tests/config
   DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/../tests/test_ano_e2e.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/test_ano_1_to_many_e2e.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/test_ano_many_to_many_e2e.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/test_mixed_transport_e2e.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/../tests/test_dds_e2e.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/../tests/test_utils.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_rx_container.sh"
     "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_tx_container.sh"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_rx_1_to_many_container.sh"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_tx_1_to_many_container.sh"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_rx_many_to_many_container.sh"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_tx_many_to_many_container.sh"
     "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_dds_rx_container.sh"
     "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_dds_tx_container.sh"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_tx_mixed_container.sh"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_rx_mixed_ano_container.sh"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/scripts/run_e2e_rx_mixed_dds_container.sh"
     "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_rx.yaml"
     "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_tx.yaml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_tx_1_to_many.yaml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_rx_1_to_many_sub1.yaml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_rx_1_to_many_sub2.yaml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_rx_1_to_many_sub3.yaml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_tx_many_to_many_pub1.yaml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_tx_many_to_many_pub2.yaml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_rx_many_to_many_sub1.yaml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_rx_many_to_many_sub2.yaml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_ano_rx_many_to_many_sub3.yaml"
     "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_dds_rx.yaml"
     "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_dds_tx.yaml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_mixed_tx.yaml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_mixed_rx_ano.yaml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../tests/config/test_mixed_rx_dds.yaml"
 )
 
 

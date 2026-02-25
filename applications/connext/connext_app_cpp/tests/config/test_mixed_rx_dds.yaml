@@ -1,0 +1,36 @@
+%YAML 1.2
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+---
+# E2E Test Configuration - Mixed-Transport RX2 (DDS path only)
+#
+# Receives data from the dual-mode TX (test_mixed_tx.yaml) via the DDS data plane
+# only. ANO is disabled so this container validates DDS transport isolation: it must
+# NOT receive any ANO/DPDK packets.
+#
+# No physical NIC or hugepages required — uses standard DDS networking (host network).
+
+scheduler:
+  check_recession_period_ms: 0
+  worker_thread_number: 5
+  stop_on_deadlock: false
+
+demo:
+  mode: rx
+  message_count: 0               # Continuous mode with PeriodicCondition
+  message_period_ms: 100         # Poll every 100ms
+  discovery_wait_ms: 0           # Discovery handled by DDS middleware
+
+payload_source:
+  base_payload: mixed_test_payload
+  use_gpu_memory: false          # DDS uses CPU memory
+
+payload_sink:
+  expected_payload_prefix: mixed_test_payload  # Validate payload starts with this
+
+connext_rx:
+  enable_dds: true               # DDS transport active
+  enable_ano: false              # ANO disabled — DDS transport isolation check
+  domain_id: 42                  # MUST match TX domain_id
+  topic_name: E2ETestTopicMixed  # MUST match TX topic_name (distinct from pure-DDS tests)
+  topic_type_name: HoloscanPayload

@@ -273,6 +273,92 @@ sequenceDiagram
 
 ### Data Flow Patterns
 
+#### ANO Discovery and Dual Data Plane Architecture
+
+ANO provides **two independent data planes** with **automatic DDS-based discovery**:
+
+##### Control Plane (Always DDS)
+- **Discovery Domain 101** (hardcoded, independent of configured `domain_id`)
+- RX announces endpoints via `DdsIdlReceiverResourcesManager`: `{buffer_id, channel, ip, mac, port}`
+- TX subscribes to announcements and dynamically creates senders
+- **Always active when ANO is enabled** - no configuration needed
+
+##### Data Plane Options (Configurable)
+1. **ANO Transport** (`enable_ano: true`):
+   - GPU Direct zero-copy via DPDK
+   - TX sends buffers directly to discovered `ip:port`
+   - Requires DPDK-capable NICs and hugepages
+   - No DDS in data path (pure DPDK/CUDA)
+
+2. **DDS Transport** (`enable_dds: true`):
+   - Standard DDS publish/subscribe on configured `domain_id`
+   - Fallback for devices without DPDK/ANO support
+   - Uses CPU memory and standard network stack
+   - Independent of ANO discovery mechanism
+
+**Both can be enabled simultaneously**:
+```yaml
+connext_tx:
+  enable_dds: true   # Enable DDS data plane (fallback)
+  enable_ano: true   # Enable ANO data plane (GPU Direct)
+  domain_id: 42      # DDS data domain (ANO discovery always uses 101)
+```
+
+**Configuration Modes**:
+- `enable_ano: true, enable_dds: false` → Pure ANO (GPU Direct only)
+- `enable_ano: false, enable_dds: true` → Pure DDS (standard networking)
+- `enable_ano: true, enable_dds: true` → Dual mode (ANO primary, DDS fallback)
+
+#### ANO Channel vs Buffer ID
+
+ANO uses two distinct identifiers for discovery and routing:
+
+##### `ano_channel` - Discovery Filter (Must Match)
+- **Purpose**: DDS topic filter for discovery announcement subscriptions
+- **Behavior**: TX only discovers RX endpoints with matching `ano_channel`
+- **Implementation**: `DdsIdlSenderResourcesManager` filters by `channel_filter_` in `processSample()`
+- **Rule**: **TX and all intended RX must use the SAME channel name**
+
+**Example - 1-to-Many Configuration**:
+```yaml
+# Transmitter config (tx.yaml)
+connext_tx:
+  ano_channel: "E2ETestChannel_1toMany"  # Discovery filter
+
+# Receiver 1 config (rx1.yaml)
+connext_rx:
+  ano_channel: "E2ETestChannel_1toMany"  # MUST MATCH TX
+  ano_buffer_id: "e2e_buffer_sub1"       # Unique identifier
+
+# Receiver 2 config (rx2.yaml)
+connext_rx:
+  ano_channel: "E2ETestChannel_1toMany"  # MUST MATCH TX
+  ano_buffer_id: "e2e_buffer_sub2"       # Different ID
+
+# Receiver 3 config (rx3.yaml)
+connext_rx:
+  ano_channel: "E2ETestChannel_1toMany"  # MUST MATCH TX
+  ano_buffer_id: "e2e_buffer_sub3"       # Different ID
+```
+
+**❌ Common Mistake**: Using unique channel names per subscriber
+```yaml
+# WRONG - TX won't discover these RX!
+connext_rx:
+  ano_channel: "E2ETestChannel_1toMany_Sub1"  # Mismatched - filtered out!
+```
+
+##### `ano_buffer_id` - Unique Endpoint Identifier
+- **Purpose**: Distinguishes multiple receivers on the same channel
+- **Behavior**: Announced in discovery message, logged for debugging
+- **Rule**: **Each RX must have a UNIQUE buffer ID** (even with same channel)
+
+**Discovery Flow**:
+1. RX announces: `{buffer_id: "e2e_buffer_sub1", channel: "E2ETestChannel_1toMany", ip: 192.168.10.11, port: 5001}`
+2. TX subscribes with `channel_filter_ = "E2ETestChannel_1toMany"`
+3. TX accepts announcement (channel matches), registers sender to `192.168.10.11:5001`
+4. TX maps `buffer_id → destination` for routing
+
 #### ANO Transport (GPU Direct Path)
 1. **Transmission**:
    - Data stays in GPU memory throughout the pipeline
@@ -432,6 +518,42 @@ connext_rx:
 - **No false positives**: Only packets matching the exact UDP port criteria are received
 - **Standard practice**: DPDK flow API is designed for high-performance packet filtering
 - **Zero application overhead**: No need for software-based packet validation
+
+### DDS Well-Known Port Ranges
+
+RTI Connext DDS reserves ports derived from `domain_id` using the RTPS formula (§9.6.1):
+
+```
+port = 7400 + 250 × domain_id + offset
+```
+
+| Offset | Purpose |
+|--------|---------|
+| 0 | Metatraffic multicast |
+| 1 | User data multicast |
+| 10 | Metatraffic unicast |
+| 11 | User data unicast |
+
+**The minimum DDS port is 7400 (domain 0).** ANO ports must be below 7400 or above the
+range for your configured `domain_id` to avoid conflicts.
+
+Quick reference for common domain IDs:
+
+| `domain_id` | DDS port range |
+|-------------|---------------|
+| 0 | 7400 – 7430 |
+| 42 | 17900 – 17930 |
+| 101 | 32650 – 32680 |
+
+> **Note:** When ANO is enabled, the internal ANO discovery control plane always uses
+> `domain_id 101` (hardcoded in `DdsIdlSenderResourcesManager`) regardless of the
+> `domain_id` you configure for the DDS data plane. This is independent of the user
+> `domain_id` and does not affect data-plane port assignments.
+
+The ANO UDP ports in the example configs (`5000`, `7000`, etc.) are all safely below
+7400 and do not conflict with any valid DDS domain.
+
+---
 
 ### Future Consideration: Application-Level Validation
 

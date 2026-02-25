@@ -84,7 +84,7 @@ bool DdsIdlReceiverResourcesManager::announce() {
   
   // Subsequent announcements: only assert liveliness
   writer_.assert_liveliness();
-  HOLOSCAN_LOG_INFO("Re-announced receiver via liveliness");
+  HOLOSCAN_LOG_DEBUG("Re-announced receiver via liveliness");
   return true;
 }
 

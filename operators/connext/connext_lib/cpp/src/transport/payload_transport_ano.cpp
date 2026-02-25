@@ -190,7 +190,7 @@ bool ANOPayloadReader::readNext(void*& data_ptr, std::size_t& size,
       HOLOSCAN_LOG_WARN("ANOPayloadReader::readNext exception: {}", e.what());
       return false;
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));  // avoid busy wait
   }
   return false;
 }
