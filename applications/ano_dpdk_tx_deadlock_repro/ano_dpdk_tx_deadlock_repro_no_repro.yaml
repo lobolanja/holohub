@@ -1,0 +1,76 @@
+%YAML 1.2
+# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Control config for ano_dpdk_tx_deadlock_repro — proves the reproducer is NOT
+# a false positive.
+#
+# Same binary, same producer pacing, same NIC; the ONLY changes vs.
+# ano_dpdk_tx_deadlock_repro.yaml are the TX mempool sizing parameters:
+#
+#   N = num_bufs   = 65536  (8x the minimum)
+#   B = batch_size = 1024
+#   I_max = floor(N / B) - 2 = 62
+#
+# With this much headroom in the mempool, the mlx5 PMD's opportunistic
+# tx_free_thresh reclaim inside rte_eth_tx_burst() comfortably keeps the free
+# count above 2*B, so is_tx_burst_available() never flips false long enough to
+# hit the deadlock-threshold. The expected verdict is:
+#
+#   NO DEADLOCK OBSERVED: sent_packets=200000 bursts=... (target=200000)
+#   exit code = 1
+#
+# If you also see the "no deadlock" verdict with the reproducer YAML, the bug
+# has been fixed (or the environment is dodging it some other way). If only
+# this control config passes, you have a clean A/B that the bug is structural.
+---
+scheduler:
+  check_recession_period_ms: 0
+  worker_thread_number: 2
+  stop_on_deadlock: false
+  max_duration_ms: 60000
+
+advanced_network:
+  cfg:
+    version: 1
+    manager: "dpdk"
+    master_core: 3
+    debug: false
+    log_level: "info"
+    tx_meta_buffers: 4096
+
+    memory_regions:
+    - name: "TX_CPU"
+      kind: "huge"
+      affinity: 0
+      num_bufs: 65536        # 8x the DpdkMgr minimum — plenty of headroom
+      buf_size: 1500
+
+    interfaces:
+    - name: "tx_port"
+      address: "0005:03:00.0"
+      tx:
+        queues:
+        - name: "tx_q_0"
+          id: 0
+          batch_size: 1024   # I_max = floor(65536/1024) - 2 = 62
+          cpu_core: 10
+          timeout_us: 1000
+          memory_regions:
+            - "TX_CPU"
+          offloads:
+            - "tx_eth_src"
+
+repro_tx:
+  interface_name: "tx_port"
+  batch_size: 1024
+  payload_size: 1000
+  header_size: 42
+  tx_pacing_us: 200
+  deadlock_threshold: 200000
+  target_packets: 200000
+  eth_dst_addr: "3c:6d:66:11:91:56"
+  ip_src_addr: "192.168.10.10"
+  ip_dst_addr: "192.168.10.11"
+  udp_src_port: 5000
+  udp_dst_port: 5000
