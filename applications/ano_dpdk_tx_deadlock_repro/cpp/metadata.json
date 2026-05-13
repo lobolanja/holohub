@@ -1,0 +1,36 @@
+{
+  "application": {
+    "name": "ANO DPDK TX Deadlock Reproducer",
+    "authors": [
+      {
+        "name": "HoloHub",
+        "affiliation": "NVIDIA"
+      }
+    ],
+    "language": "C++",
+    "version": "0.1",
+    "changelog": {
+      "0.1": "Initial reproducer for the DpdkMgr TX mempool/completion-polling deadlock."
+    },
+    "platforms": ["x86_64", "aarch64"],
+    "tags": ["Networking and Distributed Computing", "DPDK", "Debugging"],
+    "dockerfile": "operators/advanced_network/Dockerfile",
+    "holoscan_sdk": {
+      "minimum_required_version": "2.6.0",
+      "tested_versions": ["2.6.0"]
+    },
+    "ranking": 4,
+    "requirements": {
+      "gxf_extensions": [
+        {
+          "name": "advanced_network",
+          "version": "1.5"
+        }
+      ]
+    },
+    "run": {
+      "command": "<holohub_app_bin>/ano_dpdk_tx_deadlock_repro ano_dpdk_tx_deadlock_repro.yaml",
+      "workdir": "holohub_bin"
+    }
+  }
+}
