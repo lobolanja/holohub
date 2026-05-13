@@ -1,0 +1,82 @@
+%YAML 1.2
+# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# DPDK TX deadlock reproducer config.
+#
+# Sizing rationale (see ANO_DPDK_TX_DEADLOCK_BUG.md):
+#   N = num_bufs   = 8192  (DpdkMgr enforces a minimum of 8192 per TX MR)
+#   B = batch_size = 4096
+#   I_max = floor(N / B) - 2 = 0
+# After the very first in-flight burst the per-segment mempool drops to N - B =
+# 4096 < 2*B, so is_tx_burst_available() flips false on the next tick. The
+# producer pacing in main.cpp then drains the worker's input ring and the bug
+# locks in: the worker no longer calls rte_eth_tx_burst() (= no completion
+# reclaim) and the producer can no longer submit (= gate stays false).
+#
+# System values mirror the original reproducer (LEON-4 connext_perf_app TX-side):
+#   TX NIC BDF: 0005:03:00.0
+#   TX NIC src MAC: 3c:6d:66:11:91:55
+#   TX IP: 192.168.10.10, peer RX IP: 192.168.10.11, peer RX MAC: 3c:6d:66:11:91:56
+#   master_core=3, TX queue cpu_core=10
+# Adjust as needed for your platform.
+---
+scheduler:
+  check_recession_period_ms: 0
+  worker_thread_number: 2
+  stop_on_deadlock: false
+  # Bound total wall-clock so a non-reproducing (already-patched) build also exits.
+  max_duration_ms: 30000
+
+advanced_network:
+  cfg:
+    version: 1
+    manager: "dpdk"
+    master_core: 3
+    debug: false
+    log_level: "info"
+    tx_meta_buffers: 4096
+
+    memory_regions:
+    - name: "TX_CPU"
+      kind: "huge"
+      affinity: 0
+      num_bufs: 8192          # DpdkMgr-enforced minimum per TX MR
+      buf_size: 1500
+
+    interfaces:
+    - name: "tx_port"
+      address: "0005:03:00.0"   # TX NIC BDF (mirrors connext_perf_tx_9k.yaml)
+      tx:
+        queues:
+        - name: "tx_q_0"
+          id: 0
+          batch_size: 4096     # B — tuned so I_max = floor(N/B) - 2 = 0
+          cpu_core: 10
+          timeout_us: 1000
+          memory_regions:
+            - "TX_CPU"
+          offloads:
+            - "tx_eth_src"
+
+repro_tx:
+  interface_name: "tx_port"
+  batch_size: 4096
+  payload_size: 1000
+  header_size: 42
+  # Inter-burst sleep on the producer side. A non-zero value guarantees the
+  # tx_core_worker drains its input ring between submissions, exposing the
+  # bug rather than letting steady-state throughput hide it.
+  tx_pacing_us: 200
+  # After this many consecutive is_tx_burst_available() == false returns the
+  # operator logs "*** DEADLOCK REPRODUCED ***" and asks the runtime to stop.
+  deadlock_threshold: 200000
+  # Hard target: if we manage to send this many packets, no deadlock occurred.
+  target_packets: 200000
+  # Destination addressing (no peer needed; the NIC physically transmits anyway).
+  # Defaults below mirror the RX-side of the original reproducer.
+  eth_dst_addr: "3c:6d:66:11:91:56"
+  ip_src_addr: "192.168.10.10"
+  ip_dst_addr: "192.168.10.11"
+  udp_src_port: 5000
+  udp_dst_port: 5000
