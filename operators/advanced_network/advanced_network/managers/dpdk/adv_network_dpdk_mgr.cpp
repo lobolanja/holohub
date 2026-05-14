@@ -2210,7 +2210,14 @@ int DpdkMgr::tx_core_worker(void* arg) {
                     (void*)tparams->ring);
 
   while (!force_quit.load()) {
-    if (rte_ring_dequeue(tparams->ring, reinterpret_cast<void**>(&msg)) != 0) { continue; }
+    if (rte_ring_dequeue(tparams->ring, reinterpret_cast<void**>(&msg)) != 0) {
+      // While idle, nudge the PMD to reclaim sent mbufs back into the TX
+      // mempool. Without this, a producer throttled by is_tx_burst_available()
+      // and an empty worker ring can stall the pipeline indefinitely because
+      // nothing is polling the TX completion queue.
+      (void)rte_eth_tx_descriptor_status(tparams->port, tparams->queue, 0);
+      continue;
+    }
 
     // Scatter mode needs to chain all the buffers
     if (msg->hdr.hdr.num_segs > 1) {
@@ -2279,6 +2286,9 @@ int DpdkMgr::tx_lb_worker(void* arg) {
 
   while (!force_quit.load()) {
     if (rte_ring_dequeue(tparams->ring, reinterpret_cast<void**>(&msg)) != 0) {
+      // See tx_core_worker: poll the TX queue while idle to keep mbufs flowing
+      // back to the mempool.
+      (void)rte_eth_tx_descriptor_status(tparams->port, tparams->queue, 0);
       continue;
     }
 
