@@ -5,14 +5,16 @@
 # DPDK TX deadlock reproducer config.
 #
 # Sizing rationale (see ANO_DPDK_TX_DEADLOCK_BUG.md):
-#   N = num_bufs   = 8192  (DpdkMgr enforces a minimum of 8192 per TX MR)
+#   N = num_bufs   = 9000  (DpdkMgr minimum is 8192; we use 9000 to give the
+#                          first is_tx_burst_available() call slack on extbuf
+#                          pools where avail_count may be slightly below N)
 #   B = batch_size = 4096
 #   I_max = floor(N / B) - 2 = 0
-# After the very first in-flight burst the per-segment mempool drops to N - B =
-# 4096 < 2*B, so is_tx_burst_available() flips false on the next tick. The
-# producer pacing in main.cpp then drains the worker's input ring and the bug
-# locks in: the worker no longer calls rte_eth_tx_burst() (= no completion
-# reclaim) and the producer can no longer submit (= gate stays false).
+# First tick: avail >= 8192 = 2*B  -> gate passes, first burst goes out.
+# After that:   avail = N - B = 4904 < 2*B  -> gate flips false. The producer
+# pacing in main.cpp then drains the worker's input ring and the bug locks in:
+# the worker no longer calls rte_eth_tx_burst() (= no completion reclaim) and
+# the producer can no longer submit (= gate stays false).
 #
 # System values mirror the original reproducer (LEON-4 connext_perf_app TX-side):
 #   TX NIC BDF: 0005:03:00.0
@@ -38,10 +40,10 @@ advanced_network:
     tx_meta_buffers: 4096
 
     memory_regions:
-    - name: "TX_CPU"
-      kind: "huge"
+    - name: "TX_GPU"
+      kind: "device"          # exercises the ANO GPU/extbuf path used by real apps
       affinity: 0
-      num_bufs: 8192          # DpdkMgr-enforced minimum per TX MR
+      num_bufs: 9000          # 2*B < N < 3*B -> first call passes, gate trips after 1 burst
       buf_size: 1500
 
     interfaces:
@@ -55,7 +57,7 @@ advanced_network:
           cpu_core: 10
           timeout_us: 1000
           memory_regions:
-            - "TX_CPU"
+            - "TX_GPU"
           offloads:
             - "tx_eth_src"
 

@@ -119,19 +119,18 @@ class DeadlockReproTxOp : public Operator {
     }
 
     const auto num_pkts = static_cast<int>(get_num_packets(msg));
-    const auto ip_len = payload_size_.get() + header_size_.get() - 14;       // - Eth
-    const auto udp_len = payload_size_.get() + header_size_.get() - (14 + 20);  // - Eth - IP
 
+    // NOTE: This reproducer uses kind: "device" memory regions to exercise the
+    // same ANO/GPUDirect path real applications take. mbuf payloads live in GPU
+    // memory, so we cannot populate Eth/IP/UDP headers from the CPU here
+    // (and we don't need to — the bug is in the TX gate / completion logic, not
+    // in packet content). The NIC will transmit whatever bytes are present in
+    // GPU memory; what matters is that send_tx_burst() actually reaches
+    // rte_eth_tx_burst() so the mempool can be replenished by TX completions.
     for (int i = 0; i < num_pkts; ++i) {
-      if (set_eth_header(msg, i, eth_dst_) != Status::SUCCESS ||
-          set_ipv4_header(msg, i, ip_len, 17, ip_src_, ip_dst_) != Status::SUCCESS ||
-          set_udp_header(msg, i, udp_len, udp_src_port_.get(), udp_dst_port_.get()) !=
-              Status::SUCCESS ||
-          set_udp_payload(msg, i, payload_buf_.data(),
-                          static_cast<int>(payload_buf_.size())) != Status::SUCCESS ||
-          set_packet_lengths(msg, i, {payload_size_.get() + header_size_.get()}) !=
-              Status::SUCCESS) {
-        HOLOSCAN_LOG_ERROR("Header/payload population failed for packet {}", i);
+      if (set_packet_lengths(msg, i, {payload_size_.get() + header_size_.get()}) !=
+          Status::SUCCESS) {
+        HOLOSCAN_LOG_ERROR("set_packet_lengths failed for packet {}", i);
         free_all_packets_and_burst_tx(msg);
         return;
       }

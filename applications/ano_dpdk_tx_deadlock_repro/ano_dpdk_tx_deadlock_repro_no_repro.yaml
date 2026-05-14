@@ -40,8 +40,8 @@ advanced_network:
     tx_meta_buffers: 4096
 
     memory_regions:
-    - name: "TX_CPU"
-      kind: "huge"
+    - name: "TX_GPU"
+      kind: "device"
       affinity: 0
       num_bufs: 65536        # 8x the DpdkMgr minimum — plenty of headroom
       buf_size: 1500
@@ -57,7 +57,7 @@ advanced_network:
           cpu_core: 10
           timeout_us: 1000
           memory_regions:
-            - "TX_CPU"
+            - "TX_GPU"
           offloads:
             - "tx_eth_src"
 
