@@ -113,6 +113,12 @@ add_custom_target(adv_networking_bench_rdma_tx_rx_yaml
 )
 add_dependencies(adv_networking_bench adv_networking_bench_rdma_tx_rx_yaml)
 
+add_custom_target(adv_networking_bench_sigsegv_repro_yaml
+  COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/../adv_networking_bench_sigsegv_repro.yaml" ${CMAKE_CURRENT_BINARY_DIR}
+  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/../adv_networking_bench_sigsegv_repro.yaml"
+)
+add_dependencies(adv_networking_bench adv_networking_bench_sigsegv_repro_yaml)
+
 # Installation
 install(TARGETS adv_networking_bench
         DESTINATION examples/adv_networking_bench

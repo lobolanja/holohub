@@ -1,0 +1,104 @@
+%YAML 1.2
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# adv_networking_bench config that deterministically reproduces the TX
+# completion-polling deadlock fixed by the rte_eth_tx_descriptor_status()
+# poke in the TX worker idle path (adv_network_dpdk_mgr.cpp).
+#
+# How the trip works:
+#   I_max = floor(num_bufs / batch_size) - 2
+# Here num_bufs = 9000 and batch_size = 4096, so:
+#   * 2*B = 8192 < N = 9000  -> the very first is_tx_burst_available() passes
+#   * After one burst is in flight: avail = 9000 - 4096 = 4904 < 8192 -> gate
+#     closes and (pre-fix) never re-opens because no thread is polling the TX
+#     completion queue while both producer and worker are idle.
+#
+# Expected behavior:
+#   * Without the fix: bench_tx sends one burst (~4096 packets) then the
+#     pipeline freezes; scheduler stop_on_deadlock fires after 500 ms.
+#   * With the fix: TX continues for the full max_duration_ms window.
+---
+scheduler:
+  check_recession_period_ms: 0
+  worker_thread_number: 5
+  stop_on_deadlock: true
+  stop_on_deadlock_timeout: 500
+  max_duration_ms: 20000
+
+advanced_network:
+  cfg:
+    version: 1
+    manager: "dpdk"
+    master_core: 3
+    debug: false
+    log_level: "info"
+    loopback: ""
+    tx_meta_buffers: 4096
+
+    memory_regions:
+    - name: "Data_TX_GPU"
+      kind: "device"
+      affinity: 0
+      num_bufs: 9000           # 2*batch_size < num_bufs < 3*batch_size -> I_max = 0 with first-call slack
+      buf_size: 1064
+    - name: "Data_RX_GPU"
+      kind: "device"
+      affinity: 0
+      num_bufs: 51200
+      buf_size: 1064
+
+    interfaces:
+    - name: "tx_port"
+      address: "0005:03:00.0"
+      tx:
+        queues:
+        - name: "tx_q_0"
+          id: 0
+          batch_size: 4096   # batch_size * 2 >= num_bufs => gate cannot re-open without external CQ poll
+          cpu_core: 10
+          memory_regions:
+            - "Data_TX_GPU"
+          offloads:
+            - "tx_eth_src"
+    - name: "rx_port"
+      address: "0005:03:00.1"
+      rx:
+        flow_isolation: true
+        queues:
+        - name: "rq_q_0"
+          id: 0
+          cpu_core: 8
+          batch_size: 10240
+          memory_regions:
+            - "Data_RX_GPU"
+        flows:
+        - name: "flow_0"
+          id: 0
+          action:
+            type: queue
+            id: 0
+          match:
+            udp_src: 4096
+            udp_dst: 4096
+
+bench_rx:
+  interface_name: "rx_port"
+  gpu_direct: true
+  split_boundary: false
+  batch_size: 10240
+  max_packet_size: 1064
+  header_size: 64
+
+bench_tx:
+  interface_name: "tx_port"
+  gpu_direct: false        # CPU TX path — matches the standalone reproducer
+  split_boundary: false
+  batch_size: 4096
+  payload_size: 1000
+  header_size: 64
+  eth_dst_addr: "3c:6d:66:11:91:56"
+  ip_src_addr: "192.168.10.10"
+  ip_dst_addr: "192.168.10.11"
+  udp_src_port: 4096
+  udp_dst_port: 4096
